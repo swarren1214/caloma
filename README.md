@@ -65,9 +65,9 @@ the app was closed in it, so it's safe on a shared iPad.
   Let the Kids Pick (opens on "Who's doing chores?"). A kid's page has Open Kid View for them.
   Inside Kid View, every kid is a Liquid Glass pill (photo and first name) in a scrolling
   row across the top; the one showing is tinted in their color. Tap another to switch.
-- **Leaving**: the Parent button at the top right. It asks for Face ID or the passcode
-  straight away, with a grown-up multiplication question as the other way out (which also
-  works in the Simulator, where there's no passcode).
+- **Leaving**: the Parent button at the top right asks for the device's Face ID or passcode,
+  and nothing else. On a device with no passcode (and in the Simulator), it asks a grown-up
+  multiplication question instead.
 
 - Tapping **I did it!** bursts confetti from the card, rings out a pulse, wiggles the icon,
   floats "+15" up, and flies stars in an arc to the star counter, which bounces when they

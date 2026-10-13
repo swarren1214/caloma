@@ -3,15 +3,16 @@ import SwiftData
 import SwiftUI
 
 /// Kid View: the whole screen is one kid's day, in their color, with big buttons and a
-/// celebration for every chore. Leaving it goes through the parent check (Face ID, the
-/// passcode, or a grown-up question), so it's safe to hand over a phone or leave on a shared
-/// iPad. The row of kid pills at the top switches between kids.
+/// celebration for every chore. Leaving it takes the device's Face ID or passcode (or, on a
+/// device with no passcode, a grown-up question), so it's safe to hand over a phone or leave
+/// on a shared iPad. The row of kid pills at the top switches between kids.
 struct KidModeView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @AppStorage(SettingsKey.kidViewMember) private var kidIDString = ""
 
     @State private var showsParentGate = false
+    @State private var authenticating = false
 
     private var kids: [Member] { members.filter { $0.isKid && !$0.isArchived } }
     private var kid: Member? {
@@ -22,11 +23,11 @@ struct KidModeView: View {
         NavigationStack {
             Group {
                 if let kid {
-                    KidDayView(kid: kid, kids: kids, onPick: pick, onLeave: { showsParentGate = true })
+                    KidDayView(kid: kid, kids: kids, onPick: pick, onLeave: leave)
                         // Each kid's day starts fresh when switching.
                         .id(kid.id)
                 } else {
-                    KidPicker(kids: kids, onPick: pick, onLeave: { showsParentGate = true })
+                    KidPicker(kids: kids, onPick: pick, onLeave: leave)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -47,6 +48,23 @@ struct KidModeView: View {
 
     private func pick(_ member: Member) {
         withAnimation(.smooth) { kidIDString = member.id.uuidString }
+    }
+
+    /// One check, never two: the device's own Face ID or passcode when it has one, otherwise
+    /// the grown-up question.
+    private func leave() {
+        let context = LAContext()
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else {
+            showsParentGate = true
+            return
+        }
+        guard !authenticating else { return }
+        authenticating = true
+        Task {
+            defer { authenticating = false }
+            let ok = (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Leave Kid View")) ?? false
+            if ok { router.kidViewOpen = false }
+        }
     }
 }
 
@@ -131,9 +149,8 @@ private struct KidPill: View {
     }
 }
 
-/// Only a grown-up can leave Kid View: Face ID or the passcode (asked for straight away when
-/// the device has them), or a multiplication question, which works everywhere, the Simulator
-/// included.
+/// Leaving Kid View on a device with no passcode (and in the Simulator): a multiplication
+/// question young kids won't know.
 struct ParentGate: View {
     var onPass: () -> Void
 
@@ -142,8 +159,6 @@ struct ParentGate: View {
     @State private var b = Int.random(in: 6...9)
     @State private var answer = ""
     @State private var misses = 0
-    @State private var methodName: String?
-    @State private var authenticating = false
     @FocusState private var answerFocused: Bool
 
     var body: some View {
@@ -161,21 +176,6 @@ struct ParentGate: View {
                             .foregroundStyle(.secondary)
                     }
                     .multilineTextAlignment(.center)
-
-                    if let methodName {
-                        Button {
-                            authenticate()
-                        } label: {
-                            Label("Use \(methodName)", systemImage: methodName == "Face ID" ? "faceid" : (methodName == "Touch ID" ? "touchid" : "key.fill"))
-                                .frame(maxWidth: 320, minHeight: 36)
-                        }
-                        .buttonStyle(.glassProminent)
-                        .controlSize(.large)
-                        .disabled(authenticating)
-                        Text("or answer this")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
 
                     VStack(spacing: 12) {
                         Text("What's \(a) × \(b)?")
@@ -204,7 +204,7 @@ struct ParentGate: View {
                         } label: {
                             Text("Leave Kid View").frame(maxWidth: 320, minHeight: 36)
                         }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.glassProminent)
                         .controlSize(.large)
                         .disabled(answer.isEmpty)
                     }
@@ -221,35 +221,7 @@ struct ParentGate: View {
             }
         }
         .sensoryFeedback(.error, trigger: misses)
-        .task {
-            let context = LAContext()
-            guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else {
-                answerFocused = true
-                return
-            }
-            switch context.biometryType {
-            case .faceID: methodName = "Face ID"
-            case .touchID: methodName = "Touch ID"
-            case .opticID: methodName = "Optic ID"
-            default: methodName = "Passcode"
-            }
-            authenticate()
-        }
-    }
-
-    private func authenticate() {
-        guard !authenticating else { return }
-        authenticating = true
-        let context = LAContext()
-        Task {
-            defer { authenticating = false }
-            let ok = (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Leave Kid View")) ?? false
-            if ok {
-                onPass()
-            } else {
-                answerFocused = true
-            }
-        }
+        .onAppear { answerFocused = true }
     }
 
     private func check() {
