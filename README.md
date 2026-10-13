@@ -147,8 +147,14 @@ invite from Family with `UICloudSharingController`.
 - Widgets: today's chores for each kid, Needs Your OK, and home care due soon.
 - Notifications when a kid finishes a chore or asks for a reward (needs sharing first).
 - App Intents ("Mark Max's bed made"), and a Kid View Live Activity.
-- Sounds to go with the celebrations, and an app icon.
+- Sounds to go with the celebrations.
 - Missed chores costing points, and per-kid point rules.
+
+## App icon
+
+`Caloma/AppIcon.icon` is the Icon Composer file (from `~/Developer/app-icons/caloma.icon`): four
+layered shapes on a purple gradient, with Liquid Glass translucency. Edit it in Icon Composer
+and copy it back over this one.
 
 ## Project layout
 
