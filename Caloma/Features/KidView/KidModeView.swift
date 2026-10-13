@@ -3,15 +3,15 @@ import SwiftData
 import SwiftUI
 
 /// Kid View: the whole screen is one kid's day, in their color, with big buttons and a
-/// celebration for every chore. Leaving it takes Face ID (or the passcode), so it's safe to
-/// hand over a phone or leave on a shared iPad.
+/// celebration for every chore. Leaving it goes through the parent check (Face ID, the
+/// passcode, or a grown-up question), so it's safe to hand over a phone or leave on a shared
+/// iPad. The kid menu at the top switches between kids.
 struct KidModeView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @AppStorage(SettingsKey.kidViewMember) private var kidIDString = ""
 
-    @State private var leaving = false
-    @State private var cantAuthenticate = false
+    @State private var showsParentGate = false
 
     private var kids: [Member] { members.filter { $0.isKid && !$0.isArchived } }
     private var kid: Member? {
@@ -22,34 +22,218 @@ struct KidModeView: View {
         NavigationStack {
             Group {
                 if let kid {
-                    KidDayView(kid: kid, canSwitch: kids.count > 1, onSwitch: { kidIDString = "" }, onLeave: leave)
+                    KidDayView(kid: kid, kids: kids, onPick: pick, onLeave: { showsParentGate = true })
+                        // Each kid's day starts fresh when switching.
+                        .id(kid.id)
                 } else {
-                    KidPicker(kids: kids, onPick: { kidIDString = $0.id.uuidString }, onLeave: leave)
+                    KidPicker(kids: kids, onPick: pick, onLeave: { showsParentGate = true })
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(kid?.color.color ?? .accentColor)
-        .confirmationDialog("Leave Kid View?", isPresented: $cantAuthenticate, titleVisibility: .visible) {
-            Button("Leave Kid View") { router.kidViewOpen = false }
-        } message: {
-            Text("Set a passcode on this device so only a parent can leave Kid View.")
+        .sheet(isPresented: $showsParentGate) {
+            ParentGate {
+                showsParentGate = false
+                // Let the sheet go before Kid View does.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(350))
+                    router.kidViewOpen = false
+                }
+            }
+            .presentationDetents([.large])
         }
     }
 
-    /// Face ID or the passcode, then back to the parent's app.
-    private func leave() {
-        guard !leaving else { return }
-        let context = LAContext()
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else {
-            cantAuthenticate = true
-            return
+    private func pick(_ member: Member) {
+        withAnimation(.smooth) { kidIDString = member.id.uuidString }
+    }
+}
+
+/// The top row of Kid View: which kid it is (a menu to switch when there's more than one) and
+/// the Parent button that leaves.
+private struct KidTopBar: View {
+    var kid: Member?
+    var kids: [Member]
+    var onPick: (Member) -> Void
+    var onLeave: () -> Void
+
+    var body: some View {
+        HStack {
+            if let kid, kids.count > 1 {
+                Menu {
+                    Section("Switch to") {
+                        ForEach(kids) { other in
+                            Button {
+                                onPick(other)
+                            } label: {
+                                if other.id == kid.id {
+                                    Label(other.name, systemImage: "checkmark")
+                                } else {
+                                    Text(other.name)
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        MemberAvatar(kid, size: 30)
+                        Text(kid.name)
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.leading, 6)
+                    .padding(.trailing, 14)
+                    .frame(height: 44)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+                }
+                .accessibilityLabel("Switch kid. Now showing \(kid.name)")
+            }
+            Spacer()
+            Button(action: onLeave) {
+                Label("Parent", systemImage: "lock.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 30)
+            }
+            .buttonStyle(.glass)
+            .accessibilityLabel("Parent: leave Kid View")
         }
-        leaving = true
+    }
+}
+
+/// Only a grown-up can leave Kid View: Face ID or the passcode (asked for straight away when
+/// the device has them), or a multiplication question, which works everywhere, the Simulator
+/// included.
+struct ParentGate: View {
+    var onPass: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var a = Int.random(in: 6...9)
+    @State private var b = Int.random(in: 6...9)
+    @State private var answer = ""
+    @State private var misses = 0
+    @State private var methodName: String?
+    @State private var authenticating = false
+    @FocusState private var answerFocused: Bool
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 22) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 54))
+                        .foregroundStyle(.tint)
+                        .padding(.top, 12)
+                    VStack(spacing: 6) {
+                        Text("Grown-ups only")
+                            .font(.largeTitle.bold())
+                        Text("To leave Kid View, prove you're a parent.")
+                            .foregroundStyle(.secondary)
+                    }
+                    .multilineTextAlignment(.center)
+
+                    if let methodName {
+                        Button {
+                            authenticate()
+                        } label: {
+                            Label("Use \(methodName)", systemImage: methodName == "Face ID" ? "faceid" : (methodName == "Touch ID" ? "touchid" : "key.fill"))
+                                .frame(maxWidth: 320, minHeight: 36)
+                        }
+                        .buttonStyle(.glassProminent)
+                        .controlSize(.large)
+                        .disabled(authenticating)
+                        Text("or answer this")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(spacing: 12) {
+                        Text("What's \(a) × \(b)?")
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                        TextField("Answer", text: $answer)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.center)
+                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .focused($answerFocused)
+                            .frame(maxWidth: 200, minHeight: 56)
+                            .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 14))
+                            .phaseAnimator([0.0, -12, 12, -8, 8, 0], trigger: misses) { content, x in
+                                content.offset(x: x)
+                            } animation: { _ in
+                                .linear(duration: 0.06)
+                            }
+                            .accessibilityLabel("Answer to \(a) times \(b)")
+                        if misses > 0 {
+                            Text("Not quite. Try again.")
+                                .font(.subheadline)
+                                .foregroundStyle(Brand.late)
+                        }
+                        Button {
+                            check()
+                        } label: {
+                            Text("Leave Kid View").frame(maxWidth: 320, minHeight: 36)
+                        }
+                        .buttonStyle(.glass)
+                        .controlSize(.large)
+                        .disabled(answer.isEmpty)
+                    }
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                }
+            }
+        }
+        .sensoryFeedback(.error, trigger: misses)
+        .task {
+            let context = LAContext()
+            guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else {
+                answerFocused = true
+                return
+            }
+            switch context.biometryType {
+            case .faceID: methodName = "Face ID"
+            case .touchID: methodName = "Touch ID"
+            case .opticID: methodName = "Optic ID"
+            default: methodName = "Passcode"
+            }
+            authenticate()
+        }
+    }
+
+    private func authenticate() {
+        guard !authenticating else { return }
+        authenticating = true
+        let context = LAContext()
         Task {
-            defer { leaving = false }
+            defer { authenticating = false }
             let ok = (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Leave Kid View")) ?? false
-            if ok { router.kidViewOpen = false }
+            if ok {
+                onPass()
+            } else {
+                answerFocused = true
+            }
+        }
+    }
+
+    private func check() {
+        if Int(answer.trimmingCharacters(in: .whitespaces)) == a * b {
+            onPass()
+        } else {
+            misses += 1
+            answer = ""
+            a = Int.random(in: 6...9)
+            b = Int.random(in: 6...9)
         }
     }
 }
@@ -62,6 +246,7 @@ private struct KidPicker: View {
 
     var body: some View {
         VStack(spacing: 28) {
+            KidTopBar(kid: nil, kids: kids, onPick: onPick, onLeave: onLeave)
             Spacer()
             Text("Who's doing chores?")
                 .font(.system(size: 38, weight: .heavy, design: .rounded))
@@ -91,11 +276,7 @@ private struct KidPicker: View {
             }
             .frame(maxWidth: 640)
             Spacer()
-            Button(action: onLeave) {
-                Label("Parent", systemImage: "lock.fill")
-            }
-            .buttonStyle(.glass)
-            .controlSize(.large)
+            Spacer()
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -115,8 +296,8 @@ struct KidPressStyle: ButtonStyle {
 /// One kid's day: hello, their stars, a progress track to the trophy, and their jobs.
 struct KidDayView: View {
     var kid: Member
-    var canSwitch: Bool
-    var onSwitch: () -> Void
+    var kids: [Member]
+    var onPick: (Member) -> Void
     var onLeave: () -> Void
 
     @Environment(\.modelContext) private var context
@@ -159,6 +340,7 @@ struct KidDayView: View {
         let done = mine.filter { $0.status.isDone }.count
         ScrollView {
             VStack(spacing: 18) {
+                KidTopBar(kid: kid, kids: kids, onPick: onPick, onLeave: onLeave)
                 header(family)
                 ProgressTrack(done: done, total: mine.count, kid: kid)
                 if items.isEmpty {
@@ -227,12 +409,7 @@ struct KidDayView: View {
         let mine = family.items(for: kid).filter { !$0.chore.upForGrabs || $0.memberID == kid.id }
         let done = mine.filter { $0.status.isDone }.count
         return HStack(spacing: 14) {
-            Button(action: onSwitch) {
-                MemberAvatar(kid, size: sizeClass == .compact ? 56 : 64)
-            }
-            .buttonStyle(KidPressStyle())
-            .disabled(!canSwitch)
-            .accessibilityLabel(canSwitch ? "Switch kid" : kid.name)
+            MemberAvatar(kid, size: sizeClass == .compact ? 56 : 64)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Hi, \(kid.name)!")
@@ -262,15 +439,6 @@ struct KidDayView: View {
                 }
                 .buttonStyle(KidPressStyle())
             }
-
-            Button(action: onLeave) {
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 48, height: 48)
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .accessibilityLabel("Parent: leave Kid View")
         }
     }
 

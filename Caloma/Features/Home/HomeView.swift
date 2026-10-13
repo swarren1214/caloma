@@ -39,11 +39,7 @@ struct HomeView: View {
             }
             .sharedBackgroundVisibility(.hidden)
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    router.openKidView()
-                } label: {
-                    Label("Kid View", systemImage: "figure.and.child.holdinghands")
-                }
+                KidViewButton()
                 Button {
                     router.sheet = .family
                 } label: {

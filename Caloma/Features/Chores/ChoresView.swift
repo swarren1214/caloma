@@ -48,11 +48,7 @@ struct ChoresView: View {
         .navigationTitle("Chores")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    router.openKidView()
-                } label: {
-                    Label("Kid View", systemImage: "figure.and.child.holdinghands")
-                }
+                KidViewButton()
                 Button {
                     router.sheet = .approvals
                 } label: {

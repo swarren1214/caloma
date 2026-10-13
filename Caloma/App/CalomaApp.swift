@@ -58,10 +58,17 @@ final class AppRouter {
         didSet { UserDefaults.standard.set(kidViewOpen, forKey: SettingsKey.kidViewOpen) }
     }
 
+    /// Opens Kid View on a kid, or on the last kid it showed.
     func openKidView(for memberID: UUID? = nil) {
         if let memberID {
             UserDefaults.standard.set(memberID.uuidString, forKey: SettingsKey.kidViewMember)
         }
+        kidViewOpen = true
+    }
+
+    /// Opens Kid View on "Who's doing chores?", so the kids pick.
+    func openKidViewPicker() {
+        UserDefaults.standard.removeObject(forKey: SettingsKey.kidViewMember)
         kidViewOpen = true
     }
 }

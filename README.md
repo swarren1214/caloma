@@ -58,9 +58,15 @@ months. Onboarding offers eight starter chores and the family store from the des
 
 ### Kid View
 
-Full screen, in the kid's color, with big rounded type and big buttons. "Who's doing
-chores?" first when there's more than one kid. Leaving takes Face ID or the passcode, and
-Kid View reopens if the app was closed in it, so it's safe on a shared iPad.
+Full screen, in the kid's color, with big rounded type and big buttons. Kid View reopens if
+the app was closed in it, so it's safe on a shared iPad.
+
+- **Choosing the kid**: the Kid View button on Home and Chores is a menu with each kid, plus
+  Let the Kids Pick (opens on "Who's doing chores?"). A kid's page has Open Kid View for them.
+  Inside Kid View, the kid's name at the top left is a menu for switching to another kid.
+- **Leaving**: the Parent button at the top right. It asks for Face ID or the passcode
+  straight away, with a grown-up multiplication question as the other way out (which also
+  works in the Simulator, where there's no passcode).
 
 - Tapping **I did it!** bursts confetti from the card, rings out a pulse, wiggles the icon,
   floats "+15" up, and flies stars in an arc to the star counter, which bounces when they
@@ -80,8 +86,8 @@ Kid View reopens if the app was closed in it, so it's safe on a shared iPad.
 
 ### Where the build goes beyond the designs
 
-- The kid's page, Adjust points, Pay Out and the "Who's doing chores?" picker weren't in the
-  designs.
+- The kid's page, Adjust points, Pay Out, the kid switcher, the parent check and the "Who's
+  doing chores?" picker weren't in the designs.
 - The designs' separate **+** button in the tab bar became a **+** in each tab's toolbar, which
   is what the system Liquid Glass tab bar supports.
 - "This Month" on Home Care is "Next 30 days", so it doesn't empty out at the end of a month.
