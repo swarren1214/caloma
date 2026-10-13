@@ -1,0 +1,162 @@
+import SwiftUI
+
+/// Keys for settings stored with @AppStorage. Keep every key here so views stay in sync.
+nonisolated enum SettingsKey {
+    /// Onboarding has been finished.
+    static let onboarded = "onboarding.done"
+    /// The starter home care tasks have been added (first launch).
+    static let seeded = "data.seeded"
+    /// The parent this device belongs to.
+    static let currentMember = "family.currentMember"
+    /// The Sign in with Apple user, when they chose to sign in.
+    static let appleUserID = "account.appleUserID"
+    /// What the family calls points: a `PointName` raw value.
+    static let pointName = "points.name"
+    /// The word used when `pointName` is `.custom`.
+    static let customPointName = "points.customName"
+    /// New chores need a parent's OK before points land.
+    static let approvalsByDefault = "points.approvalsByDefault"
+    /// +10 for every 7 days in a row of finished chores.
+    static let streakBonus = "points.streakBonus"
+    /// Points turn into allowance on payday.
+    static let allowanceOn = "allowance.on"
+    /// Cents paid for every 100 points.
+    static let centsPer100 = "allowance.centsPer100"
+    /// 1 = Sunday … 7 = Saturday.
+    static let payday = "allowance.payday"
+    static let splitSpend = "allowance.split.spend"
+    static let splitSave = "allowance.split.save"
+    static let splitGive = "allowance.split.give"
+    /// The accent color as "#RRGGBB".
+    static let accentHex = "appearance.accent"
+    /// Kid View was open when the app last closed, so it opens again.
+    static let kidViewOpen = "kidView.open"
+    /// The kid Kid View last showed.
+    static let kidViewMember = "kidView.member"
+    /// Remind about home care tasks before they're due.
+    static let homeReminders = "homeCare.reminders"
+}
+
+/// Caloma's colors, from the Tend designs on the Claude Design canvas.
+nonisolated enum Brand {
+    /// The default accent. People can pick another in Family › Accent Color.
+    static let defaultAccentHex: UInt32 = 0x1E9E6A
+    static var defaultAccent: Color { Color(hex: defaultAccentHex) }
+
+    /// The accent choices in Family, in order.
+    static let accents: [AccentChoice] = [
+        AccentChoice(name: "Green", hex: 0x1E9E6A), AccentChoice(name: "Teal", hex: 0x0E8A8A),
+        AccentChoice(name: "Blue", hex: 0x0A7AFF), AccentChoice(name: "Indigo", hex: 0x5E5CE6),
+        AccentChoice(name: "Pink", hex: 0xC2185B), AccentChoice(name: "Red", hex: 0xD93B30),
+        AccentChoice(name: "Orange", hex: 0xE8650F),
+    ]
+
+    /// The gold of stars, everywhere points show.
+    static let star = Color(hex: 0xF5A623)
+    /// The brighter gold kids see.
+    static let starBright = Color(hex: 0xFFCC00)
+    /// "Waiting for OK" and things due soon.
+    static let waiting = Color(hex: 0xC46A00)
+    /// Overdue home care.
+    static let late = Color(hex: 0xD93B30)
+}
+
+nonisolated struct AccentChoice: Hashable, Sendable {
+    var name: String
+    var hex: UInt32
+}
+
+extension EnvironmentValues {
+    /// The family's accent color (Family › Accent Color).
+    @Entry var accent: Color = Brand.defaultAccent
+}
+
+/// A kid's color: their avatar, their column on the chore board and the whole of Kid View.
+nonisolated enum KidColor: String, CaseIterable, Identifiable, Codable, Sendable {
+    case blue, purple, orange, green, pink, teal, indigo, red
+
+    var id: String { rawValue }
+    var name: String { rawValue.capitalized }
+
+    var hex: UInt32 {
+        switch self {
+        case .blue: 0x0A84FF
+        case .purple: 0xAF52DE
+        case .orange: 0xFF9F0A
+        case .green: 0x1E9E6A
+        case .pink: 0xE0457B
+        case .teal: 0x0E8A8A
+        case .indigo: 0x5E5CE6
+        case .red: 0xD93B30
+        }
+    }
+
+    var color: Color { Color(hex: hex) }
+
+    /// The colors handed out as kids are added, so siblings start out different.
+    static func next(after used: [KidColor]) -> KidColor {
+        allCases.first { !used.contains($0) } ?? allCases[used.count % allCases.count]
+    }
+}
+
+/// What the family calls points. Each has its own symbol.
+nonisolated enum PointName: String, CaseIterable, Identifiable, Sendable {
+    case points, stars, coins, custom
+
+    var id: String { rawValue }
+    var label: String { rawValue.capitalized }
+
+    var symbol: String {
+        switch self {
+        case .coins: "dollarsign.circle.fill"
+        default: "star.fill"
+        }
+    }
+}
+
+/// The family's word for points, read from settings: "stars", "coins", or their own.
+nonisolated struct PointWords: Sendable {
+    var plural: String
+    var symbol: String
+
+    /// "Stars", for titles.
+    var title: String { plural.prefix(1).uppercased() + plural.dropFirst() }
+
+    /// "1 star", "15 stars".
+    func count(_ n: Int) -> String {
+        let singular = plural.hasSuffix("s") ? String(plural.dropLast()) : plural
+        return "\(n.formatted()) \(abs(n) == 1 ? singular : plural)"
+    }
+
+    static func current(_ defaults: UserDefaults = .standard) -> PointWords {
+        let name = PointName(rawValue: defaults.string(forKey: SettingsKey.pointName) ?? "") ?? .stars
+        if name == .custom {
+            let custom = (defaults.string(forKey: SettingsKey.customPointName) ?? "").trimmingCharacters(in: .whitespaces).lowercased()
+            return PointWords(plural: custom.isEmpty ? "points" : custom, symbol: name.symbol)
+        }
+        return PointWords(plural: name.rawValue, symbol: name.symbol)
+    }
+}
+
+extension Color {
+    nonisolated init(hex: UInt32) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: 1
+        )
+    }
+
+    /// Reads "#RRGGBB".
+    nonisolated init?(hexString: String) {
+        guard hexString.hasPrefix("#"), hexString.count == 7, let value = UInt32(hexString.dropFirst(), radix: 16) else { return nil }
+        self.init(hex: value)
+    }
+}
+
+/// "#1E9E6A" for a hex value, for storing the accent.
+nonisolated func hexString(_ value: UInt32) -> String {
+    String(format: "#%06X", value & 0xFFFFFF)
+}
