@@ -97,14 +97,15 @@ struct FamilyView: View {
                             Text(Calendar.current.weekdaySymbols[day - 1]).tag(day)
                         }
                     }
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Split Every Payday")
                         SplitBar(spend: splitSpend, save: splitSave, give: splitGive, accent: accent)
-                        Stepper("Spend \(splitSpend)%", value: Binding(get: { splitSpend }, set: { setSplit(spend: $0) }), in: 0...100, step: 5)
-                        Stepper("Save \(splitSave)%", value: Binding(get: { splitSave }, set: { setSplit(save: $0) }), in: 0...100, step: 5)
-                        Stepper("Give \(splitGive)%", value: Binding(get: { splitGive }, set: { setSplit(give: $0) }), in: 0...100, step: 5)
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 8)
+                    // One row each, so the steppers get the list's own spacing and separators.
+                    splitStepper("Spend", value: splitSpend) { setSplit(spend: $0) }
+                    splitStepper("Save", value: splitSave) { setSplit(save: $0) }
+                    splitStepper("Give", value: splitGive) { setSplit(give: $0) }
                     Button("Pay Out Now") { payingOut = true }
                 }
             } header: {
@@ -186,6 +187,15 @@ struct FamilyView: View {
         } message: {
             Text("Every chore, reward, point and home care task is deleted, and Caloma starts over. This can't be undone.")
         }
+    }
+
+    private func splitStepper(_ name: String, value: Int, set: @escaping (Int) -> Void) -> some View {
+        Stepper(value: Binding(get: { value }, set: set), in: 0...100, step: 5) {
+            Text("\(name) \(value)%")
+                .monospacedDigit()
+                .contentTransition(.numericText())
+        }
+        .padding(.vertical, 2)
     }
 
     private func settingLabel(_ title: String, _ detail: String) -> some View {
