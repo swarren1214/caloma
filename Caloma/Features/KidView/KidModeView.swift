@@ -5,7 +5,7 @@ import SwiftUI
 /// Kid View: the whole screen is one kid's day, in their color, with big buttons and a
 /// celebration for every chore. Leaving it goes through the parent check (Face ID, the
 /// passcode, or a grown-up question), so it's safe to hand over a phone or leave on a shared
-/// iPad. The kid menu at the top switches between kids.
+/// iPad. The row of kid pills at the top switches between kids.
 struct KidModeView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \Member.sortOrder) private var members: [Member]
@@ -50,8 +50,8 @@ struct KidModeView: View {
     }
 }
 
-/// The top row of Kid View: which kid it is (a menu to switch when there's more than one) and
-/// the Parent button that leaves.
+/// The top row of Kid View: every kid in a scrolling row of Liquid Glass pills (their photo
+/// and first name, the one showing tinted in their color), and the Parent button that leaves.
 private struct KidTopBar: View {
     var kid: Member?
     var kids: [Member]
@@ -59,40 +59,33 @@ private struct KidTopBar: View {
     var onLeave: () -> Void
 
     var body: some View {
-        HStack {
-            if let kid, kids.count > 1 {
-                Menu {
-                    Section("Switch to") {
-                        ForEach(kids) { other in
-                            Button {
-                                onPick(other)
-                            } label: {
-                                if other.id == kid.id {
-                                    Label(other.name, systemImage: "checkmark")
-                                } else {
-                                    Text(other.name)
+        HStack(spacing: 12) {
+            if kids.count > 1 {
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal) {
+                        GlassEffectContainer(spacing: 10) {
+                            HStack(spacing: 10) {
+                                ForEach(kids) { other in
+                                    KidPill(kid: other, isSelected: other.id == kid?.id) { onPick(other) }
+                                        .id(other.id)
                                 }
                             }
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 2)
                         }
                     }
-                } label: {
-                    HStack(spacing: 8) {
-                        MemberAvatar(kid, size: 30)
-                        Text(kid.name)
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.secondary)
+                    .scrollIndicators(.hidden)
+                    .onAppear {
+                        if let id = kid?.id { proxy.scrollTo(id, anchor: .center) }
                     }
-                    .padding(.leading, 6)
-                    .padding(.trailing, 14)
-                    .frame(height: 44)
-                    .glassEffect(.regular.interactive(), in: .capsule)
+                    .onChange(of: kid?.id) { _, id in
+                        guard let id else { return }
+                        withAnimation(.smooth) { proxy.scrollTo(id, anchor: .center) }
+                    }
                 }
-                .accessibilityLabel("Switch kid. Now showing \(kid.name)")
+            } else {
+                Spacer()
             }
-            Spacer()
             Button(action: onLeave) {
                 Label("Parent", systemImage: "lock.fill")
                     .font(.system(size: 16, weight: .semibold))
@@ -102,6 +95,39 @@ private struct KidTopBar: View {
             .buttonStyle(.glass)
             .accessibilityLabel("Parent: leave Kid View")
         }
+    }
+}
+
+/// One kid in the top row: their photo or initial and first name in a glass capsule.
+private struct KidPill: View {
+    var kid: Member
+    var isSelected: Bool
+    var action: () -> Void
+
+    private var firstName: String {
+        kid.name.split(separator: " ").first.map(String.init) ?? kid.name
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                MemberAvatar(kid, size: 34)
+                    .overlay(Circle().strokeBorder(.white.opacity(isSelected ? 0.9 : 0), lineWidth: 2))
+                Text(firstName)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                    .lineLimit(1)
+            }
+            .padding(.leading, 5)
+            .padding(.trailing, 16)
+            .frame(height: 46)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(KidPressStyle())
+        .glassEffect(isSelected ? .regular.tint(kid.color.color).interactive() : .regular.interactive(), in: .capsule)
+        .animation(.smooth, value: isSelected)
+        .accessibilityLabel(firstName)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

@@ -63,7 +63,8 @@ the app was closed in it, so it's safe on a shared iPad.
 
 - **Choosing the kid**: the Kid View button on Home and Chores is a menu with each kid, plus
   Let the Kids Pick (opens on "Who's doing chores?"). A kid's page has Open Kid View for them.
-  Inside Kid View, the kid's name at the top left is a menu for switching to another kid.
+  Inside Kid View, every kid is a Liquid Glass pill (photo and first name) in a scrolling
+  row across the top; the one showing is tinted in their color. Tap another to switch.
 - **Leaving**: the Parent button at the top right. It asks for Face ID or the passcode
   straight away, with a grown-up multiplication question as the other way out (which also
   works in the Simulator, where there's no passcode).
