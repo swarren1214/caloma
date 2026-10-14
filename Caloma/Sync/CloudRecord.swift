@@ -17,8 +17,6 @@ protocol CloudRecord: PersistentModel {
     func read(from record: CKRecord)
     /// An empty model to read a new record into.
     static func blank() -> Self
-    /// The id of a deleted model of this type, from SwiftData's history.
-    static func deletedID(_ change: any HistoryDelete) -> UUID?
 }
 
 /// Every synced model, in an order where things referred to come first.
@@ -73,7 +71,6 @@ extension CKRecord {
 extension Member: CloudRecord {
     static let recordType = "Member"
     static func blank() -> Member { Member(name: "", role: .kid) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<Member>)?.tombstone[\Member.id] }
 
     func write(to record: CKRecord) {
         record["name"] = name
@@ -99,7 +96,6 @@ extension Member: CloudRecord {
 extension Room: CloudRecord {
     static let recordType = "Room"
     static func blank() -> Room { Room(name: "", symbol: "door.left.hand.closed") }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<Room>)?.tombstone[\Room.id] }
 
     func write(to record: CKRecord) {
         record["name"] = name
@@ -121,7 +117,6 @@ extension Room: CloudRecord {
 extension Chore: CloudRecord {
     static let recordType = "Chore"
     static func blank() -> Chore { Chore(title: "", symbol: "checkmark.circle", points: 0) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<Chore>)?.tombstone[\Chore.id] }
 
     func write(to record: CKRecord) {
         record["title"] = title
@@ -171,7 +166,6 @@ extension Chore: CloudRecord {
 extension ChoreCompletion: CloudRecord {
     static let recordType = "ChoreCompletion"
     static func blank() -> ChoreCompletion { ChoreCompletion(choreID: UUID(), memberID: UUID(), day: .now, points: 0, status: .pending) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<ChoreCompletion>)?.tombstone[\ChoreCompletion.id] }
 
     func write(to record: CKRecord) {
         record.setUUID(choreID, for: "choreID")
@@ -199,7 +193,6 @@ extension ChoreCompletion: CloudRecord {
 extension Reward: CloudRecord {
     static let recordType = "Reward"
     static func blank() -> Reward { Reward(name: "", symbol: "gift", kind: .privilege, cost: 0) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<Reward>)?.tombstone[\Reward.id] }
 
     func write(to record: CKRecord) {
         record["name"] = name
@@ -235,7 +228,6 @@ extension Reward: CloudRecord {
 extension Redemption: CloudRecord {
     static let recordType = "Redemption"
     static func blank() -> Redemption { Redemption(rewardID: UUID(), memberID: UUID(), cost: 0, status: .pending) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<Redemption>)?.tombstone[\Redemption.id] }
 
     func write(to record: CKRecord) {
         record.setUUID(rewardID, for: "rewardID")
@@ -259,7 +251,6 @@ extension Redemption: CloudRecord {
 extension PointEntry: CloudRecord {
     static let recordType = "PointEntry"
     static func blank() -> PointEntry { PointEntry(memberID: UUID(), points: 0, kind: .adjustment) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<PointEntry>)?.tombstone[\PointEntry.id] }
 
     func write(to record: CKRecord) {
         record.setUUID(memberID, for: "memberID")
@@ -283,7 +274,6 @@ extension PointEntry: CloudRecord {
 extension HomeTask: CloudRecord {
     static let recordType = "HomeTask"
     static func blank() -> HomeTask { HomeTask(name: "", symbol: "wrench.and.screwdriver", area: .other, intervalCount: 1, unit: .months, nextDue: .now) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<HomeTask>)?.tombstone[\HomeTask.id] }
 
     func write(to record: CKRecord) {
         record["name"] = name
@@ -319,7 +309,6 @@ extension HomeTask: CloudRecord {
 extension HomeTaskLog: CloudRecord {
     static let recordType = "HomeTaskLog"
     static func blank() -> HomeTaskLog { HomeTaskLog(taskID: UUID(), memberID: nil, daysLate: 0) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<HomeTaskLog>)?.tombstone[\HomeTaskLog.id] }
 
     func write(to record: CKRecord) {
         record.setUUID(taskID, for: "taskID")
@@ -343,7 +332,6 @@ extension HomeTaskLog: CloudRecord {
 extension FamilyEvent: CloudRecord {
     static let recordType = "FamilyEvent"
     static func blank() -> FamilyEvent { FamilyEvent(title: "", start: .now, end: .now) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<FamilyEvent>)?.tombstone[\FamilyEvent.id] }
 
     func write(to record: CKRecord) {
         record["title"] = title
@@ -395,7 +383,6 @@ extension FamilyEvent: CloudRecord {
 extension EventPacking: CloudRecord {
     static let recordType = "EventPacking"
     static func blank() -> EventPacking { EventPacking(eventID: UUID(), memberID: UUID(), day: .now) }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<EventPacking>)?.tombstone[\EventPacking.id] }
 
     func write(to record: CKRecord) {
         record.setUUID(eventID, for: "eventID")
@@ -441,7 +428,6 @@ final class FamilySetting {
 extension FamilySetting: CloudRecord {
     static let recordType = "FamilySetting"
     static func blank() -> FamilySetting { FamilySetting(key: "", value: "") }
-    static func deletedID(_ change: any HistoryDelete) -> UUID? { (change as? DefaultHistoryDelete<FamilySetting>)?.tombstone[\FamilySetting.id] }
 
     func write(to record: CKRecord) {
         record["key"] = key

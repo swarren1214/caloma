@@ -93,6 +93,7 @@ final class CloudSync {
         if role != .participant {
             engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
         }
+        rememberAllIDs()
         if !state.didInitialUpload {
             queueEverything()
             state.didInitialUpload = true
@@ -184,12 +185,11 @@ final class CloudSync {
                 case .update(let update):
                     changed.insert(update.changedPersistentIdentifier)
                 case .delete(let delete):
+                    // A deleted model can't be read, so its id comes from what sync
+                    // remembered about it.
                     changed.remove(delete.changedPersistentIdentifier)
-                    for type in SyncSchema.types {
-                        if let id = type.deletedID(delete) {
-                            deleted.insert(id)
-                            break
-                        }
+                    if let id = state.modelIDs.removeValue(forKey: delete.changedPersistentIdentifier) {
+                        deleted.insert(id)
                     }
                 @unknown default:
                     break
@@ -202,6 +202,7 @@ final class CloudSync {
             let byIdentifier = modelsByIdentifier(in: context)
             for identifier in changed {
                 if let model = byIdentifier[identifier] {
+                    state.modelIDs[identifier] = model.id
                     deleted.remove(model.id)
                     pending.append(.saveRecord(recordID(for: model.id)))
                 }
@@ -295,6 +296,7 @@ final class CloudSync {
     private func apply(modifications: [CKRecord], deletions: [CKRecord.ID]) {
         guard let context = makeContext(), !(modifications.isEmpty && deletions.isEmpty) else { return }
         var models = modelsByID(in: context)
+        var inserted: [any CloudRecord] = []
         var settingsChanged = false
         for record in modifications where record.recordID.zoneID == zoneID {
             guard let type = SyncSchema.type(named: record.recordType),
@@ -307,12 +309,14 @@ final class CloudSync {
                 model.read(from: record)
                 context.insert(model)
                 models[id] = model
+                inserted.append(model)
             }
             if ObjectIdentifier(type) == ObjectIdentifier(FamilySetting.self) { settingsChanged = true }
             state.systemFields[record.recordID.recordName] = Self.encodeSystemFields(of: record)
         }
         for recordID in deletions where recordID.zoneID == zoneID {
             if let id = UUID(uuidString: recordID.recordName), let model = models[id] {
+                state.modelIDs[model.persistentModelID] = nil
                 context.delete(model)
                 models[id] = nil
             }
@@ -322,6 +326,10 @@ final class CloudSync {
             try context.save()
         } catch {
             log.error("Couldn't save changes from iCloud: \(error.localizedDescription, privacy: .public)")
+        }
+        // New models have their lasting identifiers once saved.
+        for model in inserted {
+            state.modelIDs[model.persistentModelID] = model.id
         }
         // Skip past the history this save made.
         state.historyToken = latestHistoryToken(in: context) ?? state.historyToken
@@ -490,6 +498,7 @@ final class CloudSync {
 
     /// After Erase All Data deleted everything locally: skip that history and start fresh.
     func didEraseLocally() async {
+        state.modelIDs = [:]
         if let context = makeContext() {
             state.historyToken = latestHistoryToken(in: context)
         }
@@ -510,6 +519,18 @@ final class CloudSync {
     }
 
     // MARK: Helpers
+
+    /// Remembers every model's id by its SwiftData identifier, so a delete found in the history
+    /// can be sent (the deleted model itself can't be read anymore). Keeps entries for models
+    /// deleted since last time until the history scan sends them.
+    private func rememberAllIDs() {
+        guard let context = makeContext() else { return }
+        for type in SyncSchema.types {
+            for model in allModels(of: type, in: context) {
+                state.modelIDs[model.persistentModelID] = model.id
+            }
+        }
+    }
 
     func recordID(for id: UUID) -> CKRecord.ID {
         CKRecord.ID(recordName: id.uuidString, zoneID: zoneID)
@@ -622,6 +643,8 @@ nonisolated struct SyncState: Codable {
     var didInitialUpload = false
     /// Each record's CloudKit system fields (its change tag), by record name.
     var systemFields: [String: Data] = [:]
+    /// Each model's id by its SwiftData identifier, for sending deletes.
+    var modelIDs: [PersistentIdentifier: UUID] = [:]
 
     private static var url: URL {
         let folder = URL.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)
