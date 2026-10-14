@@ -16,6 +16,7 @@ struct CalomaApp: App {
         Upgrades.run(in: container.mainContext)
         CloudSync.shared.start(with: container)
         SharedSettings.shared.start(with: container)
+        WatchBridge.shared.start(with: container)
     }
 
     var body: some Scene {
@@ -160,6 +161,8 @@ struct AppRoot: View {
             guard phase == .active else { return }
             Task { await CloudSync.shared.syncNow() }
             EventAlerts.reschedule(in: context)
+            // "Coming up" and today's chores move on with the clock.
+            WatchBridge.shared.setNeedsUpdate()
         }
         .sheet(item: Binding(get: { sync.pendingInvite.map(InviteRef.init) }, set: { if $0 == nil { sync.pendingInvite = nil } })) { invite in
             JoinFamilySheet(metadata: invite.metadata)

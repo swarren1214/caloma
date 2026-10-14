@@ -214,6 +214,57 @@ background pushes, so they can lag by a few minutes, and a phone where Caloma wa
 away in the app switcher won't get them until it's opened. Devices in Kid View don't show
 them. Family › Reminders › Needs Your OK turns them off per phone.
 
+## Apple Watch (parents)
+
+A Watch app for parents, from the Tend designs. Turn the crown between four pages:
+
+- **Needs Your OK**: the oldest request, with the kid's photo, **Approve · +15** and **Send
+  Back** (or **Decline** for a reward), then a check and the next one.
+- **Coming Up**: the next event counting down ("Starts in 25 min"), with **You're driving**
+  when it's you, **Directions** in Maps and a **5m** nudge; the rest of today and tomorrow
+  below.
+- **Kids Today**: a ring per kid filling as their jobs get done, and how many need your OK.
+- **Home Care**: what's late or due in the next few days, each with **Mark Done**.
+
+Smart Stack widgets and complications: **Coming Up** (rectangular, circular, inline, corner),
+**Kids Today** (rectangular, circular, inline) and **Home Care** (rectangular, inline). Coming
+Up rises in the Smart Stack in the hour before an event, highest when you're driving, and Kids
+Today when something needs your OK.
+
+The iPhone does the work (`Services/WatchBridge.swift`): whenever the family changes it sends a
+small `WatchSnapshot` (`Shared/WatchSnapshot.swift`) to the watch, and the watch's taps come
+back as `WatchAction`s, waking Caloma on the iPhone in the background if needed. The watch keeps
+the last snapshot, so it still shows something when the phone is out of reach, and queues taps
+until it's back. The "Needs your OK" notifications from the phone show on the watch too, and
+their Approve / Send Back buttons work there (the Watch app answers them through the phone). "You're driving" uses the parent set up on that iPhone.
+
+### Adding the watch targets in Xcode (once)
+
+The code is in `CalomaWatch/` and `CalomaWatchWidgets/`; the targets are added in Xcode:
+
+1. **File › New › Target… › watchOS › App**. Product Name `CalomaWatch`, choose **Watch App for
+   Existing iOS App** with Caloma as the companion. Finish, and Activate the scheme if asked.
+2. In the new **CalomaWatch Watch App** folder, delete only Xcode's sample `.swift` files
+   (Move to Trash). Keep `Assets.xcassets`. Then drag the `.swift` files from our `CalomaWatch`
+   folder into it, choosing **Move** (tick only the **CalomaWatch Watch App** target).
+3. **File › New › Target… › watchOS › Widget Extension**. Product Name `CalomaWatchWidgets`,
+   untick Include Configuration App Intent, embed in **CalomaWatch Watch App**. In its new
+   folder, delete only the sample `.swift` file(s); keep `Assets.xcassets` and `Info.plist`.
+   Drag in `CalomaWatchWidgets/CalomaWatchWidgets.swift`, choosing **Move** (tick only
+   **CalomaWatchWidgets**).
+   Once both build, the now-empty `CalomaWatch` and `CalomaWatchWidgets` folders at the top
+   of the repo can go.
+4. Select `Caloma/Shared/WatchSnapshot.swift`, and in the File inspector under Target
+   Membership tick **CalomaWatch Watch App** and **CalomaWatchWidgets** (Caloma stays ticked).
+5. For both watch targets, **Signing & Capabilities › + Capability › App Groups**, and add
+   `group.com.stephenwarren.caloma`. That's how the widgets read what the app received.
+6. Set both watch targets' deployment target to watchOS 26.
+7. Run the **CalomaWatch Watch App** scheme on your watch (or a paired simulator), then open
+   Caloma on the iPhone once so it sends the first snapshot.
+
+Kids' watches (the ring, timer, packing list and watch face designs) and Siri come next. Kids'
+watches set up with Family Setup have no iPhone of their own, so they'll sync through iCloud.
+
 ## Apple Calendar
 
 Off by default; Family › Calendar › Apple Calendar turns on either or both, per device:
