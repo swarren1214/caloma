@@ -51,21 +51,24 @@ struct CalendarView: View {
         let data = data
         Group {
             if sizeClass == .regular {
-                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible) { open = $0 }
+                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { creating = true }) { open = $0 }
             } else {
                 compact(data)
             }
         }
         .navigationTitle(sizeClass == .regular ? "Calendar" : day.formatted(.dateTime.month(.wide)))
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button("Today") {
-                    withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
-                }
-                Button {
-                    creating = true
-                } label: {
-                    Label("New Event", systemImage: "plus")
+            // On iPad these are in the calendar's own header, as in the design.
+            if sizeClass != .regular {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button("Today") {
+                        withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
+                    }
+                    Button {
+                        creating = true
+                    } label: {
+                        Label("New Event", systemImage: "plus")
+                    }
                 }
             }
         }

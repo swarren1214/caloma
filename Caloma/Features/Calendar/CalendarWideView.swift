@@ -8,6 +8,7 @@ struct CalendarWideView: View {
     @Binding var day: Date
     @Binding var mode: CalendarView.Mode
     var visible: (EventRecord) -> Bool
+    var onNew: () -> Void
     var onOpen: (OccurrenceRef) -> Void
 
     @Environment(\.accent) private var accent
@@ -61,26 +62,54 @@ struct CalendarWideView: View {
                     .font(.largeTitle.bold())
             }
             Spacer()
-            Button {
-                move(by: -1)
-            } label: {
-                Image(systemName: "chevron.left").frame(width: 40, height: 40)
+            // As in the design: ‹ Today › together, the filter, the view, then New Event.
+            HStack(spacing: 6) {
+                Button {
+                    move(by: -1)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 40, height: 40)
+                        .glassEffect(.regular.interactive(), in: Circle())
+                }
+                .accessibilityLabel(mode == .week ? "Previous week" : "Previous month")
+                Button {
+                    withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
+                } label: {
+                    Text("Today")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .frame(height: 40)
+                        .glassEffect(.regular.interactive(), in: Capsule())
+                }
+                Button {
+                    move(by: 1)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 40, height: 40)
+                        .glassEffect(.regular.interactive(), in: Circle())
+                }
+                .accessibilityLabel(mode == .week ? "Next week" : "Next month")
             }
-            .buttonStyle(.glass)
-            .accessibilityLabel(mode == .week ? "Previous week" : "Previous month")
-            Button {
-                move(by: 1)
-            } label: {
-                Image(systemName: "chevron.right").frame(width: 40, height: 40)
-            }
-            .buttonStyle(.glass)
-            .accessibilityLabel(mode == .week ? "Next week" : "Next month")
+            .buttonStyle(.plain)
+            .foregroundStyle(accent)
             filterMenu
             Picker("View", selection: $mode.animation(.snappy)) {
                 ForEach(CalendarView.Mode.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
             .frame(width: 180)
+            Button(action: onNew) {
+                Label("New Event", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.leading, 12)
+                    .padding(.trailing, 16)
+                    .frame(height: 40)
+                    .foregroundStyle(.white)
+                    .glassEffect(.regular.tint(accent).interactive(), in: Capsule())
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -95,11 +124,13 @@ struct CalendarWideView: View {
             }
             Toggle("Chores & Home Care", isOn: Binding(get: { filter.showChores }, set: { filter.showChores = $0 }))
         } label: {
-            Image(systemName: filter.hidden.isEmpty ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                .font(.title3)
+            Image(systemName: filter.hidden.isEmpty ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(accent)
                 .frame(width: 40, height: 40)
+                .glassEffect(.regular.interactive(), in: Circle())
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.plain)
         .accessibilityLabel("Show on calendar")
     }
 

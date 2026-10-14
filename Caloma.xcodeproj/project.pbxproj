@@ -280,8 +280,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Caloma;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "If you turn it on in Family, Caloma shows your other calendars beside the family's and can add family events to Apple Calendar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Caloma uses Face ID so only a parent can leave Kid View.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -318,8 +318,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Caloma;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "If you turn it on in Family, Caloma shows your other calendars beside the family's and can add family events to Apple Calendar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Caloma uses Face ID so only a parent can leave Kid View.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
