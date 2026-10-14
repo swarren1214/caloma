@@ -53,64 +53,68 @@ struct CalendarWideView: View {
 
     private var header: some View {
         let week = CalendarMath.week(containing: day)
-        return HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(mode == .week ? "WEEK OF \(week.first?.formatted(.dateTime.month(.wide).day()).uppercased() ?? "")" : "MONTH")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
+        // The small caption sits above, so the title, Week / Month and the buttons all center
+        // on one line.
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(mode == .week ? "WEEK OF \(week.first?.formatted(.dateTime.month(.wide).day()).uppercased() ?? "")" : "MONTH")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+            HStack(alignment: .center, spacing: 12) {
                 Text(day.formatted(.dateTime.month(.wide).year()))
                     .font(.largeTitle.bold())
-            }
-            // Week / Month fills the space between the title and the buttons.
-            Picker("View", selection: $mode.animation(.snappy)) {
-                ForEach(CalendarView.Mode.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .frame(minWidth: 160, maxWidth: .infinity)
-            .padding(.horizontal, 12)
-            // ‹ Today › together, the filter, then New Event.
-            HStack(spacing: 6) {
-                Button {
-                    move(by: -1)
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.body.weight(.semibold))
-                        .frame(width: 40, height: 40)
-                        .glassEffect(.regular.interactive(), in: Circle())
+                    .lineLimit(1)
+                    .fixedSize()
+                // Week / Month fills the space between the title and the buttons.
+                Picker("View", selection: $mode.animation(.snappy)) {
+                    ForEach(CalendarView.Mode.allCases) { Text($0.rawValue).tag($0) }
                 }
-                .accessibilityLabel(mode == .week ? "Previous week" : "Previous month")
-                Button {
-                    withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
-                } label: {
-                    Text("Today")
+                .pickerStyle(.segmented)
+                .frame(minWidth: 160, maxWidth: .infinity)
+                .padding(.horizontal, 12)
+                // ‹ Today › together, the filter, then New Event.
+                HStack(spacing: 6) {
+                    Button {
+                        move(by: -1)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 40, height: 40)
+                            .glassEffect(.regular.interactive(), in: Circle())
+                    }
+                    .accessibilityLabel(mode == .week ? "Previous week" : "Previous month")
+                    Button {
+                        withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
+                    } label: {
+                        Text("Today")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 16)
+                            .frame(height: 40)
+                            .glassEffect(.regular.interactive(), in: Capsule())
+                    }
+                    Button {
+                        move(by: 1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 40, height: 40)
+                            .glassEffect(.regular.interactive(), in: Circle())
+                    }
+                    .accessibilityLabel(mode == .week ? "Next week" : "Next month")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(accent)
+                filterMenu
+                Button(action: onNew) {
+                    Label("New Event", systemImage: "plus")
                         .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 16)
+                        .padding(.leading, 12)
+                        .padding(.trailing, 16)
                         .frame(height: 40)
-                        .glassEffect(.regular.interactive(), in: Capsule())
+                        .foregroundStyle(.white)
+                        .glassEffect(.regular.tint(accent).interactive(), in: Capsule())
                 }
-                Button {
-                    move(by: 1)
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.body.weight(.semibold))
-                        .frame(width: 40, height: 40)
-                        .glassEffect(.regular.interactive(), in: Circle())
-                }
-                .accessibilityLabel(mode == .week ? "Next week" : "Next month")
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(accent)
-            filterMenu
-            Button(action: onNew) {
-                Label("New Event", systemImage: "plus")
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.leading, 12)
-                    .padding(.trailing, 16)
-                    .frame(height: 40)
-                    .foregroundStyle(.white)
-                    .glassEffect(.regular.tint(accent).interactive(), in: Capsule())
-            }
-            .buttonStyle(.plain)
         }
     }
 
