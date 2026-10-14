@@ -201,11 +201,10 @@ Before the first run with sync:
 4. Before TestFlight, the record types have to be in **Production**. TestFlight and App Store
    builds use Production, where records can't create new types, and the types only appear in
    Development when a build run from Xcode saves them. `CloudKit/schema.ckdb` lists every
-   type and field, so there's no need to wait for that:
-   - In the CloudKit Console, **Settings › Tokens**, create a Management token, then run
-     `xcrun cktool save-token --type management` and paste it.
-   - `xcrun cktool import-schema --team-id BH8R3BX5WF --container-id iCloud.com.stephenwarren.caloma --environment development --file CloudKit/schema.ckdb`
-   - In the Console, **Deploy Schema Changes…** to Production.
+   type and field, so there's no need to wait for that. In the CloudKit Console, with
+   **Development** selected, choose **Import Schema…** and pick `CloudKit/schema.ckdb`, then
+   **Deploy Schema Changes…**. (Apple's built-in SwiftData sync creates types by itself;
+   Caloma syncs on its own so two Apple Accounts can share a family, so it needs this file.)
 
    Adding a synced field or model means adding it to `CloudRecord.swift` *and* to
    `schema.ckdb`, importing and deploying again before the TestFlight build goes out. If
