@@ -58,6 +58,7 @@ final class CloudSync {
     /// Failed sends per record this session.
     @ObservationIgnored private var retries: [String: Int] = [:]
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var lastRestart: Date?
     private var scanTask: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
     private let log = Logger(subsystem: "com.stephenwarren.caloma", category: "sync")
@@ -242,7 +243,7 @@ final class CloudSync {
             handleAccountChange(change)
 
         case .fetchedDatabaseChanges(let changes):
-            for deletion in changes.deletions where deletion.zoneID == zoneID {
+            if changes.deletions.contains(where: { $0.zoneID == zoneID }) {
                 zoneWasDeleted()
             }
 
@@ -414,13 +415,24 @@ final class CloudSync {
     private func handleAccountChange(_ change: CKSyncEngine.Event.AccountChange) {
         switch change.changeType {
         case .signIn:
-            Task { await restart(resetting: true) }
-        case .signOut, .switchAccounts:
+            // A new engine reports this on its first run too, so it's no reason to start over
+            // (doing that made a new engine, which reported it again, forever). Everything is
+            // already queued from the first sync.
+            break
+        case .signOut:
             if role == .participant {
-                // The family was on that account. This phone goes back to its own.
                 Task { await leaveLocally(message: "iCloud signed out, so this iPhone left the family.") }
             } else {
-                Task { await restart(resetting: true) }
+                // Keep everything on the device; sync picks up again after signing back in.
+                stopEngine()
+                status = .noAccount
+            }
+        case .switchAccounts:
+            if role == .participant {
+                // The family was on the other account. This phone goes back to its own.
+                Task { await leaveLocally(message: "iCloud changed accounts, so this iPhone left the family.") }
+            } else {
+                restartOnce()
             }
         @unknown default:
             break
@@ -432,8 +444,20 @@ final class CloudSync {
         if role == .participant {
             Task { await leaveLocally(message: "The family isn't shared with you anymore.") }
         } else {
-            Task { await restart(resetting: true) }
+            // Someone deleted Caloma's iCloud data in Settings: send everything up again.
+            restartOnce()
         }
+    }
+
+    /// Starts over and sends everything again, but never more than once every ten minutes,
+    /// so nothing can keep sync starting over.
+    private func restartOnce() {
+        if let last = lastRestart, Date.now.timeIntervalSince(last) < 600 {
+            log.error("Skipped restarting sync; it restarted \(Int(Date.now.timeIntervalSince(last)))s ago")
+            return
+        }
+        lastRestart = .now
+        Task { await restart(resetting: true) }
     }
 
     // MARK: Switching families
