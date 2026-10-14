@@ -115,24 +115,8 @@ struct CalendarView: View {
                                 person = person == member.id ? nil : member.id
                             }
                         }
-                        Button {
-                            filter.showChores.toggle()
-                        } label: {
-                            Label("Chores & Home Care", systemImage: "checklist")
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 14)
-                                .frame(minHeight: 36)
-                                .foregroundStyle(filter.showChores ? Color.primary : Color.secondary)
-                                .background {
-                                    if filter.showChores {
-                                        Capsule().fill(Color(.secondarySystemGroupedBackground))
-                                    } else {
-                                        Capsule().strokeBorder(Color(.separator), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                                    }
-                                }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(filter.showChores ? .isSelected : [])
+                        LayerChip(title: "Chores", isOn: filter.showChores) { filter.showChores.toggle() }
+                        LayerChip(title: "Home Care", isOn: filter.showHomeCare) { filter.showHomeCare.toggle() }
                     }
                     .padding(.horizontal, 16)
                 }
@@ -160,7 +144,7 @@ struct CalendarView: View {
                     occurrences: data.occurrences(on: day, where: visible),
                     appleEvents: person == nil ? apple.events(from: day, through: day) : [],
                     chores: filter.showChores ? data.chores(on: day, for: person) : [],
-                    homeTasks: filter.showChores && person == nil ? data.homeTasksDue(on: day) : [],
+                    homeTasks: filter.showHomeCare && person == nil ? data.homeTasksDue(on: day) : [],
                     onOpen: { open = $0 },
                     onNew: { creating = NewEventRequest(day: day) }
                 )
@@ -174,6 +158,32 @@ struct CalendarView: View {
         if calendar.isDateInTomorrow(day) { return "Tomorrow" }
         if calendar.isDateInYesterday(day) { return "Yesterday" }
         return day.formatted(.dateTime.weekday(.wide))
+    }
+}
+
+/// A chip that shows or hides chores or home care: filled when on, dashed when off.
+struct LayerChip: View {
+    var title: String
+    var isOn: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 14)
+                .frame(minHeight: 36)
+                .foregroundStyle(isOn ? Color.primary : Color.secondary)
+                .background {
+                    if isOn {
+                        Capsule().fill(Color(.secondarySystemGroupedBackground))
+                    } else {
+                        Capsule().strokeBorder(Color(.separator), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
 

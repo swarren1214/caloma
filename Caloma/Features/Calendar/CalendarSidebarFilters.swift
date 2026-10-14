@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 /// The family under the tabs in the iPad sidebar while Calendar is open: each person's photo
-/// in a ring of their color (tap to hide or show their events), Chores & Home Care, Apple
+/// in a ring of their color (tap to hide or show their events), Chores, Home Care, Apple
 /// Calendar, and the next countdown.
 struct CalendarSidebarFilters: View {
     @Environment(\.accent) private var accent
@@ -26,6 +26,9 @@ struct CalendarSidebarFilters: View {
                 .padding(.top, 14)
             checkRow("Chores", on: filter.showChores) {
                 filter.showChores.toggle()
+            }
+            checkRow("Home Care", on: filter.showHomeCare) {
+                filter.showHomeCare.toggle()
             }
             checkRow("Apple Calendar", on: apple.showsAppleEvents && apple.hasAccess) {
                 // The first time, it needs setting up (access and which calendars).
@@ -95,7 +98,7 @@ struct CalendarSidebarFilters: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(title == "Chores" ? "Chores and Home Care" : title)
+        .accessibilityLabel(title)
         .accessibilityValue(on ? "Shown" : "Hidden")
     }
 

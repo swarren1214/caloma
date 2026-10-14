@@ -71,6 +71,10 @@ final class CalendarFilter {
         didSet { UserDefaults.standard.set(showChores, forKey: "calendar.showChores") }
     }
 
+    var showHomeCare: Bool = UserDefaults.standard.object(forKey: "calendar.showHomeCare") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showHomeCare, forKey: "calendar.showHomeCare") }
+    }
+
     func isShown(_ key: String) -> Bool { !hidden.contains(key) }
 
     func toggle(_ key: String) {

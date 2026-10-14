@@ -21,7 +21,7 @@ struct CalendarWideView: View {
             VStack(alignment: .leading, spacing: 14) {
                 header
                 if mode == .week {
-                    WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, onNew: onNew, onOpen: onOpen)
+                    WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, showHomeCare: filter.showHomeCare, onNew: onNew, onOpen: onOpen)
                 } else {
                     HStack(alignment: .top, spacing: 16) {
                         MonthGrid(day: $day, data: data, visible: visible, cellHeight: 64) { date in onNew(NewEventRequest(day: date)) }
@@ -36,7 +36,7 @@ struct CalendarWideView: View {
                                     occurrences: data.occurrences(on: day, where: visible),
                                     appleEvents: apple.events(from: day, through: day),
                                     chores: showChores ? data.chores(on: day) : [],
-                                    homeTasks: showChores ? data.homeTasksDue(on: day) : [],
+                                    homeTasks: filter.showHomeCare ? data.homeTasksDue(on: day) : [],
                                     onOpen: onOpen,
                                     onNew: { onNew(NewEventRequest(day: day)) }
                                 )
@@ -130,7 +130,8 @@ struct CalendarWideView: View {
                     Toggle(member.name, isOn: Binding(get: { filter.isShown(member.id.uuidString) }, set: { _ in filter.toggle(member.id.uuidString) }))
                 }
             }
-            Toggle("Chores & Home Care", isOn: Binding(get: { filter.showChores }, set: { filter.showChores = $0 }))
+            Toggle("Chores", isOn: Binding(get: { filter.showChores }, set: { filter.showChores = $0 }))
+            Toggle("Home Care", isOn: Binding(get: { filter.showHomeCare }, set: { filter.showHomeCare = $0 }))
         } label: {
             Image(systemName: filter.hidden.isEmpty ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
                 .font(.body.weight(.semibold))
@@ -157,6 +158,7 @@ struct WeekGrid: View {
     var week: [Date]
     var visible: (EventRecord) -> Bool
     var showChores: Bool
+    var showHomeCare: Bool
     var onNew: (NewEventRequest) -> Void
     var onOpen: (OccurrenceRef) -> Void
 
@@ -217,10 +219,12 @@ struct WeekGrid: View {
                         ForEach(appleEvents.filter { $0.isAllDay && calendar.isDate($0.start, inSameDayAs: date) }) { event in
                             chip(event.title, color: event.color, dashed: false)
                         }
-                        if showChores {
+                        if showHomeCare {
                             ForEach(data.homeTasksDue(on: date)) { task in
                                 chip(task.name, color: calendar.startOfDay(for: task.nextDue) < calendar.startOfDay(for: .now) ? Brand.late : Brand.waiting, dashed: true)
                             }
+                        }
+                        if showChores {
                             let count = data.chores(on: date).count
                             if count > 0 {
                                 chip("\(count) chores", color: .secondary, dashed: true)

@@ -44,7 +44,7 @@ months. Onboarding offers eight starter chores and the family store from the des
   shows each chore with a dot per day.
 - **Calendar**: Week (a week strip with a dot for each person busy that day, then the day:
   all-day things, events by time, and the day's chores) or Month (dots per person). Filter to
-  one person's calendar; Chores & Home Care can be hidden. A countdown card shows the next
+  one person's calendar; Chores and Home Care can each be hidden. A countdown card shows the next
   event someone's counting down to. Events show who's going (faces), who's driving and what
   to bring. iPad: the family down the side, each person's photo in a ring of their color (tap
   to hide or show them), beside a week grid of hours with a line for now, or the month and
