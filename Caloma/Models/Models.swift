@@ -254,7 +254,7 @@ final class Reward {
     }
 
     var limit: RewardLimit {
-        get { RewardLimit(rawValue: limitRaw) ?? .unset }
+        get { RewardLimit(rawValue: limitRaw) ?? RewardLimit.none }
         set { limitRaw = newValue.rawValue }
     }
 
