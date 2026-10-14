@@ -157,7 +157,7 @@ invite from Family with `UICloudSharingController`.
 ## App icon
 
 `Caloma/AppIcon.icon` is the Icon Composer file (from `~/Developer/app-icons/caloma.icon`): four
-layered shapes on a purple gradient, with Liquid Glass translucency. Edit it in Icon Composer
+layered shapes on a pink-to-red gradient, with Liquid Glass translucency. Edit it in Icon Composer
 and copy it back over this one.
 
 ## Project layout
