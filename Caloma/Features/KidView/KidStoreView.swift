@@ -246,6 +246,8 @@ private struct JarCard: View {
     var onChange: () -> Void
 
     @State private var filled = false
+    /// A new scatter of stars each time the jar appears.
+    @State private var stars: [JarStarSpec] = JarStarSpec.scatter()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var fraction: Double { min(Double(max(have, 0)) / Double(max(reward.cost, 1)), 1) }
@@ -347,12 +349,14 @@ private struct JarCard: View {
                     }
                     .animation(.spring(duration: 1.4, bounce: 0.3), value: filled)
                     .animation(.spring(duration: 1.0, bounce: 0.3), value: fraction)
-                    ForEach(0..<6, id: \.self) { index in
-                        let i = Double(index)
-                        let height = 0.25 + 0.12 * Double(index % 4)
-                        TwinkleStar(delay: i * 0.35)
-                            .position(x: size.width * CGFloat(0.2 + 0.13 * i), y: size.height * CGFloat(1 - fraction * height))
-                            .opacity(fraction > 0.05 ? 1 : 0)
+                    // More stars the fuller the jar, each somewhere in the liquid.
+                    let showing = fraction > 0.04 ? max(3, Int((Double(stars.count) * fraction).rounded(.up))) : 0
+                    ForEach(stars.prefix(showing)) { star in
+                        JarStar(spec: star)
+                            .position(
+                                x: size.width * CGFloat(star.x),
+                                y: size.height * CGFloat(1 - fraction * star.depth)
+                            )
                     }
                     // A highlight down the glass.
                     Capsule()
@@ -401,18 +405,80 @@ private struct Wave: Shape {
     }
 }
 
-private struct TwinkleStar: View {
-    var delay: Double
+/// Where one star in the jar sits and how it moves, all picked at random.
+private struct JarStarSpec: Identifiable {
+    let id: Int
+    /// Across the jar, 0 to 1.
+    let x: Double
+    /// How far up the liquid, 0 (bottom) to 1 (surface).
+    let depth: Double
+    let size: CGFloat
+    let symbol: String
+    let color: Color
+    let tilt: Double
+    let appearDelay: Double
+    let twinkleDuration: Double
+    let twinkleDelay: Double
+    let dimness: Double
+    let bobDistance: CGFloat
+    let bobDuration: Double
+    let sway: Double
+
+    static func scatter(count: Int = 14) -> [JarStarSpec] {
+        let colors: [Color] = [Brand.starBright, Brand.starBright, Brand.starBright, Color(hex: 0xFFF3A6), .white, Color(hex: 0xFFB800)]
+        // Shuffled depths so the first few (shown when the jar is nearly empty) sit low.
+        return (0..<count).map { index in
+            let sparkle = Double.random(in: 0...1) < 0.25
+            return JarStarSpec(
+                id: index,
+                x: .random(in: 0.14...0.86),
+                depth: .random(in: 0.08...0.9) * (0.45 + 0.55 * Double(index + 1) / Double(count)),
+                size: sparkle ? .random(in: 10...16) : .random(in: 8...24),
+                symbol: sparkle ? "sparkle" : "star.fill",
+                color: colors.randomElement() ?? Brand.starBright,
+                tilt: .random(in: -35...35),
+                appearDelay: .random(in: 0.2...1.4),
+                twinkleDuration: .random(in: 0.7...2.2),
+                twinkleDelay: .random(in: 0...1.8),
+                dimness: .random(in: 0.25...0.6),
+                bobDistance: .random(in: 2...7),
+                bobDuration: .random(in: 1.6...3.8),
+                sway: .random(in: 8...28) * (Bool.random() ? 1 : -1)
+            )
+        }
+    }
+}
+
+/// One star in the jar: pops in, then twinkles, bobs and sways on its own timing.
+private struct JarStar: View {
+    var spec: JarStarSpec
+
+    @State private var appeared = false
     @State private var bright = false
+    @State private var bobbing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Image(systemName: "star.fill")
-            .font(.system(size: 14))
-            .foregroundStyle(Brand.starBright)
-            .scaleEffect(bright ? 1.15 : 0.75)
-            .opacity(bright ? 1 : 0.4)
+        Image(systemName: spec.symbol)
+            .font(.system(size: spec.size, weight: .bold))
+            .foregroundStyle(spec.color)
+            .shadow(color: spec.color.opacity(bright ? 0.7 : 0), radius: spec.size * 0.35)
+            .rotationEffect(.degrees(spec.tilt + (bobbing ? spec.sway : 0)))
+            .scaleEffect(appeared ? (bright ? 1.12 : 0.82) : 0.1)
+            .opacity(appeared ? (bright ? 1 : spec.dimness) : 0)
+            .offset(y: bobbing ? -spec.bobDistance : spec.bobDistance)
             .onAppear {
-                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true).delay(delay)) { bright = true }
+                withAnimation(.spring(duration: 0.5, bounce: 0.55).delay(spec.appearDelay)) { appeared = true }
+                guard !reduceMotion else {
+                    bright = true
+                    return
+                }
+                withAnimation(.easeInOut(duration: spec.twinkleDuration).repeatForever(autoreverses: true).delay(spec.appearDelay + spec.twinkleDelay)) {
+                    bright = true
+                }
+                withAnimation(.easeInOut(duration: spec.bobDuration).repeatForever(autoreverses: true).delay(spec.appearDelay)) {
+                    bobbing = true
+                }
             }
             .accessibilityHidden(true)
     }
