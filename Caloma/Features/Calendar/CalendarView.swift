@@ -57,6 +57,9 @@ struct CalendarView: View {
             }
         }
         .navigationTitle(sizeClass == .regular ? "Calendar" : day.formatted(.dateTime.month(.wide)))
+        // On iPad the calendar's own header ("October 2026") is the title, so the big
+        // "Calendar" bar is hidden. The title stays for VoiceOver and the app switcher.
+        .toolbarVisibility(sizeClass == .regular ? .hidden : .automatic, for: .navigationBar)
         .toolbar {
             // On iPad these are in the calendar's own header, as in the design.
             if sizeClass != .regular {
