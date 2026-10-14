@@ -13,14 +13,12 @@ struct CalendarView: View {
     @Query private var completions: [ChoreCompletion]
     @Query private var points: [PointEntry]
     @Query(filter: #Predicate<HomeTask> { !$0.isArchived }) private var homeTasks: [HomeTask]
-    @AppStorage("calendar.showChores") private var showChores = true
+    @Bindable private var filter = CalendarFilter.shared
 
     @State private var day = Calendar.current.startOfDay(for: .now)
     @State private var mode: Mode = .week
     /// iPhone: one person's calendar, or everyone's.
     @State private var person: UUID?
-    /// iPad: people unticked in the sidebar ("everyone" for family-wide events).
-    @State private var hidden: Set<String> = []
     @State private var open: OccurrenceRef?
     @State private var creating = false
 
@@ -43,8 +41,7 @@ struct CalendarView: View {
 
     private func visible(_ event: EventRecord) -> Bool {
         if sizeClass == .regular {
-            if event.isEveryone { return !hidden.contains("everyone") }
-            return event.attendeeIDs.contains { !hidden.contains($0.uuidString) }
+            return filter.shows(event)
         }
         guard let person else { return true }
         return event.includes(person)
@@ -54,7 +51,7 @@ struct CalendarView: View {
         let data = data
         Group {
             if sizeClass == .regular {
-                CalendarWideView(data: data, day: $day, mode: $mode, hidden: $hidden, showChores: $showChores, visible: visible) { open = $0 }
+                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible) { open = $0 }
             } else {
                 compact(data)
             }
@@ -113,15 +110,15 @@ struct CalendarView: View {
                             }
                         }
                         Button {
-                            showChores.toggle()
+                            filter.showChores.toggle()
                         } label: {
                             Label("Chores & Home Care", systemImage: "checklist")
                                 .font(.subheadline.weight(.semibold))
                                 .padding(.horizontal, 14)
                                 .frame(minHeight: 36)
-                                .foregroundStyle(showChores ? Color.primary : Color.secondary)
+                                .foregroundStyle(filter.showChores ? Color.primary : Color.secondary)
                                 .background {
-                                    if showChores {
+                                    if filter.showChores {
                                         Capsule().fill(Color(.secondarySystemGroupedBackground))
                                     } else {
                                         Capsule().strokeBorder(Color(.separator), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
@@ -129,7 +126,7 @@ struct CalendarView: View {
                                 }
                         }
                         .buttonStyle(.plain)
-                        .accessibilityAddTraits(showChores ? .isSelected : [])
+                        .accessibilityAddTraits(filter.showChores ? .isSelected : [])
                     }
                     .padding(.horizontal, 16)
                 }
@@ -156,8 +153,8 @@ struct CalendarView: View {
                     data: data,
                     occurrences: data.occurrences(on: day, where: visible),
                     appleEvents: person == nil ? apple.events(from: day, through: day) : [],
-                    chores: showChores ? data.chores(on: day, for: person) : [],
-                    homeTasks: showChores && person == nil ? data.homeTasksDue(on: day) : [],
+                    chores: filter.showChores ? data.chores(on: day, for: person) : [],
+                    homeTasks: filter.showChores && person == nil ? data.homeTasksDue(on: day) : [],
                     onOpen: { open = $0 }
                 )
             }

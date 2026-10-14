@@ -1,23 +1,22 @@
 import SwiftUI
 
-/// The iPad calendar: the family down the side (each person's photo in a ring of their color,
-/// tap to hide or show them), and a week grid or a month beside it.
+/// The iPad calendar: a week grid, or the month and a day side by side. The family filters sit
+/// in the app's sidebar under the tabs (`CalendarSidebarFilters`), with the same filters in a
+/// menu here for when the sidebar is closed.
 struct CalendarWideView: View {
     var data: CalendarData
     @Binding var day: Date
     @Binding var mode: CalendarView.Mode
-    @Binding var hidden: Set<String>
-    @Binding var showChores: Bool
     var visible: (EventRecord) -> Bool
     var onOpen: (OccurrenceRef) -> Void
 
     @Environment(\.accent) private var accent
     private let apple = AppleCalendar.shared
+    private let filter = CalendarFilter.shared
+    private var showChores: Bool { filter.showChores }
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            sidebar
-                .frame(width: 250)
             VStack(alignment: .leading, spacing: 14) {
                 header
                 if mode == .week {
@@ -76,6 +75,7 @@ struct CalendarWideView: View {
             }
             .buttonStyle(.glass)
             .accessibilityLabel(mode == .week ? "Next week" : "Next month")
+            filterMenu
             Picker("View", selection: $mode.animation(.snappy)) {
                 ForEach(CalendarView.Mode.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -84,94 +84,30 @@ struct CalendarWideView: View {
         }
     }
 
+    /// The sidebar's filters, for when the sidebar is closed.
+    private var filterMenu: some View {
+        Menu {
+            Section("Family") {
+                Toggle("Everyone", isOn: Binding(get: { filter.isShown("everyone") }, set: { _ in filter.toggle("everyone") }))
+                ForEach(data.members) { member in
+                    Toggle(member.name, isOn: Binding(get: { filter.isShown(member.id.uuidString) }, set: { _ in filter.toggle(member.id.uuidString) }))
+                }
+            }
+            Toggle("Chores & Home Care", isOn: Binding(get: { filter.showChores }, set: { filter.showChores = $0 }))
+        } label: {
+            Image(systemName: filter.hidden.isEmpty ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                .font(.title3)
+                .frame(width: 40, height: 40)
+        }
+        .buttonStyle(.glass)
+        .accessibilityLabel("Show on calendar")
+    }
+
     private func move(by step: Int) {
         withAnimation(.snappy) {
             let component: Calendar.Component = mode == .week ? .weekOfYear : .month
             day = Calendar.current.date(byAdding: component, value: step, to: day) ?? day
         }
-    }
-
-    // MARK: Sidebar
-
-    private var sidebar: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Family")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.bottom, 4)
-                personRow(nil, key: "everyone", name: "Everyone")
-                ForEach(data.members) { member in
-                    personRow(member, key: member.id.uuidString, name: member.name)
-                }
-
-                Text("Also Show")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.top, 16)
-                    .padding(.bottom, 4)
-                Toggle(isOn: $showChores) {
-                    Label("Chores & Home Care", systemImage: "checklist")
-                }
-                .padding(.horizontal, 10)
-                .frame(minHeight: 44)
-                NavigationLink {
-                    AppleCalendarSettingsView()
-                } label: {
-                    HStack {
-                        Label("Apple Calendar", systemImage: "calendar")
-                        Spacer()
-                        Text(apple.showsAppleEvents && apple.hasAccess ? "On" : "Off")
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                if let countdown = CalendarMath.nextCountdown(data.events.filter(visible)) {
-                    CountdownCard(occurrence: countdown, color: data.color(for: countdown.event))
-                        .padding(.top, 16)
-                }
-            }
-            .padding(12)
-        }
-        .background(.regularMaterial, in: .rect(cornerRadius: 28))
-    }
-
-    private func personRow(_ member: Member?, key: String, name: String) -> some View {
-        let on = !hidden.contains(key)
-        return Button {
-            withAnimation(.smooth(duration: 0.2)) {
-                if on { hidden.insert(key) } else { hidden.remove(key) }
-            }
-        } label: {
-            HStack(spacing: 12) {
-                PersonRing(member: member, isOn: on, size: 38)
-                Text(name)
-                    .font(.body.weight(on ? .semibold : .regular))
-                    .foregroundStyle(on ? Color.primary : Color.secondary)
-                Spacer()
-                if !on {
-                    Text("Hidden")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.horizontal, 10)
-            .frame(minHeight: 48)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(name)
-        .accessibilityValue(on ? "Shown" : "Hidden")
-        .accessibilityHint("Shows or hides their events")
     }
 }
 

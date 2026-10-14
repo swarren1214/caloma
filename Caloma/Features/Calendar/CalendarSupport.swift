@@ -58,6 +58,31 @@ struct CalendarData {
     }
 }
 
+/// Who's shown on the calendar, shared by the calendar and the app's sidebar on iPad (where
+/// the family sits under the tabs, each person's photo in a ring of their color).
+@Observable
+final class CalendarFilter {
+    static let shared = CalendarFilter()
+
+    /// People hidden, by UUID string; "everyone" hides family-wide events.
+    var hidden: Set<String> = []
+
+    var showChores: Bool = UserDefaults.standard.object(forKey: "calendar.showChores") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showChores, forKey: "calendar.showChores") }
+    }
+
+    func isShown(_ key: String) -> Bool { !hidden.contains(key) }
+
+    func toggle(_ key: String) {
+        if hidden.contains(key) { hidden.remove(key) } else { hidden.insert(key) }
+    }
+
+    func shows(_ event: EventRecord) -> Bool {
+        if event.isEveryone { return !hidden.contains("everyone") }
+        return event.attendeeIDs.contains { !hidden.contains($0.uuidString) }
+    }
+}
+
 /// Which occurrence is open: an event and the day it's on.
 struct OccurrenceRef: Identifiable, Hashable {
     var eventID: UUID

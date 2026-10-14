@@ -44,6 +44,13 @@ struct RootTabView: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
+        // On iPad the calendar's family filters live under the tabs, so there's one sidebar.
+        .tabViewSidebarFooter {
+            if router.tab == .calendar && sizeClass == .regular {
+                CalendarSidebarFilters()
+                    .transition(.opacity)
+            }
+        }
         .tabBarMinimizeBehavior(.onScrollDown)
     }
 
