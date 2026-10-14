@@ -163,8 +163,9 @@ struct WeekGrid: View {
     @Environment(\.accent) private var accent
     private let apple = AppleCalendar.shared
     private let hourHeight: CGFloat = 52
-    private let firstHour = 6
-    private let lastHour = 22
+    /// The whole day, midnight to midnight. It opens scrolled to the morning (or to now).
+    private let firstHour = 0
+    private let lastHour = 24
     private let gutter: CGFloat = 52
 
     var body: some View {
@@ -239,6 +240,7 @@ struct WeekGrid: View {
             .frame(minHeight: 50)
             Divider()
             // Hours.
+            ScrollViewReader { scroller in
             ScrollView {
                 HStack(alignment: .top, spacing: 0) {
                     VStack(spacing: 0) {
@@ -250,6 +252,7 @@ struct WeekGrid: View {
                                 .padding(.trailing, 8)
                                 .offset(y: -7)
                                 .opacity(hour == firstHour ? 0 : 1)
+                                .id(hour)
                         }
                     }
                     ForEach(week, id: \.self) { date in
@@ -269,10 +272,21 @@ struct WeekGrid: View {
                     .padding(.leading, gutter)
                 }
             }
-            .defaultScrollAnchor(UnitPoint(x: 0, y: 0.15))
+            .onAppear { scroller.scrollTo(openingHour, anchor: .top) }
+            .onChange(of: week.first) { _, _ in
+                withAnimation(.snappy) { scroller.scrollTo(openingHour, anchor: .top) }
+            }
+            }
         }
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22))
         .clipShape(.rect(cornerRadius: 22))
+    }
+
+    /// 7 AM, or an hour before now when the week has today in it.
+    private var openingHour: Int {
+        let calendar = Calendar.current
+        guard week.contains(where: { calendar.isDateInToday($0) }) else { return 7 }
+        return min(max(calendar.component(.hour, from: .now) - 1, 0), 17)
     }
 
     private func hourLabel(_ hour: Int) -> String {
