@@ -28,8 +28,8 @@ private struct PreviewEnvironment: ViewModifier {
 /// part done, a few weeks of points, the family store and the home care list. Previews only.
 enum SampleData {
     static func insert(into context: ModelContext, calendar: Calendar = .current) {
-        let parent = Member(name: "Steve", role: .parent, sortOrder: 0)
-        let partner = Member(name: "Partner", role: .parent, sortOrder: 1)
+        let parent = Member(name: "Steve", role: .parent, color: .teal, sortOrder: 0)
+        let partner = Member(name: "Partner", role: .parent, color: .pink, sortOrder: 1)
         let ella = Member(name: "Ella", role: .kid, color: .purple, sortOrder: 2)
         let max = Member(name: "Max", role: .kid, color: .blue, sortOrder: 3)
         let june = Member(name: "June", role: .kid, color: .orange, sortOrder: 4)
@@ -87,6 +87,31 @@ enum SampleData {
         done(toys, june, .approved)
         done(table, june, .pending)
         _ = (dog, laundry, sink)
+        let groceries = chore("Grocery run", "cart", 0, [parent], .someDays, mask: ChoreMath.bit(forWeekday: 7), order: 11)
+        groceries.requiresApproval = false
+
+        // The calendar from the designs: practice, piano, a dentist visit, movie night.
+        func event(_ title: String, _ symbol: String, dayOffset: Int, hour: Int, minute: Int = 0, minutes: Int, who: [Member], driver: Member? = nil, rule: EventRepeat = .never, mask: Int = 0, location: String = "", bring: [String] = []) -> FamilyEvent {
+            let day = calendar.date(byAdding: .day, value: dayOffset, to: today) ?? today
+            let start = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+            let event = FamilyEvent(title: title, start: start, end: start.addingTimeInterval(Double(minutes) * 60), attendeeIDs: who.map(\.id))
+            event.symbol = symbol
+            event.driverID = driver?.id
+            event.repeatRule = rule
+            event.weekdayMask = mask
+            event.location = location
+            event.bring = bring
+            event.alertMinutes = 60
+            context.insert(event)
+            return event
+        }
+        let weekday = calendar.component(.weekday, from: today)
+        _ = event("School drop-off", "graduationcap", dayOffset: 0, hour: 7, minute: 45, minutes: 25, who: [ella, max], driver: parent, rule: .weekly, mask: ChoreMath.weekdaysMask, location: "Lincoln Elementary")
+        _ = event("Piano lesson", "music.note", dayOffset: 0, hour: 15, minute: 30, minutes: 45, who: [max], driver: partner, rule: .weekly, location: "Harmony Music Studio", bring: ["Piano books"])
+        _ = event("Soccer practice", "soccerball", dayOffset: 0, hour: 16, minute: 30, minutes: 75, who: [ella], driver: parent, rule: .weekly, mask: ChoreMath.bit(forWeekday: weekday) | ChoreMath.bit(forWeekday: (weekday + 1) % 7 + 1), location: "Riverside Park · Field 3", bring: ["Cleats", "Water bottle", "Shin guards"])
+        _ = event("Dentist checkup", "stethoscope", dayOffset: 1, hour: 16, minutes: 45, who: [june], driver: partner, location: "Bright Smiles Dental")
+        let movie = event("Movie night", "film", dayOffset: 3, hour: 19, minutes: 120, who: [], location: "Living room", bring: ["Blankets"])
+        movie.countsDown = true
 
         // Earlier weeks, so balances match the designs.
         context.insert(PointEntry(memberID: ella.id, points: 595, kind: .chore, note: "Earlier chores", date: monthAgo))

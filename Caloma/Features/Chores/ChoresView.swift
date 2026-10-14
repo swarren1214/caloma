@@ -60,8 +60,8 @@ struct ChoresView: View {
             } else {
                 CalomaScreen(title: "Chores") {
                     controls(family)
-                    if family.kids.isEmpty {
-                        EmptyCard(symbol: "person.badge.plus", title: "No kids yet", message: "Add kids in Family, then give them chores.")
+                    if family.choreDoers.isEmpty {
+                        EmptyCard(symbol: "person.badge.plus", title: "No one has chores yet", message: "Add kids in Family, then give out chores.")
                     } else if range == .today {
                         todayCards(family)
                     } else {
@@ -108,11 +108,11 @@ struct ChoresView: View {
             }
         }
 
-        if family.kids.count > 1 {
+        if family.choreDoers.count > 1 {
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     Chip(title: "Everyone", color: accent, isOn: kidFilter == nil, showsDot: false) { kidFilter = nil }
-                    ForEach(family.kids) { kid in
+                    ForEach(family.choreDoers) { kid in
                         Chip(title: kid.name, color: kid.color.color, isOn: kidFilter == kid.id) {
                             kidFilter = kidFilter == kid.id ? nil : kid.id
                         }
@@ -129,7 +129,7 @@ struct ChoresView: View {
 
     @ViewBuilder
     private func todayCards(_ family: FamilySnapshot) -> some View {
-        let kids = family.kids.filter { kidFilter == nil || $0.id == kidFilter }
+        let kids = family.choreDoers.filter { kidFilter == nil || $0.id == kidFilter }
         ForEach(kids) { kid in
             let items = family.items(for: kid).filter { !$0.chore.upForGrabs || $0.memberID == kid.id }
             KidChoreSection(kid: kid, items: items, family: family, onEdit: edit, onToggle: toggle)
@@ -174,10 +174,10 @@ struct ChoresView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     controls(family)
-                    if family.kids.isEmpty {
-                        EmptyCard(symbol: "person.badge.plus", title: "No kids yet", message: "Add kids in Family, then give them chores.")
+                    if family.choreDoers.isEmpty {
+                        EmptyCard(symbol: "person.badge.plus", title: "No one has chores yet", message: "Add kids in Family, then give out chores.")
                     }
-                    let kids = family.kids.filter { kidFilter == nil || $0.id == kidFilter }
+                    let kids = family.choreDoers.filter { kidFilter == nil || $0.id == kidFilter }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 12, alignment: .top)], alignment: .leading, spacing: 12) {
                         ForEach(kids) { kid in
                             let items = family.items(for: kid).filter { !$0.chore.upForGrabs || $0.memberID == kid.id }
@@ -242,6 +242,8 @@ private struct KidChoreSection: View {
     private var summary: String {
         let done = items.filter { $0.status.isDone }.count
         let earned = items.filter { $0.status == .approved }.reduce(0) { $0 + $1.points }
+        // Parents' chores don't earn points.
+        guard kid.isKid else { return "\(done) of \(items.count) done" }
         return "\(done) of \(items.count) done · \(PointWords.current().count(earned)) earned"
     }
 }
@@ -268,7 +270,9 @@ private struct KidColumn: View {
                             .monospacedDigit()
                     }
                     Spacer()
-                    PointsLabel(points: family.balance(of: kid), font: .footnote.weight(.semibold))
+                    if kid.isKid {
+                        PointsLabel(points: family.balance(of: kid), font: .footnote.weight(.semibold))
+                    }
                 }
                 ProgressView(value: items.isEmpty ? 0 : Double(done) / Double(items.count))
                     .tint(kid.color.color)
@@ -372,7 +376,7 @@ private struct UpForGrabsRow: View {
     @Environment(\.accent) private var accent
 
     var body: some View {
-        let eligible = family.kids.filter { item.chore.assigneeIDs.isEmpty || item.chore.assigneeIDs.contains($0.id) }
+        let eligible = item.chore.assigneeIDs.isEmpty ? family.kids : family.members.filter { item.chore.assigneeIDs.contains($0.id) }
         HStack(spacing: 12) {
             Menu {
                 Section("Who did it?") {
@@ -424,7 +428,7 @@ private struct WeekBoard: View {
 
     var body: some View {
         let days = days
-        let kids = family.kids.filter { kidFilter == nil || $0.id == kidFilter }
+        let kids = family.choreDoers.filter { kidFilter == nil || $0.id == kidFilter }
         ForEach(kids) { kid in
             let perDay = days.map { family.items(for: kid, on: $0).filter { !$0.chore.upForGrabs || $0.memberID == kid.id } }
             let chores = uniqueChores(perDay.flatMap { $0 })
@@ -433,9 +437,11 @@ private struct WeekBoard: View {
                     Circle().fill(kid.color.color).frame(width: 10, height: 10)
                     Text(kid.name).font(.title3.bold())
                     Spacer()
-                    Text("\(PointWords.current().count(family.earnedThisWeek(by: kid))) this week")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    if kid.isKid {
+                        Text("\(PointWords.current().count(family.earnedThisWeek(by: kid))) this week")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding(.horizontal, 4)
                 VStack(spacing: 0) {

@@ -269,12 +269,12 @@ private struct StarterStep: View {
     private func save() {
         guard !didSave else { return }
         didSave = true
-        let me = Member(name: draft.myName.trimmingCharacters(in: .whitespaces), role: .parent, sortOrder: 0)
+        let me = Member(name: draft.myName.trimmingCharacters(in: .whitespaces), role: .parent, color: .teal, sortOrder: 0)
         me.photoData = draft.myPhoto
         context.insert(me)
         let partner = draft.partnerName.trimmingCharacters(in: .whitespaces)
         if !partner.isEmpty {
-            let member = Member(name: partner, role: .parent, sortOrder: 1)
+            let member = Member(name: partner, role: .parent, color: .pink, sortOrder: 1)
             member.photoData = draft.partnerPhoto
             context.insert(member)
         }

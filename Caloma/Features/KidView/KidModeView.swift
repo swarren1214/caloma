@@ -317,6 +317,8 @@ struct KidDayView: View {
     @State private var counterBump = 0
     @State private var showParty = false
     @State private var photoFor: BoardItem?
+    /// My Jobs or My Day.
+    @State private var page: KidPage = .jobs
 
     private struct Flight: Identifiable, Equatable {
         let id = UUID()
@@ -340,17 +342,25 @@ struct KidDayView: View {
             VStack(spacing: 18) {
                 KidTopBar(kid: kid, kids: kids, onPick: onPick, onLeave: onLeave)
                 header(family)
-                ProgressTrack(done: done, total: mine.count, kid: kid)
-                if items.isEmpty {
-                    nothingToday
+                KidPageSwitch(page: $page, color: color)
+                if page == .day {
+                    KidMyDayView(kid: kid) {
+                        withAnimation(.snappy) { page = .jobs }
+                    }
+                    .transition(.opacity)
                 } else {
-                    LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(items) { item in
-                            JobTile(item: item, kid: kid, isNext: item.id == items.first(where: { $0.status == .open })?.id, isCelebrating: celebrating == item.id, celebration: celebration, compact: sizeClass == .compact) {
-                                tapped(item, family: family)
+                    ProgressTrack(done: done, total: mine.count, kid: kid)
+                    if items.isEmpty {
+                        nothingToday
+                    } else {
+                        LazyVGrid(columns: columns, spacing: 14) {
+                            ForEach(items) { item in
+                                JobTile(item: item, kid: kid, isNext: item.id == items.first(where: { $0.status == .open })?.id, isCelebrating: celebrating == item.id, celebration: celebration, compact: sizeClass == .compact) {
+                                    tapped(item, family: family)
+                                }
+                                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("kid")) } action: { tileFrames[item.id] = $0 }
+                                .zIndex(celebrating == item.id ? 1 : 0)
                             }
-                            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("kid")) } action: { tileFrames[item.id] = $0 }
-                            .zIndex(celebrating == item.id ? 1 : 0)
                         }
                     }
                 }
@@ -559,6 +569,41 @@ struct KidDayView: View {
 }
 
 /// Avatar running along a track toward the trophy, one stop per job.
+enum KidPage: String, CaseIterable, Identifiable {
+    case jobs = "My Jobs", day = "My Day"
+    var id: String { rawValue }
+}
+
+/// Big "My Jobs | My Day" buttons for Kid View.
+struct KidPageSwitch: View {
+    @Binding var page: KidPage
+    var color: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(KidPage.allCases) { option in
+                let on = page == option
+                Button {
+                    withAnimation(.snappy) { page = option }
+                } label: {
+                    Label(option.rawValue, systemImage: option == .jobs ? "checklist" : "calendar")
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .frame(maxWidth: .infinity, minHeight: 46)
+                        .foregroundStyle(on ? Color.white : Color.secondary)
+                        .background {
+                            if on { Capsule().fill(color) }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(KidPressStyle())
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+    }
+}
+
 private struct ProgressTrack: View {
     var done: Int
     var total: Int

@@ -22,6 +22,7 @@ struct HomeView: View {
         let family = family
         CalomaScreen(title: "Home") {
             kidsToday(family)
+            ComingUpCard()
             if family.needsOKCount > 0 {
                 needsOK(family)
             }
@@ -228,6 +229,73 @@ struct FamilyGoalCard: View {
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22))
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Home's look at the calendar: what's left today and tomorrow, up to four things.
+struct ComingUpCard: View {
+    @Environment(AppRouter.self) private var router
+    @Environment(\.accent) private var accent
+    @Query(filter: #Predicate<FamilyEvent> { !$0.isArchived }) private var events: [FamilyEvent]
+    @Query(sort: \Member.sortOrder) private var members: [Member]
+
+    var body: some View {
+        let calendar = Calendar.current
+        let now = Date.now
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+        let upcoming = CalendarMath.occurrences(of: events.map(\.record), from: now, through: tomorrow)
+            .filter { $0.event.isAllDay ? true : $0.end > now }
+            .prefix(4)
+        VStack(alignment: .leading, spacing: 10) {
+            SectionTitle("Coming Up") {
+                Button("Calendar") { router.tab = .calendar }
+            }
+            if upcoming.isEmpty {
+                Button {
+                    router.newEvent()
+                } label: {
+                    EmptyCard(symbol: "calendar.badge.plus", title: "Nothing on the calendar", message: "Add practices, appointments and the fun stuff.")
+                }
+                .buttonStyle(.plain)
+            } else {
+                CardList(items: Array(upcoming), inset: 58) { occurrence in
+                    Button {
+                        router.tab = .calendar
+                    } label: {
+                        row(occurrence)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func row(_ occurrence: EventOccurrence) -> some View {
+        let going = members.filter { occurrence.event.attendeeIDs.contains($0.id) }
+        let color = occurrence.event.isEveryone ? accent : (going.first?.color.color ?? accent)
+        let calendar = Calendar.current
+        let when = calendar.isDateInToday(occurrence.start) ? "Today" : "Tomorrow"
+        return HStack(spacing: 12) {
+            IconTile(symbol: occurrence.event.symbol, color: color, size: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(occurrence.event.title)
+                    .lineLimit(1)
+                Text("\(when) · \(CalendarMath.timeLabel(occurrence))")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            Spacer(minLength: 4)
+            if !occurrence.event.isEveryone {
+                FacePile(members: going)
+            }
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 60)
+        .contentShape(Rectangle())
     }
 }
 

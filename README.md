@@ -1,14 +1,16 @@
 # Caloma
 
 A native iPhone and iPad app for running a household: kids' chores with rewards the family
-sets up itself, and the home care jobs that come around every few months. SwiftUI with Liquid
-Glass, SwiftData, and the family's own iCloud as the only backend. No accounts and no servers.
+sets up itself, a family calendar, and the home care jobs that come around every few months.
+SwiftUI with Liquid Glass, SwiftData, and the family's own iCloud as the only backend, shared
+between both parents' Apple Accounts. No accounts and no servers.
 Caloma is the fourth app in the family with Hearken, Sated and Suffice, and follows the same
 project setup, conventions and onboarding.
 
 The screens follow the **Tend** designs on the Claude Design canvas (iPhone and landscape
 iPad): Home, the chore board, Kid View with its celebrations, Needs Your OK, New Chore,
-Rewards, the kid's store, New Reward, Home Care and its task detail, and Family.
+Rewards, the kid's store, New Reward, Home Care and its task detail, Family, and the Family
+Calendar row (week and month, New Event, Kid View › My Day, and the iPad week).
 
 Requires Xcode 26 and iOS 26. iPhone and iPad.
 
@@ -31,13 +33,28 @@ months. Onboarding offers eight starter chores and the family store from the des
 
 ## Screens
 
-- **Home**: each kid's ring for today with their points (tap for the kid's page), Needs Your
-  OK, the next three home care tasks, and the family goal. Toolbar: Kid View and Family.
-- **Chores**: Today or This Week, filtered by kid. Higher-priority chores come first and
+- **Home**: each kid's ring for today with their points (tap for the kid's page), Coming Up
+  (what's left on the calendar today and tomorrow), Needs Your OK, the next three home care
+  tasks, and the family goal. Toolbar: Kid View and Family.
+- **Chores**: Today or This Week, filtered by person. Parents can have chores too (they show
+  on the board after the kids, without points). Higher-priority chores come first and
   show !, !! or !!! like Reminders. iPhone shows a card per kid; iPad shows a
   column per kid with Needs Your OK alongside. A parent's tap on a check approves it (or
   undoes it); tapping a chore edits it. Up-for-grabs chores ask which kid did it. This Week
   shows each chore with a dot per day.
+- **Calendar**: Week (a week strip with a dot for each person busy that day, then the day:
+  all-day things, events by time, and the day's chores) or Month (dots per person). Filter to
+  one person's calendar; Chores & Home Care can be hidden. A countdown card shows the next
+  event someone's counting down to. Events show who's going (faces), who's driving and what
+  to bring. iPad: the family down the side, each person's photo in a ring of their color (tap
+  to hide or show them), beside a week grid of hours with a line for now, or the month and
+  day side by side.
+- **New Event**: name, icon, location, who's going (Everyone or anyone in the family), who's
+  driving, all day or times, repeat (never, daily, weekly on chosen days, monthly, yearly,
+  with an optional last day), an alert, notes. For the kids going: Remember to Bring (they
+  tick it off in Kid View), Show in Kid View, Count Down to It, and a Get-Ready Chore
+  ("Get ready for soccer practice" the night before, for one-time, daily and weekly events).
+  Opening an event shows who's packed what, and repeating events can skip one day.
 - **Needs Your OK**: finished chores (with the kid's photo when the chore asks for one) and
   reward requests. Send Back reopens a chore for the kid; Approve All clears the list.
 - **New Chore**: name and icon (a dozen quick picks, or More Icons for a searchable library of
@@ -57,10 +74,11 @@ months. Onboarding offers eight starter chores and the family store from the des
   can be in one room, picked in New Chore (with New Room right there). The room shows on chore
   rows and as a capsule on Kid View tiles, and the Chores board has a room filter next to
   Today / This Week.
-- **Family**: members (photos cropped in Move and Scale; a color for everyone, from the
-  presets or any custom color), what points are called (Points, Stars, Coins or
-  your own word), approvals by default, streak bonus, allowance (rate, payday, spend / save /
-  give split, Pay Out Now), home care reminders, accent color, erase.
+- **Family**: members (photos cropped in Move and Scale; a color for everyone, parents
+  included, from the presets or any custom color; parents start teal and pink), Family
+  Sharing, rooms, what points are called (Points, Stars, Coins or your own word), approvals
+  by default, streak bonus, allowance (rate, payday, spend / save / give split, Pay Out Now),
+  home care reminders, Apple Calendar, accent color, erase.
 - **Kid page** (from Home or Rewards): balance, waiting points, streak, this week, today's
   chores, every change to their points, Adjust, and Open Kid View for them.
 
@@ -95,6 +113,10 @@ the app was closed in it, so it's safe on a shared iPad.
 - With Reduce Motion on, the confetti, flying stars and bouncing are skipped; everything
   else works the same.
 
+- **My Day** (next to My Jobs at the top of Kid View): a big "3 sleeps until Movie Night!"
+  countdown with floating moons, today as a timeline (the next event is outlined and pulsing,
+  with its packing list to tick off), how many jobs are left, and the rest of the week.
+
 ### Where the build goes beyond the designs
 
 - The kid's page, Adjust points, Pay Out, the kid switcher, the parent check and the "Who's
@@ -122,42 +144,74 @@ a chore or a reward never deletes anyone's history.
 - `PointEntry`: every change to a kid's points (chore, streak bonus, reward, family goal,
   allowance, adjustment). A balance is the sum.
 - `Room`: name, icon, order. `Chore.roomID` links a chore to one.
+- `FamilyEvent`: title, icon, location, notes, start and end, all day, who's going
+  (comma-separated UUIDs, empty for everyone), driver, repeat rule, weekdays, last day, skipped
+  days, alert, what to bring, Kid View, countdown, and `getReadyChoreID` (that chore has
+  `eventID` back).
+- `EventPacking`: which "bring" items a kid has packed for one day of an event.
+- `FamilySetting`: one family-wide setting (points name, approvals, allowance, accent, family
+  name), so both parents' phones agree. Its id is made from its key.
 - `HomeTask`, `HomeTaskLog`: what needs doing, how often, when it's next due, and each time
   it was done.
 
 All the arithmetic (who has what on which day, turns, streaks, balances, reward limits,
-allowance, due dates) is in `Models/ChoreMath.swift` on plain Sendable records, and tested in
-`CalomaTests/ChoreMathTests.swift`.
+allowance, due dates) is in `Models/ChoreMath.swift`, and the calendar's (repeats, multi-day
+events, countdowns, month grids) in `Models/CalendarMath.swift`, on plain Sendable records,
+tested in `CalomaTests/ChoreMathTests.swift` and `CalendarMathTests.swift`.
 
-Every property has a default and nothing is unique, so all nine models sync with CloudKit
-as they are.
+Every property has a default and nothing is unique (CloudKit's rules), and every model's
+`id` keeps its value after deletion (`.preserveValueOnDeletion`) so deletes can be synced.
 
-## Turning on iCloud sync
+## iCloud sync and Family Sharing
 
-The family's data is saved on the device while `AppConfig.cloudSyncEnabled` is `false`. To
-sync through the private iCloud database:
+Sync is on (`AppConfig.cloudSyncEnabled`). Everything is saved on the device with SwiftData,
+and `Sync/CloudSync.swift` keeps it in step through CloudKit with a `CKSyncEngine`:
 
-1. In **Signing & Capabilities**, confirm the iCloud container is checked under **CloudKit**.
-   Push Notifications and Remote notifications are already in the entitlements and Info.plist.
-2. Set `AppConfig.cloudSyncEnabled = true` and run once on a device signed in to iCloud.
-3. In the CloudKit Console, deploy the development schema to production before TestFlight.
+- The family lives in one record zone, **Family**, in the private database of the parent who
+  set it up. Every model is a record named by its UUID (`Sync/CloudRecord.swift` has each
+  model's fields; add new properties there too).
+- Local changes come from SwiftData's history. A save queues what changed; deletes are read
+  from the history's tombstones. Changes from iCloud are saved by a context whose author is
+  `sync`, so they aren't sent back.
+- When two phones change the same record, the last one sent wins (it takes the server's change
+  tag and sends again).
+- **Family Sharing** (Family › Family Sharing) shares the whole zone with
+  `UICloudSharingController`: invite in Messages or Mail. The other parent taps the invitation,
+  Caloma asks "Join the family?" (`JoinFamilySheet`), and their phone switches to the family's
+  zone in its shared database. What was on their phone is replaced. Leave Family takes it back
+  off their phone; the owner can stop sharing from the same sheet.
+- Family-wide settings sync as `FamilySetting` records (`Sync/SharedSettings.swift`); device
+  settings (reminders, Kid View, Apple Calendar) stay on each device.
+- Erase All Data deletes the zone from iCloud too (for everyone), or for someone who joined,
+  leaves the family.
 
-Settings (point name, allowance, accent) are in `UserDefaults` for now; they move to
-`NSUbiquitousKeyValueStore` when sync goes on.
+Before the first run with sync:
 
-## Sharing with your partner and the kids' devices (next milestone)
+1. In **Signing & Capabilities**, confirm iCloud › **CloudKit** is checked with
+   `iCloud.com.stephenwarren.caloma`, and Push Notifications and Background Modes › Remote
+   notifications are on (they're already in the entitlements and Info.plist, along with
+   `CKSharingSupported`).
+2. Run on a device signed in to iCloud. Record types are created in the development
+   environment the first time each kind of record is saved.
+3. Test sharing with two Apple Accounts (two devices, or a device and a second account on
+   another device). Development builds share in the development environment.
+4. Before TestFlight, deploy the development schema to production in the CloudKit Console.
 
-Private-database sync keeps one Apple Account's iPhone, iPad and Mac in step, which already
-covers a shared family iPad on the same account. Two parents on two Apple Accounts, or kids
-on their own devices, need **CloudKit sharing**, the same plan as Suffice's: keep the
-SwiftData models for the UI, mirror them into a shared record zone with `CKSyncEngine`, and
-invite from Family with `UICloudSharingController`.
+## Apple Calendar
+
+Off by default; Family › Calendar › Apple Calendar turns on either or both, per device:
+
+- **Show Apple Calendar Events**: the calendars picked there show on the family calendar,
+  read-only, with their calendar's color and name.
+- **Add Family Events to Apple Calendar**: the next two months of family events are written
+  to a calendar named Caloma, and rewritten whenever an event changes. Turning it off takes
+  them back out.
 
 ## Next up
 
-- CloudKit sharing for the family (above).
+- Choose who you are on each phone (for "Mom drives" alerts only on Mom's phone).
 - Widgets: today's chores for each kid, Needs Your OK, and home care due soon.
-- Notifications when a kid finishes a chore or asks for a reward (needs sharing first).
+- Notifications when a kid finishes a chore or asks for a reward, now that sharing is in.
 - App Intents ("Mark Max's bed made"), and a Kid View Live Activity.
 - Sounds to go with the celebrations.
 - Missed chores costing points, and per-kid point rules.
@@ -179,11 +233,16 @@ from the icon's gradient, deepened so white text on it stays readable.
 Caloma/
   App/            App entry, router, tab bar, configuration, preview data
   DesignSystem/   Theme and colors, cards, avatars, rings, chips, photo tools
-  Features/       Onboarding, Home, Chores (board, approvals, editor), Rewards (store,
-                  editor), HomeCare (list, detail, editor), Family (settings, kid page,
-                  member editor), KidView (Kid View, store, celebrations)
-  Models/         SwiftData models, ChoreMath, FamilySnapshot, persistence and starter data
-  Services/       Family (every change to points, chores, rewards and home care), reminders
+  Features/       Onboarding, Home, Chores (board, approvals, editor), Calendar (week, month,
+                  iPad grid, event editor and detail, Apple Calendar settings), Rewards
+                  (store, editor), HomeCare (list, detail, editor), Family (settings, kid
+                  page, member editor, rooms, sharing), KidView (Kid View, My Day, store,
+                  celebrations)
+  Models/         SwiftData models, ChoreMath, CalendarMath, FamilySnapshot, persistence and
+                  starter data
+  Services/       Family (every change to points, chores, rewards, events and home care),
+                  reminders, event alerts, Apple Calendar
+  Sync/           CloudKit sync engine, record mapping, sharing, shared settings
 CalomaTests/      Swift Testing
 ```
 
@@ -194,4 +253,6 @@ The app runs in every orientation, in Split View and Stage Manager.
 - Tabs sit in a bar at the top that opens into a sidebar (`.sidebarAdaptable`).
 - Chores shows a column per kid with Needs Your OK beside it, as in the iPad designs.
 - Kid View lays jobs out in a grid of large tiles, with the store beside the jar.
-- Keyboard: ⌘N new chore, ⇧⌘N new reward, ⌘1–4 the tabs, ⌘O Needs Your OK, ⌘K Kid View.
+- Calendar shows the family down the side and a week of hours, as in the iPad design.
+- Keyboard: ⌘N new chore, ⇧⌘N new reward, ⌘E new event, ⌘1–5 the tabs, ⌘O Needs Your OK,
+  ⌘K Kid View.

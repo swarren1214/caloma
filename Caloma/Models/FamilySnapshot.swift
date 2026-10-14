@@ -20,6 +20,12 @@ struct FamilySnapshot {
     var kids: [Member] { members.filter(\.isKid) }
     var parents: [Member] { members.filter { !$0.isKid } }
 
+    /// Everyone who has chores: every kid, then any parent a chore is assigned to.
+    var choreDoers: [Member] {
+        let assigned = Set(chores.filter { !$0.isArchived }.flatMap(\.assigneeIDs))
+        return kids + parents.filter { assigned.contains($0.id) }
+    }
+
     func member(_ id: UUID?) -> Member? {
         guard let id else { return nil }
         return members.first { $0.id == id }

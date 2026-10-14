@@ -8,7 +8,7 @@ import SwiftData
 /// A parent or a kid.
 @Model
 final class Member {
-    var id: UUID = UUID()
+    @Attribute(.preserveValueOnDeletion) var id: UUID = UUID()
     var name: String = ""
     var roleRaw: String = MemberRole.kid.rawValue
     var colorRaw: String = KidColor.blue.rawValue
@@ -17,11 +17,11 @@ final class Member {
     var isArchived: Bool = false
     var createdAt: Date = Date.now
 
-    /// Without a color, kids start blue and parents gray.
+    /// Without a color, kids start blue and parents teal.
     init(name: String, role: MemberRole, color: KidColor? = nil, sortOrder: Int = 0) {
         self.name = name
         self.roleRaw = role.rawValue
-        self.colorRaw = (color ?? (role == .kid ? .blue : .gray)).rawValue
+        self.colorRaw = (color ?? (role == .kid ? .blue : .teal)).rawValue
         self.sortOrder = sortOrder
     }
 
@@ -49,7 +49,7 @@ nonisolated enum MemberRole: String, CaseIterable, Identifiable, Codable, Sendab
 /// A chore: who does it, how often, and what it's worth.
 @Model
 final class Chore {
-    var id: UUID = UUID()
+    @Attribute(.preserveValueOnDeletion) var id: UUID = UUID()
     var title: String = ""
     var symbol: String = "checkmark.circle"
     var points: Int = 5
@@ -72,6 +72,8 @@ final class Chore {
     var homeTaskID: UUID?
     /// The room it's in, if any.
     var roomID: UUID?
+    /// Set on an event's get-ready chore ("Get ready for soccer practice").
+    var eventID: UUID?
     /// How important it is: 0 none, 1 low, 2 medium, 3 high (`ChorePriority`).
     var priorityRaw: Int = 0
     var isArchived: Bool = false
@@ -177,7 +179,7 @@ nonisolated enum ChorePriority: Int, CaseIterable, Identifiable, Comparable, Sen
 /// A kid marking a chore done for one day. Points land when it's approved.
 @Model
 final class ChoreCompletion {
-    var id: UUID = UUID()
+    @Attribute(.preserveValueOnDeletion) var id: UUID = UUID()
     var choreID: UUID?
     var memberID: UUID?
     /// The day this counts for (start of day). For a one-time chore, its start day.
@@ -219,7 +221,7 @@ nonisolated enum CompletionStatus: String, Codable, Sendable {
 /// Something kids can spend points on.
 @Model
 final class Reward {
-    var id: UUID = UUID()
+    @Attribute(.preserveValueOnDeletion) var id: UUID = UUID()
     var name: String = ""
     var note: String = ""
     var symbol: String = "gift"
@@ -325,7 +327,7 @@ nonisolated enum RewardLimit: String, CaseIterable, Identifiable, Codable, Senda
 /// A kid asking for a reward.
 @Model
 final class Redemption {
-    var id: UUID = UUID()
+    @Attribute(.preserveValueOnDeletion) var id: UUID = UUID()
     var rewardID: UUID?
     var memberID: UUID?
     /// What it cost when asked for.
@@ -358,7 +360,7 @@ nonisolated enum RedemptionStatus: String, Codable, Sendable {
 /// One change to a kid's points. A kid's balance is the sum of theirs.
 @Model
 final class PointEntry {
-    var id: UUID = UUID()
+    @Attribute(.preserveValueOnDeletion) var id: UUID = UUID()
     var memberID: UUID?
     /// Positive for earned, negative for spent.
     var points: Int = 0
@@ -405,7 +407,7 @@ nonisolated enum PointKind: String, Codable, Sendable {
 /// A home care job that comes around: replace the HVAC filter, test smoke detectors.
 @Model
 final class HomeTask {
-    var id: UUID = UUID()
+    @Attribute(.preserveValueOnDeletion) var id: UUID = UUID()
     var name: String = ""
     var symbol: String = "wrench.and.screwdriver"
     var areaRaw: String = HomeArea.other.rawValue
@@ -505,7 +507,7 @@ nonisolated enum HomeArea: String, CaseIterable, Identifiable, Codable, Sendable
 /// A home care task getting done.
 @Model
 final class HomeTaskLog {
-    var id: UUID = UUID()
+    @Attribute(.preserveValueOnDeletion) var id: UUID = UUID()
     var taskID: UUID?
     var memberID: UUID?
     var doneAt: Date = Date.now
@@ -527,7 +529,7 @@ final class HomeTaskLog {
 /// A room in the house: Kitchen, Ella's Room, the garage. Chores can be assigned to one.
 @Model
 final class Room {
-    var id: UUID = UUID()
+    @Attribute(.preserveValueOnDeletion) var id: UUID = UUID()
     var name: String = ""
     var symbol: String = "door.left.hand.closed"
     var sortOrder: Int = 0

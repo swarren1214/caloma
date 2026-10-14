@@ -13,24 +13,28 @@ enum Persistence {
         HomeTask.self,
         HomeTaskLog.self,
         Room.self,
+        FamilyEvent.self,
+        EventPacking.self,
+        FamilySetting.self,
     ])
 
     private static let log = Logger(subsystem: "com.stephenwarren.caloma", category: "persistence")
 
     static func makeContainer(inMemory: Bool = false) -> ModelContainer {
-        // Previews and tests use an in-memory store and never touch iCloud.
-        let syncs = AppConfig.cloudSyncEnabled && !inMemory
+        // The store itself never talks to iCloud: CloudSync does that, so the family can be
+        // shared between Apple Accounts (SwiftData's own CloudKit mirroring can't share).
         let configuration = ModelConfiguration(
             "Caloma",
             schema: schema,
             isStoredInMemoryOnly: inMemory,
-            cloudKitDatabase: syncs ? .private(AppConfig.cloudKitContainerID) : .none
+            cloudKitDatabase: .none
         )
         do {
             return try ModelContainer(for: schema, configurations: [configuration])
         } catch {
             // Never crash on launch over the store. Set the unreadable one aside (kept for
             // recovery) and start fresh; with sync on, iCloud fills it back in.
+            SyncState().save()
             log.fault("Couldn't open the data store, starting a fresh one: \(error.localizedDescription, privacy: .public)")
             setAside(configuration.url)
             if let container = try? ModelContainer(for: schema, configurations: [configuration]) {
@@ -73,6 +77,30 @@ enum Persistence {
         } catch {
             log.error("Couldn't save: \(error.localizedDescription, privacy: .public)")
         }
+    }
+}
+
+/// One-time fixes to data saved by earlier versions, run at launch.
+enum Upgrades {
+    static func run(in context: ModelContext, defaults: UserDefaults = .standard) {
+        giveParentsColors(in: context, defaults: defaults)
+    }
+
+    /// Parents used to be gray. Now everyone has a color, for the chore board and the calendar.
+    private static func giveParentsColors(in context: ModelContext, defaults: UserDefaults) {
+        let key = "upgrade.parentColors"
+        guard !defaults.bool(forKey: key) else { return }
+        defaults.set(true, forKey: key)
+        let members = Persistence.fetchAll(Member.self, in: context).sorted { $0.sortOrder < $1.sortOrder }
+        var used = members.filter { $0.colorRaw != KidColor.gray.rawValue }.map(\.color)
+        var changed = false
+        for parent in members where !parent.isKid && parent.colorRaw == KidColor.gray.rawValue {
+            let color = KidColor.next(for: .parent, after: used)
+            parent.color = color
+            used.append(color)
+            changed = true
+        }
+        if changed { Persistence.save(context) }
     }
 }
 

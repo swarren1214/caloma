@@ -1,10 +1,10 @@
 import SwiftUI
 
 enum AppTab: Hashable {
-    case home, chores, rewards, homeCare
+    case home, chores, calendar, rewards, homeCare
 }
 
-/// The system Liquid Glass tab bar: Home, Chores, Rewards and Home Care. On iPad it's a bar at
+/// The system Liquid Glass tab bar: Home, Chores, Calendar, Rewards and Home Care. On iPad it's a bar at
 /// the top that opens into a sidebar.
 struct RootTabView: View {
     @Environment(AppRouter.self) private var router
@@ -23,6 +23,12 @@ struct RootTabView: View {
                 NavigationStack { ChoresView() }
             } label: {
                 tabLabel("Chores", "checklist")
+            }
+
+            Tab(value: AppTab.calendar) {
+                NavigationStack { CalendarView() }
+            } label: {
+                tabLabel("Calendar", "calendar")
             }
 
             Tab(value: AppTab.rewards) {

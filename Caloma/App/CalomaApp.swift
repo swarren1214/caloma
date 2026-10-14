@@ -1,8 +1,10 @@
+import CloudKit
 import SwiftData
 import SwiftUI
 
 @main
 struct CalomaApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var router = AppRouter.shared
     private let container: ModelContainer
 
@@ -10,6 +12,9 @@ struct CalomaApp: App {
         let container = Persistence.makeContainer()
         self.container = container
         StarterData.seedIfNeeded(in: container.mainContext)
+        Upgrades.run(in: container.mainContext)
+        CloudSync.shared.start(with: container)
+        SharedSettings.shared.start(with: container)
     }
 
     var body: some Scene {
@@ -32,12 +37,15 @@ struct CalomaCommands: Commands {
                 .keyboardShortcut("n")
             Button("New Reward") { router.sheet = .newReward }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
+            Button("New Event") { router.newEvent() }
+                .keyboardShortcut("e")
         }
         CommandMenu("Go") {
             Button("Home") { router.tab = .home }.keyboardShortcut("1")
             Button("Chores") { router.tab = .chores }.keyboardShortcut("2")
-            Button("Rewards") { router.tab = .rewards }.keyboardShortcut("3")
-            Button("Home Care") { router.tab = .homeCare }.keyboardShortcut("4")
+            Button("Calendar") { router.tab = .calendar }.keyboardShortcut("3")
+            Button("Rewards") { router.tab = .rewards }.keyboardShortcut("4")
+            Button("Home Care") { router.tab = .homeCare }.keyboardShortcut("5")
             Divider()
             Button("Needs Your OK") { router.sheet = .approvals }.keyboardShortcut("o")
             Button("Kid View") { router.openKidView() }.keyboardShortcut("k")
@@ -52,6 +60,13 @@ final class AppRouter {
 
     var tab: AppTab = .home
     var sheet: AppSheet?
+    /// Set to open New Event on the calendar (⌘E); the calendar clears it.
+    var pendingNewEvent = false
+
+    func newEvent() {
+        tab = .calendar
+        pendingNewEvent = true
+    }
 
     /// Kid View covers the whole app. Remembered, so a kid's iPad opens back into it.
     var kidViewOpen: Bool = UserDefaults.standard.bool(forKey: SettingsKey.kidViewOpen) {
@@ -85,6 +100,8 @@ struct AppRoot: View {
     @Environment(\.modelContext) private var context
     @AppStorage(SettingsKey.onboarded) private var onboarded = false
     @AppStorage(SettingsKey.accentHex) private var accentHex = hexString(Brand.defaultAccentHex)
+    @Environment(\.scenePhase) private var scenePhase
+    private var sync: CloudSync { CloudSync.shared }
 
     private var accent: Color { Color(hexString: accentHex) ?? Brand.defaultAccent }
 
@@ -116,15 +133,100 @@ struct AppRoot: View {
             KidModeView()
                 .environment(\.accent, accent)
         }
+        .task {
+            EventAlerts.reschedule(in: context)
+            AppleCalendar.shared.pushFamilyEvents(in: context)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await CloudSync.shared.syncNow() }
+            EventAlerts.reschedule(in: context)
+        }
+        .sheet(item: Binding(get: { sync.pendingInvite.map(InviteRef.init) }, set: { if $0 == nil { sync.pendingInvite = nil } })) { invite in
+            JoinFamilySheet(metadata: invite.metadata)
+                .tint(accent)
+                .environment(\.accent, accent)
+        }
+        .alert(sync.notice ?? "", isPresented: Binding(get: { sync.notice != nil }, set: { if !$0 { sync.notice = nil } })) {
+            Button("OK") { sync.notice = nil }
+        }
         // Notifications open caloma://homecare, caloma://chores, caloma://rewards.
         .onOpenURL { url in
             guard url.scheme == "caloma" else { return }
             switch url.host() {
             case "chores": router.tab = .chores
+            case "calendar": router.tab = .calendar
             case "rewards": router.tab = .rewards
             case "homecare": router.tab = .homeCare
             default: router.tab = .home
             }
         }
+    }
+}
+
+/// An invitation waiting for an answer, for `.sheet(item:)`.
+struct InviteRef: Identifiable {
+    var metadata: CKShare.Metadata
+    var id: String { metadata.share.recordID.recordName + metadata.share.recordID.zoneID.ownerName }
+}
+
+/// "Join the family?" after tapping an invitation. Joining replaces what's on this device.
+struct JoinFamilySheet: View {
+    var metadata: CKShare.Metadata
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accent) private var accent
+    @State private var joining = false
+
+    private var familyName: String {
+        metadata.share[CKShare.SystemFieldKey.title] as? String ?? "a family"
+    }
+
+    private var ownerName: String {
+        metadata.ownerIdentity.nameComponents.map { $0.formatted(.name(style: .short)) } ?? "Someone"
+    }
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "person.2.circle.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(accent)
+                .padding(.top, 28)
+            Text("Join \(familyName)?")
+                .font(.title.bold())
+                .multilineTextAlignment(.center)
+            Text("\(ownerName) invited you. You'll both see and change the same chores, rewards, points, home care and calendar.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+            Label("Anything already in Caloma on this iPhone is replaced by the family's.", systemImage: "exclamationmark.triangle.fill")
+                .font(.footnote)
+                .foregroundStyle(Brand.waiting)
+                .padding(12)
+                .background(Brand.waiting.opacity(0.12), in: .rect(cornerRadius: 14))
+            Spacer()
+            Button {
+                joining = true
+                Task {
+                    await CloudSync.shared.acceptInvite()
+                    dismiss()
+                }
+            } label: {
+                HStack {
+                    if joining { ProgressView().tint(.white) }
+                    Text(joining ? "Joining…" : "Join Family")
+                }
+                .font(.headline)
+                .frame(maxWidth: .infinity, minHeight: 50)
+            }
+            .buttonStyle(.glassProminent)
+            .disabled(joining)
+            Button("Not Now") {
+                CloudSync.shared.pendingInvite = nil
+                dismiss()
+            }
+            .disabled(joining)
+        }
+        .padding(24)
+        .presentationDetents([.medium, .large])
+        .interactiveDismissDisabled(joining)
     }
 }

@@ -76,7 +76,7 @@ struct MemberEditor: View {
             } header: {
                 Text("Color")
             } footer: {
-                Text(role == .kid ? "Their avatar, their column on the chore board and all of Kid View." : "Their avatar around the app.")
+                Text(role == .kid ? "Their avatar, their column on the chore board, the calendar and all of Kid View." : "Their avatar, their chores and their events on the calendar.")
             }
 
             if member != nil && !isMe {
@@ -144,7 +144,7 @@ struct MemberEditor: View {
             color = member.color
             photo = member.photoData
         } else {
-            color = role == .kid ? KidColor.next(after: members.filter { $0.isKid && !$0.isArchived }.map(\.color)) : .gray
+            color = KidColor.next(for: role, after: members.filter { !$0.isArchived }.map(\.color))
         }
     }
 

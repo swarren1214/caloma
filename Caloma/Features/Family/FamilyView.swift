@@ -66,6 +66,20 @@ struct FamilyView: View {
 
             Section {
                 NavigationLink {
+                    FamilySharingView()
+                } label: {
+                    LabeledContent {
+                        Text(sharingSummary)
+                    } label: {
+                        Label("Family Sharing", systemImage: "person.2.badge.gearshape")
+                    }
+                }
+            } footer: {
+                Text("Share with your partner so you both run the same family from your own phones.")
+            }
+
+            Section {
+                NavigationLink {
                     RoomsView()
                 } label: {
                     LabeledContent {
@@ -145,6 +159,22 @@ struct FamilyView: View {
                 Text("Reminders")
             }
 
+            Section {
+                NavigationLink {
+                    AppleCalendarSettingsView()
+                } label: {
+                    LabeledContent {
+                        Text(AppleCalendar.shared.showsAppleEvents || AppleCalendar.shared.addsFamilyEvents ? "On" : "Off")
+                    } label: {
+                        Label("Apple Calendar", systemImage: "calendar")
+                    }
+                }
+            } header: {
+                Text("Calendar")
+            } footer: {
+                Text("Optional. Show your other calendars beside the family's, or add family events to Apple Calendar.")
+            }
+
             Section("Accent Color") {
                 HStack {
                     ForEach(Brand.accents, id: \.hex) { option in
@@ -175,7 +205,7 @@ struct FamilyView: View {
             }
 
             Section {
-                LabeledContent("Sync", value: AppConfig.cloudSyncEnabled ? "iCloud" : "This device")
+                LabeledContent("Sync", value: AppConfig.cloudSyncEnabled ? (CloudSync.shared.isShared ? "iCloud, shared" : "iCloud") : "This device")
                 LabeledContent("Version", value: AppConfig.version)
                 Button("Erase All Caloma Data", role: .destructive) { confirmsErase = true }
             } header: {
@@ -202,7 +232,17 @@ struct FamilyView: View {
                 dismiss()
             }
         } message: {
-            Text("Every chore, reward, point and home care task is deleted, and Caloma starts over. This can't be undone.")
+            Text(CloudSync.shared.role == .participant
+                 ? "This iPhone leaves the family and Caloma starts over here. The family's data stays with everyone else."
+                 : "Every chore, reward, point, event and home care task is deleted from this device and iCloud\(CloudSync.shared.isShared ? ", for everyone in the family" : ""), and Caloma starts over. This can't be undone.")
+        }
+    }
+
+    private var sharingSummary: String {
+        switch CloudSync.shared.role {
+        case .solo: "Not shared"
+        case .owner: "Shared"
+        case .participant: "Joined"
         }
     }
 

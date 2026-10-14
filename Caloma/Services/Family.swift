@@ -57,13 +57,17 @@ enum Family {
 
     private static func award(_ completion: ChoreCompletion, title: String, in context: ModelContext) {
         guard let memberID = completion.memberID else { return }
-        context.insert(PointEntry(memberID: memberID, points: completion.points, kind: .chore, refID: completion.id, note: title))
+        // Parents can have chores too, but only kids earn points.
+        let earns = member(memberID, in: context)?.isKid ?? true
+        if earns {
+            context.insert(PointEntry(memberID: memberID, points: completion.points, kind: .chore, refID: completion.id, note: title))
+        }
         // A home care task handed to a kid is done when the kid's chore is.
         if let chore = chore(completion.choreID, in: context), let taskID = chore.homeTaskID,
            let task = homeTask(taskID, in: context) {
             markHomeTaskDone(task, by: memberID, save: false, in: context)
         }
-        awardStreakBonusIfEarned(memberID, in: context)
+        if earns { awardStreakBonusIfEarned(memberID, in: context) }
     }
 
     /// +10 on every seventh day in a row, once per day, when Family › Streak Bonus is on.
@@ -179,8 +183,10 @@ enum Family {
 
     // MARK: Erase
 
-    /// Deletes everything and starts over at onboarding.
+    /// Deletes everything and starts over at onboarding. With sync on, the family's iCloud
+    /// data goes too (or, for a parent who joined, they leave the family).
     static func eraseAll(in context: ModelContext, defaults: UserDefaults = .standard) {
+        CloudSync.shared.pauseForErase()
         // Back to onboarding first, so no open screen draws a record that's being deleted.
         for key in [SettingsKey.onboarded, SettingsKey.seeded, SettingsKey.currentMember, SettingsKey.kidViewOpen, SettingsKey.kidViewMember] {
             defaults.removeObject(forKey: key)
@@ -193,9 +199,16 @@ enum Family {
         try? context.delete(model: PointEntry.self)
         try? context.delete(model: HomeTask.self)
         try? context.delete(model: HomeTaskLog.self)
+        try? context.delete(model: FamilyEvent.self)
+        try? context.delete(model: EventPacking.self)
         try? context.delete(model: Room.self)
+        try? context.delete(model: FamilySetting.self)
         Persistence.save(context)
         Reminders.cancelAll()
+        Task {
+            await CloudSync.shared.eraseEverywhere()
+            await CloudSync.shared.didEraseLocally()
+        }
     }
 
     // MARK: Lookups
@@ -203,6 +216,13 @@ enum Family {
     static func chore(_ id: UUID?, in context: ModelContext) -> Chore? {
         guard let id else { return nil }
         var descriptor = FetchDescriptor<Chore>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
+    }
+
+    static func member(_ id: UUID?, in context: ModelContext) -> Member? {
+        guard let id else { return nil }
+        var descriptor = FetchDescriptor<Member>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first
     }

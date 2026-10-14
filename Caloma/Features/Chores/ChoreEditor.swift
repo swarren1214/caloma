@@ -32,6 +32,8 @@ struct ChoreEditor: View {
     @State private var confirmsDelete = false
 
     private var kids: [Member] { members.filter { $0.isKid && !$0.isArchived } }
+    /// Kids first, then parents: anyone in the family can have chores.
+    private var people: [Member] { kids + members.filter { !$0.isKid && !$0.isArchived } }
     private var words: PointWords { PointWords.current() }
 
     private var isValid: Bool {
@@ -58,12 +60,12 @@ struct ChoreEditor: View {
                 }
 
                 Section {
-                    if kids.isEmpty {
-                        Text("Add kids in Family first.").foregroundStyle(.secondary)
+                    if people.isEmpty {
+                        Text("Add your family in Family first.").foregroundStyle(.secondary)
                     } else {
                         ScrollView(.horizontal) {
                             HStack(spacing: 8) {
-                                ForEach(kids) { kid in
+                                ForEach(people) { kid in
                                     Chip(title: kid.name, color: kid.color.color, isOn: assignees.contains(kid.id)) {
                                         toggle(kid.id)
                                     }
@@ -108,6 +110,8 @@ struct ChoreEditor: View {
                 } footer: {
                     if upForGrabs {
                         Text("Any kid can claim it. The first to finish gets the \(words.plural).")
+                    } else if people.contains(where: { !$0.isKid && assignees.contains($0.id) }) {
+                        Text("Parents' chores show on the board and the calendar, without \(words.plural).")
                     }
                 }
 
@@ -237,7 +241,7 @@ struct ChoreEditor: View {
     }
 
     private var turnsDetail: String {
-        let names = kids.filter { assignees.contains($0.id) }.map(\.name)
+        let names = people.filter { assignees.contains($0.id) }.map(\.name)
         return names.formatted(.list(type: .and)) + " swap each week"
     }
 
@@ -299,8 +303,8 @@ struct ChoreEditor: View {
         }
         target.title = name
         target.symbol = symbol
-        // Keep the kids in family order.
-        target.assigneeIDs = kids.map(\.id).filter { assignees.contains($0) }
+        // Keep everyone in family order.
+        target.assigneeIDs = people.map(\.id).filter { assignees.contains($0) }
         target.upForGrabs = upForGrabs
         target.rotates = rotates && assignees.count > 1 && !upForGrabs
         target.repeatRule = repeatRule

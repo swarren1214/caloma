@@ -297,6 +297,12 @@ enum SymbolSets {
         "toilet", "washer", "door.garage.closed", "leaf", "stairs", "books.vertical",
     ]
 
+    static let events = [
+        "calendar", "soccerball", "basketball", "figure.run", "figure.pool.swim", "music.note",
+        "graduationcap", "stethoscope", "birthday.cake", "party.popper", "airplane", "car",
+        "fork.knife", "film", "book", "pawprint", "tent", "star",
+    ]
+
     static let homeCare = [
         "fan", "light.beacon.max", "drop", "dryer", "washer", "refrigerator", "flame", "heater.vertical",
         "house", "leaf", "spigot", "lightbulb", "bolt", "paintbrush", "hammer", "wrench.and.screwdriver",

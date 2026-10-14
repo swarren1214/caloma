@@ -33,6 +33,8 @@ nonisolated enum SettingsKey {
     static let kidViewOpen = "kidView.open"
     /// The kid Kid View last showed.
     static let kidViewMember = "kidView.member"
+    /// What the family calls itself, for the sharing invitation ("The Warrens").
+    static let familyName = "family.name"
     /// Remind about home care tasks before they're due.
     static let homeReminders = "homeCare.reminders"
 }
@@ -97,11 +99,14 @@ nonisolated struct KidColor: RawRepresentable, Hashable, Identifiable, Sendable 
     static let teal = KidColor(preset: "teal")
     static let indigo = KidColor(preset: "indigo")
     static let red = KidColor(preset: "red")
-    /// Parents start out gray.
+    /// Gray, for anyone who'd rather not have a color. Parents used to start out gray.
     static let gray = KidColor(preset: "gray")
 
-    /// The presets handed out to kids, in order.
-    static let allCases: [KidColor] = [.blue, .purple, .orange, .green, .pink, .teal, .indigo, .red]
+    /// The presets handed out to kids, in order. Teal and pink come last, since parents get
+    /// those first.
+    static let allCases: [KidColor] = [.blue, .purple, .orange, .green, .indigo, .red, .pink, .teal]
+    /// The presets handed out to parents, in order.
+    static let parentCases: [KidColor] = [.teal, .pink, .indigo, .red]
     /// Every preset a profile can pick, gray included.
     static let swatches: [KidColor] = allCases + [.gray]
 
@@ -114,6 +119,12 @@ nonisolated struct KidColor: RawRepresentable, Hashable, Identifiable, Sendable 
     /// The colors handed out as kids are added, so siblings start out different.
     static func next(after used: [KidColor]) -> KidColor {
         allCases.first { !used.contains($0) } ?? allCases[used.count % allCases.count]
+    }
+
+    /// The next color for someone joining the family, different from everyone else's.
+    static func next(for role: MemberRole, after used: [KidColor]) -> KidColor {
+        let order = role == .kid ? allCases : parentCases + allCases.filter { !parentCases.contains($0) }
+        return order.first { !used.contains($0) } ?? order[used.count % order.count]
     }
 
     private static let presetHex: [String: UInt32] = [
