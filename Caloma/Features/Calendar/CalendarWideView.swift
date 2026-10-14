@@ -61,8 +61,14 @@ struct CalendarWideView: View {
                 Text(day.formatted(.dateTime.month(.wide).year()))
                     .font(.largeTitle.bold())
             }
-            Spacer()
-            // As in the design: ‹ Today › together, the filter, the view, then New Event.
+            // Week / Month fills the space between the title and the buttons.
+            Picker("View", selection: $mode.animation(.snappy)) {
+                ForEach(CalendarView.Mode.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .frame(minWidth: 160, maxWidth: .infinity)
+            .padding(.horizontal, 12)
+            // ‹ Today › together, the filter, then New Event.
             HStack(spacing: 6) {
                 Button {
                     move(by: -1)
@@ -95,11 +101,6 @@ struct CalendarWideView: View {
             .buttonStyle(.plain)
             .foregroundStyle(accent)
             filterMenu
-            Picker("View", selection: $mode.animation(.snappy)) {
-                ForEach(CalendarView.Mode.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 180)
             Button(action: onNew) {
                 Label("New Event", systemImage: "plus")
                     .font(.subheadline.weight(.semibold))
