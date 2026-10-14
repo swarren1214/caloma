@@ -136,7 +136,7 @@ enum ApprovalAlerts {
         // Not from a device that's in Kid View, even if the notification came in earlier.
         guard !AppRouter.shared.kidViewOpen else { return }
         let context = container.mainContext
-        let target: UUID? = id
+        let target = id
         var completions = FetchDescriptor<ChoreCompletion>(predicate: #Predicate { $0.id == target })
         completions.fetchLimit = 1
         if let completion = try? context.fetch(completions).first {

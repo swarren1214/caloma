@@ -6,6 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D86EE127307FE4A300CD31B7 /* CalomaWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = D86EE11D307FE4A000CD31B7 /* CalomaWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D86EE133307FE52F00CD31B7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D86EE132307FE52F00CD31B7 /* WidgetKit.framework */; };
+		D86EE135307FE52F00CD31B7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D86EE134307FE52F00CD31B7 /* SwiftUI.framework */; };
+		D86EE140307FE53200CD31B7 /* CalomaWatchWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D86EE130307FE52F00CD31B7 /* CalomaWatchWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		7C4A00000000000000000010 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -14,7 +21,46 @@
 			remoteGlobalIDString = 7C4A00000000000000000008;
 			remoteInfo = Caloma;
 		};
+		D86EE125307FE4A300CD31B7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7C4A00000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D86EE11C307FE4A000CD31B7;
+			remoteInfo = "CalomaWatch Watch App";
+		};
+		D86EE13E307FE53200CD31B7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7C4A00000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D86EE12F307FE52F00CD31B7;
+			remoteInfo = CalomaWatchWidgetsExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D86EE12B307FE4A300CD31B7 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				D86EE127307FE4A300CD31B7 /* CalomaWatch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D86EE145307FE53200CD31B7 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D86EE140307FE53200CD31B7 /* CalomaWatchWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		7C4A00000000000000000006 /* Caloma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Caloma.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -22,17 +68,63 @@
 		7C4A0000000000000000001B /* Caloma.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Caloma.entitlements; sourceTree = "<group>"; };
 		7C4A0000000000000000001C /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		7C4A0000000000000000001D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D86EE11D307FE4A000CD31B7 /* CalomaWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "CalomaWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D86EE130307FE52F00CD31B7 /* CalomaWatchWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CalomaWatchWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D86EE132307FE52F00CD31B7 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		D86EE134307FE52F00CD31B7 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		D86EE160307FE76A00CD31B7 /* CalomaWatchWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CalomaWatchWidgetsExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D86EE141307FE53200CD31B7 /* Exceptions for "CalomaWatchWidgets" folder in "CalomaWatchWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D86EE12F307FE52F00CD31B7 /* CalomaWatchWidgetsExtension */;
+		};
+		D86EE15D307FE72300CD31B7 /* Exceptions for "Caloma" folder in "CalomaWatch Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/WatchSnapshot.swift,
+			);
+			target = D86EE11C307FE4A000CD31B7 /* CalomaWatch Watch App */;
+		};
+		D86EE15E307FE72300CD31B7 /* Exceptions for "Caloma" folder in "CalomaWatchWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/WatchSnapshot.swift,
+			);
+			target = D86EE12F307FE52F00CD31B7 /* CalomaWatchWidgetsExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7C4A00000000000000000004 /* Caloma */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D86EE15D307FE72300CD31B7 /* Exceptions for "Caloma" folder in "CalomaWatch Watch App" target */,
+				D86EE15E307FE72300CD31B7 /* Exceptions for "Caloma" folder in "CalomaWatchWidgetsExtension" target */,
+			);
 			path = Caloma;
 			sourceTree = "<group>";
 		};
 		7C4A00000000000000000005 /* CalomaTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = CalomaTests;
+			sourceTree = "<group>";
+		};
+		D86EE11E307FE4A000CD31B7 /* CalomaWatch Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "CalomaWatch Watch App";
+			sourceTree = "<group>";
+		};
+		D86EE136307FE52F00CD31B7 /* CalomaWatchWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D86EE141307FE53200CD31B7 /* Exceptions for "CalomaWatchWidgets" folder in "CalomaWatchWidgetsExtension" target */,
+			);
+			path = CalomaWatchWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -52,17 +144,37 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D86EE11A307FE4A000CD31B7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D86EE12D307FE52F00CD31B7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D86EE135307FE52F00CD31B7 /* SwiftUI.framework in Frameworks */,
+				D86EE133307FE52F00CD31B7 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		7C4A00000000000000000002 = {
 			isa = PBXGroup;
 			children = (
+				D86EE160307FE76A00CD31B7 /* CalomaWatchWidgetsExtension.entitlements */,
 				7C4A0000000000000000001C /* README.md */,
 				7C4A0000000000000000001B /* Caloma.entitlements */,
 				7C4A0000000000000000001D /* Info.plist */,
 				7C4A00000000000000000004 /* Caloma */,
 				7C4A00000000000000000005 /* CalomaTests */,
+				D86EE11E307FE4A000CD31B7 /* CalomaWatch Watch App */,
+				D86EE136307FE52F00CD31B7 /* CalomaWatchWidgets */,
+				D86EE131307FE52F00CD31B7 /* Frameworks */,
 				7C4A00000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -72,8 +184,19 @@
 			children = (
 				7C4A00000000000000000006 /* Caloma.app */,
 				7C4A00000000000000000007 /* CalomaTests.xctest */,
+				D86EE11D307FE4A000CD31B7 /* CalomaWatch Watch App.app */,
+				D86EE130307FE52F00CD31B7 /* CalomaWatchWidgetsExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D86EE131307FE52F00CD31B7 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D86EE132307FE52F00CD31B7 /* WidgetKit.framework */,
+				D86EE134307FE52F00CD31B7 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -86,10 +209,12 @@
 				7C4A0000000000000000000A /* Sources */,
 				7C4A0000000000000000000B /* Frameworks */,
 				7C4A0000000000000000000C /* Resources */,
+				D86EE12B307FE4A300CD31B7 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D86EE126307FE4A300CD31B7 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				7C4A00000000000000000004 /* Caloma */,
@@ -124,6 +249,52 @@
 			productReference = 7C4A00000000000000000007 /* CalomaTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		D86EE11C307FE4A000CD31B7 /* CalomaWatch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D86EE128307FE4A300CD31B7 /* Build configuration list for PBXNativeTarget "CalomaWatch Watch App" */;
+			buildPhases = (
+				D86EE119307FE4A000CD31B7 /* Sources */,
+				D86EE11A307FE4A000CD31B7 /* Frameworks */,
+				D86EE11B307FE4A000CD31B7 /* Resources */,
+				D86EE145307FE53200CD31B7 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D86EE13F307FE53200CD31B7 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D86EE11E307FE4A000CD31B7 /* CalomaWatch Watch App */,
+			);
+			name = "CalomaWatch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "CalomaWatch Watch App";
+			productReference = D86EE11D307FE4A000CD31B7 /* CalomaWatch Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D86EE12F307FE52F00CD31B7 /* CalomaWatchWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D86EE142307FE53200CD31B7 /* Build configuration list for PBXNativeTarget "CalomaWatchWidgetsExtension" */;
+			buildPhases = (
+				D86EE12C307FE52F00CD31B7 /* Sources */,
+				D86EE12D307FE52F00CD31B7 /* Frameworks */,
+				D86EE12E307FE52F00CD31B7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D86EE136307FE52F00CD31B7 /* CalomaWatchWidgets */,
+			);
+			name = CalomaWatchWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = CalomaWatchWidgetsExtension;
+			productReference = D86EE130307FE52F00CD31B7 /* CalomaWatchWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -131,7 +302,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2600;
+				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					7C4A00000000000000000008 = {
@@ -140,6 +311,12 @@
 					7C4A00000000000000000009 = {
 						CreatedOnToolsVersion = 26.0;
 						TestTargetID = 7C4A00000000000000000008;
+					};
+					D86EE11C307FE4A000CD31B7 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					D86EE12F307FE52F00CD31B7 = {
+						CreatedOnToolsVersion = 27.0;
 					};
 				};
 			};
@@ -159,6 +336,8 @@
 			targets = (
 				7C4A00000000000000000008 /* Caloma */,
 				7C4A00000000000000000009 /* CalomaTests */,
+				D86EE11C307FE4A000CD31B7 /* CalomaWatch Watch App */,
+				D86EE12F307FE52F00CD31B7 /* CalomaWatchWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -172,6 +351,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7C4A0000000000000000000F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D86EE11B307FE4A000CD31B7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D86EE12E307FE52F00CD31B7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -195,6 +388,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D86EE119307FE4A000CD31B7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D86EE12C307FE52F00CD31B7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -202,6 +409,16 @@
 			isa = PBXTargetDependency;
 			target = 7C4A00000000000000000008 /* Caloma */;
 			targetProxy = 7C4A00000000000000000010 /* PBXContainerItemProxy */;
+		};
+		D86EE126307FE4A300CD31B7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D86EE11C307FE4A000CD31B7 /* CalomaWatch Watch App */;
+			targetProxy = D86EE125307FE4A300CD31B7 /* PBXContainerItemProxy */;
+		};
+		D86EE13F307FE53200CD31B7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D86EE12F307FE52F00CD31B7 /* CalomaWatchWidgetsExtension */;
+			targetProxy = D86EE13E307FE53200CD31B7 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -381,6 +598,266 @@
 			};
 			name = Release;
 		};
+		D86EE129307FE4A300CD31B7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "CalomaWatch Watch App/CalomaWatch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BH8R3BX5WF;
+				ENABLE_PREVIEWS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Caloma;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.stephenwarren.caloma;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stephenwarren.caloma.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		D86EE12A307FE4A300CD31B7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "CalomaWatch Watch App/CalomaWatch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BH8R3BX5WF;
+				ENABLE_PREVIEWS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Caloma;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.stephenwarren.caloma;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stephenwarren.caloma.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
+		D86EE143307FE53200CD31B7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = CalomaWatchWidgetsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BH8R3BX5WF;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CalomaWatchWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Caloma;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stephenwarren.caloma.watchkitapp.CalomaWatchWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		D86EE144307FE53200CD31B7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = CalomaWatchWidgetsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BH8R3BX5WF;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CalomaWatchWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Caloma;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stephenwarren.caloma.watchkitapp.CalomaWatchWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -407,6 +884,24 @@
 			buildConfigurations = (
 				7C4A00000000000000000019 /* Debug */,
 				7C4A0000000000000000001A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D86EE128307FE4A300CD31B7 /* Build configuration list for PBXNativeTarget "CalomaWatch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D86EE129307FE4A300CD31B7 /* Debug */,
+				D86EE12A307FE4A300CD31B7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D86EE142307FE53200CD31B7 /* Build configuration list for PBXNativeTarget "CalomaWatchWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D86EE143307FE53200CD31B7 /* Debug */,
+				D86EE144307FE53200CD31B7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

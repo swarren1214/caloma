@@ -96,7 +96,7 @@ struct NewEventRequest: Identifiable {
 }
 
 /// Which occurrence is open: an event and the day it's on.
-struct OccurrenceRef: Identifiable, Hashable {
+nonisolated struct OccurrenceRef: Identifiable, Hashable {
     var eventID: UUID
     var day: Date
     var id: String { "\(eventID.uuidString)@\(Int(day.timeIntervalSince1970))" }

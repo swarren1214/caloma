@@ -121,12 +121,11 @@ private struct NextEventCard: View {
         finding = true
         notFound = false
         defer { finding = false }
-        let placemarks = try? await CLGeocoder().geocodeAddressString(event.location)
-        guard let placemark = placemarks?.first else {
+        guard let request = MKGeocodingRequest(addressString: event.location),
+              let item = try? await request.mapItems.first else {
             notFound = true
             return
         }
-        let item = MKMapItem(placemark: MKPlacemark(placemark: placemark))
         item.name = event.location
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
     }

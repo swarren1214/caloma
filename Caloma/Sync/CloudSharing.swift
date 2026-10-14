@@ -136,8 +136,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// CloudKit's silent push when the family changes (a kid finished a chore on the iPad, say).
     /// Fetching right away is what lets the "Needs your OK" notification show up while the app
     /// is in the background.
-    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
-        guard AppConfig.cloudSyncEnabled else { return .noData }
+    nonisolated func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
+        guard await MainActor.run(body: { AppConfig.cloudSyncEnabled }) else { return .noData }
         await CloudSync.shared.syncNow()
         await ApprovalAlerts.finishPosting()
         return .newData

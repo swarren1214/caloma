@@ -238,29 +238,18 @@ the last snapshot, so it still shows something when the phone is out of reach, a
 until it's back. The "Needs your OK" notifications from the phone show on the watch too, and
 their Approve / Send Back buttons work there (the Watch app answers them through the phone). "You're driving" uses the parent set up on that iPhone.
 
-### Adding the watch targets in Xcode (once)
+### Watch targets
 
-The code is in `CalomaWatch/` and `CalomaWatchWidgets/`; the targets are added in Xcode:
+The Watch app is the **CalomaWatch Watch App** target (`CalomaWatch Watch App/`), embedded in
+the iPhone app, with the widgets in **CalomaWatchWidgetsExtension** (`CalomaWatchWidgets/`),
+embedded in the Watch app. Building Caloma builds and installs all three.
 
-1. **File › New › Target… › watchOS › App**. Product Name `CalomaWatch`, choose **Watch App for
-   Existing iOS App** with Caloma as the companion. Finish, and Activate the scheme if asked.
-2. In the new **CalomaWatch Watch App** folder, delete only Xcode's sample `.swift` files
-   (Move to Trash). Keep `Assets.xcassets`. Then drag the `.swift` files from our `CalomaWatch`
-   folder into it, choosing **Move** (tick only the **CalomaWatch Watch App** target).
-3. **File › New › Target… › watchOS › Widget Extension**. Product Name `CalomaWatchWidgets`,
-   untick Include Configuration App Intent, embed in **CalomaWatch Watch App**. In its new
-   folder, delete only the sample `.swift` file(s); keep `Assets.xcassets` and `Info.plist`.
-   Drag in `CalomaWatchWidgets/CalomaWatchWidgets.swift`, choosing **Move** (tick only
-   **CalomaWatchWidgets**).
-   Once both build, the now-empty `CalomaWatch` and `CalomaWatchWidgets` folders at the top
-   of the repo can go.
-4. Select `Caloma/Shared/WatchSnapshot.swift`, and in the File inspector under Target
-   Membership tick **CalomaWatch Watch App** and **CalomaWatchWidgets** (Caloma stays ticked).
-5. For both watch targets, **Signing & Capabilities › + Capability › App Groups**, and add
-   `group.com.stephenwarren.caloma`. That's how the widgets read what the app received.
-6. Set both watch targets' deployment target to watchOS 26.
-7. Run the **CalomaWatch Watch App** scheme on your watch (or a paired simulator), then open
-   Caloma on the iPhone once so it sends the first snapshot.
+- `Caloma/Shared/WatchSnapshot.swift` is a member of all three targets.
+- Both watch targets have the App Group `group.com.stephenwarren.caloma`, which is how the
+  widgets read what the app received.
+- The watch app uses the same `AppIcon.icon` as the iPhone app (a copy in its folder).
+- Keep the watch targets' Version (`MARKETING_VERSION`) the same as the iPhone app's, or App
+  Store Connect rejects the upload.
 
 Kids' watches (the ring, timer, packing list and watch face designs) and Siri come next. Kids'
 watches set up with Family Setup have no iPhone of their own, so they'll sync through iCloud.

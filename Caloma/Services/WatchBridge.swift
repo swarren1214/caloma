@@ -204,14 +204,14 @@ final class WatchBridge: NSObject {
     }
 
     private static func completion(_ id: UUID, in context: ModelContext) -> ChoreCompletion? {
-        let target: UUID? = id
+        let target = id
         var descriptor = FetchDescriptor<ChoreCompletion>(predicate: #Predicate { $0.id == target })
         descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first
     }
 
     private static func redemption(_ id: UUID, in context: ModelContext) -> Redemption? {
-        let target: UUID? = id
+        let target = id
         var descriptor = FetchDescriptor<Redemption>(predicate: #Predicate { $0.id == target })
         descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first

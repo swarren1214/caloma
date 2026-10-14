@@ -1,0 +1,55 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:1.00000,0.55550,0.69811,1.00000",
+      "display-p3:0.96783,0.18298,0.33538,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "hidden" : false,
+          "image-name" : "caloma-icon-03 2.svg",
+          "name" : "caloma-icon-03 2"
+        },
+        {
+          "image-name" : "caloma-icon-02 2.svg",
+          "name" : "caloma-icon-02 2",
+          "opacity" : 0.8
+        },
+        {
+          "image-name" : "caloma-icon-04 2.svg",
+          "name" : "caloma-icon-04 2",
+          "opacity" : 0.5
+        },
+        {
+          "image-name" : "caloma-icon-01 2.svg",
+          "name" : "caloma-icon-01 2",
+          "opacity" : 0.5
+        }
+      ],
+      "position" : {
+        "scale" : 1,
+        "translation-in-points" : [
+          0,
+          -25
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
