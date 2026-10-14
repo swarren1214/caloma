@@ -1,49 +1,39 @@
 {
   "fill" : {
-    "automatic-gradient" : "display-p3:0.62390,0.26009,0.96783,1.00000"
+    "linear-gradient" : [
+      "display-p3:1.00000,0.55550,0.69811,1.00000",
+      "display-p3:0.96783,0.18298,0.33538,1.00000"
+    ]
   },
   "groups" : [
     {
       "layers" : [
         {
-          "image-name" : "caloma-04.svg",
-          "name" : "caloma-04",
-          "position" : {
-            "scale" : 0.9,
-            "translation-in-points" : [
-              0,
-              50
-            ]
-          }
+          "hidden" : false,
+          "image-name" : "caloma-icon-03 2.svg",
+          "name" : "caloma-icon-03 2"
         },
         {
-          "image-name" : "caloma-03.svg",
-          "name" : "caloma-03",
-          "opacity" : 0.7
+          "image-name" : "caloma-icon-02 2.svg",
+          "name" : "caloma-icon-02 2",
+          "opacity" : 0.8
         },
         {
-          "image-name" : "caloma-02.svg",
-          "name" : "caloma-02",
-          "opacity" : 0.6
+          "image-name" : "caloma-icon-04 2.svg",
+          "name" : "caloma-icon-04 2",
+          "opacity" : 0.5
         },
         {
-          "image-name" : "caloma-01.svg",
-          "name" : "caloma-01",
-          "opacity" : 0.5,
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              0,
-              -10
-            ]
-          }
+          "image-name" : "caloma-icon-01 2.svg",
+          "name" : "caloma-icon-01 2",
+          "opacity" : 0.5
         }
       ],
       "position" : {
-        "scale" : 0.95,
+        "scale" : 1,
         "translation-in-points" : [
           0,
-          -20
+          -25
         ]
       },
       "shadow" : {
