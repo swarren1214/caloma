@@ -50,6 +50,14 @@ final class CloudSync {
     private var engine: CKSyncEngine?
     private let delegate = SyncEngineDelegate()
     private var state = SyncState()
+    /// Each record's CloudKit system fields (its change tag), by record name.
+    @ObservationIgnored private var systemFields: [String: Data] = [:]
+    /// Each model's id by its SwiftData identifier, for sending deletes and finding records.
+    @ObservationIgnored private var idsByModel: [PersistentIdentifier: UUID] = [:]
+    @ObservationIgnored private var mapsChanged = false
+    /// Failed sends per record this session.
+    @ObservationIgnored private var retries: [String: Int] = [:]
+    @ObservationIgnored private var saveTask: Task<Void, Never>?
     private var scanTask: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
     private let log = Logger(subsystem: "com.stephenwarren.caloma", category: "sync")
@@ -70,7 +78,11 @@ final class CloudSync {
         guard AppConfig.cloudSyncEnabled, modelContainer == nil else { return }
         modelContainer = container
         state = SyncState.load()
+        let maps = SyncMaps.load()
+        systemFields = maps.systemFields
+        idsByModel = maps.modelIDs
         role = state.role
+        SyncMaps.removeOldAssetFiles()
         observeSaves()
         Task { await startEngine() }
     }
@@ -188,7 +200,7 @@ final class CloudSync {
                     // A deleted model can't be read, so its id comes from what sync
                     // remembered about it.
                     changed.remove(delete.changedPersistentIdentifier)
-                    if let id = state.modelIDs.removeValue(forKey: delete.changedPersistentIdentifier) {
+                    if let id = idsByModel.removeValue(forKey: delete.changedPersistentIdentifier) {
                         deleted.insert(id)
                     }
                 @unknown default:
@@ -198,21 +210,22 @@ final class CloudSync {
         }
 
         var pending: [CKSyncEngine.PendingRecordZoneChange] = []
-        if !changed.isEmpty {
-            let byIdentifier = modelsByIdentifier(in: context)
-            for identifier in changed {
-                if let model = byIdentifier[identifier] {
-                    state.modelIDs[identifier] = model.id
-                    deleted.remove(model.id)
-                    pending.append(.saveRecord(recordID(for: model.id)))
-                }
-            }
+        // Only the models that changed are looked up, not the whole store.
+        for identifier in changed {
+            guard let model = context.model(for: identifier) as? any CloudRecord, !model.isDeleted else { continue }
+            idsByModel[identifier] = model.id
+            deleted.remove(model.id)
+            pending.append(.saveRecord(recordID(for: model.id)))
         }
         pending += deleted.map { .deleteRecord(recordID(for: $0)) }
         if !pending.isEmpty {
             engine.state.add(pendingRecordZoneChanges: pending)
+            mapsChanged = true
         }
         state.historyToken = last.token
+        // The history has been handled; keep it from growing forever.
+        let handled = last.token
+        try? context.deleteHistory(HistoryDescriptor<DefaultHistoryTransaction>(predicate: #Predicate { $0.token <= handled }))
         saveState()
     }
 
@@ -265,13 +278,13 @@ final class CloudSync {
         let changes = engine.state.pendingRecordZoneChanges.filter { scope.contains($0) }.prefix(250)
         guard !changes.isEmpty else { return nil }
 
-        // Build the records up front, from the store as it is now.
-        let models = modelsByID(in: modelContext)
+        // Build the records up front, from the store as it is now, looking up only these.
+        let identifiers = identifiersByID()
         var records: [CKRecord.ID: CKRecord] = [:]
         var missing: [CKSyncEngine.PendingRecordZoneChange] = []
         for change in changes {
             guard case .saveRecord(let recordID) = change else { continue }
-            if let id = UUID(uuidString: recordID.recordName), let model = models[id] {
+            if let id = UUID(uuidString: recordID.recordName), let model = model(id, identifiers: identifiers, in: modelContext) {
                 records[recordID] = makeRecord(for: model)
             } else {
                 // Deleted since it was queued; the delete is (or will be) queued too.
@@ -295,33 +308,34 @@ final class CloudSync {
 
     private func apply(modifications: [CKRecord], deletions: [CKRecord.ID]) {
         guard let context = makeContext(), !(modifications.isEmpty && deletions.isEmpty) else { return }
-        var models = modelsByID(in: context)
+        let identifiers = identifiersByID()
         var inserted: [any CloudRecord] = []
         var settingsChanged = false
+        var calendarChanged = !deletions.isEmpty
         for record in modifications where record.recordID.zoneID == zoneID {
             guard let type = SyncSchema.type(named: record.recordType),
                   let id = UUID(uuidString: record.recordID.recordName) else { continue }
-            if let existing = models[id] {
+            if let existing = model(id, identifiers: identifiers, in: context) {
                 existing.read(from: record)
             } else {
                 let model = type.blank()
                 model.id = id
                 model.read(from: record)
                 context.insert(model)
-                models[id] = model
                 inserted.append(model)
             }
             if ObjectIdentifier(type) == ObjectIdentifier(FamilySetting.self) { settingsChanged = true }
-            state.systemFields[record.recordID.recordName] = Self.encodeSystemFields(of: record)
+            if ObjectIdentifier(type) == ObjectIdentifier(FamilyEvent.self) || ObjectIdentifier(type) == ObjectIdentifier(HomeTask.self) { calendarChanged = true }
+            systemFields[record.recordID.recordName] = Self.encodeSystemFields(of: record)
         }
         for recordID in deletions where recordID.zoneID == zoneID {
-            if let id = UUID(uuidString: recordID.recordName), let model = models[id] {
-                state.modelIDs[model.persistentModelID] = nil
+            if let id = UUID(uuidString: recordID.recordName), let model = model(id, identifiers: identifiers, in: context) {
+                idsByModel[model.persistentModelID] = nil
                 context.delete(model)
-                models[id] = nil
             }
-            state.systemFields[recordID.recordName] = nil
+            systemFields[recordID.recordName] = nil
         }
+        mapsChanged = true
         do {
             try context.save()
         } catch {
@@ -329,42 +343,52 @@ final class CloudSync {
         }
         // New models have their lasting identifiers once saved.
         for model in inserted {
-            state.modelIDs[model.persistentModelID] = model.id
+            idsByModel[model.persistentModelID] = model.id
         }
-        // Skip past the history this save made.
-        state.historyToken = latestHistoryToken(in: context) ?? state.historyToken
         saveState()
         if settingsChanged { SharedSettings.shared.pull(from: context) }
-        EventAlerts.reschedule(in: context)
-        Reminders.reschedule(in: context)
+        if calendarChanged {
+            EventAlerts.reschedule(in: context)
+            Reminders.reschedule(in: context)
+        }
     }
 
     private func handleSent(_ sent: CKSyncEngine.Event.SentRecordZoneChanges) {
         guard let engine else { return }
         for record in sent.savedRecords {
-            state.systemFields[record.recordID.recordName] = Self.encodeSystemFields(of: record)
+            systemFields[record.recordID.recordName] = Self.encodeSystemFields(of: record)
+            retries[record.recordID.recordName] = nil
         }
         for recordID in sent.deletedRecordIDs {
-            state.systemFields[recordID.recordName] = nil
+            systemFields[recordID.recordName] = nil
         }
+        mapsChanged = true
         var retry: [CKSyncEngine.PendingRecordZoneChange] = []
         var needsZone = false
         for failure in sent.failedRecordSaves {
             let recordID = failure.record.recordID
+            // Give up on a record after a few tries this session, so one bad record can't
+            // keep sync busy forever.
+            let tries = retries[recordID.recordName, default: 0] + 1
+            retries[recordID.recordName] = tries
+            if tries > 3 {
+                log.error("Gave up sending \(recordID.recordName, privacy: .public): \(failure.error.localizedDescription, privacy: .public)")
+                continue
+            }
             switch failure.error.code {
             case .serverRecordChanged:
                 // Someone else changed it first. Take their version's change tag and send
                 // ours again on top.
                 if let server = failure.error.serverRecord {
-                    state.systemFields[recordID.recordName] = Self.encodeSystemFields(of: server)
+                    systemFields[recordID.recordName] = Self.encodeSystemFields(of: server)
                 }
                 retry.append(.saveRecord(recordID))
             case .zoneNotFound:
                 needsZone = true
-                state.systemFields[recordID.recordName] = nil
+                systemFields[recordID.recordName] = nil
                 retry.append(.saveRecord(recordID))
             case .unknownItem:
-                state.systemFields[recordID.recordName] = nil
+                systemFields[recordID.recordName] = nil
                 retry.append(.saveRecord(recordID))
             case .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable, .notAuthenticated, .operationCancelled, .requestRateLimited:
                 // The engine tries these again by itself.
@@ -373,7 +397,12 @@ final class CloudSync {
                 log.error("Couldn't send \(recordID.recordName, privacy: .public): \(failure.error.localizedDescription, privacy: .public)")
             }
         }
-        if needsZone && role != .participant {
+        if needsZone && role == .participant {
+            // Their zone is gone: the family isn't shared anymore.
+            zoneWasDeleted()
+            return
+        }
+        if needsZone {
             engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
         }
         if !retry.isEmpty {
@@ -414,8 +443,9 @@ final class CloudSync {
         stopEngine()
         if resetting {
             state.engineState = nil
-            state.systemFields = [:]
+            systemFields = [:]
             state.didInitialUpload = false
+            mapsChanged = true
         }
         saveState()
         await startEngine()
@@ -427,6 +457,9 @@ final class CloudSync {
         eraseLocalData()
         role = .participant
         state = SyncState()
+        systemFields = [:]
+        idsByModel = [:]
+        mapsChanged = true
         state.role = .participant
         state.zoneName = zoneID.zoneName
         state.zoneOwner = zoneID.ownerName
@@ -448,6 +481,9 @@ final class CloudSync {
         eraseLocalData()
         role = .solo
         state = SyncState()
+        systemFields = [:]
+        idsByModel = [:]
+        mapsChanged = true
         if let context = makeContext() {
             state.historyToken = latestHistoryToken(in: context)
         }
@@ -493,12 +529,17 @@ final class CloudSync {
         }
         role = .solo
         state = SyncState()
+        systemFields = [:]
+        idsByModel = [:]
+        mapsChanged = true
         saveState()
     }
 
     /// After Erase All Data deleted everything locally: skip that history and start fresh.
     func didEraseLocally() async {
-        state.modelIDs = [:]
+        idsByModel = [:]
+        systemFields = [:]
+        mapsChanged = true
         if let context = makeContext() {
             state.historyToken = latestHistoryToken(in: context)
         }
@@ -527,9 +568,26 @@ final class CloudSync {
         guard let context = makeContext() else { return }
         for type in SyncSchema.types {
             for model in allModels(of: type, in: context) {
-                state.modelIDs[model.persistentModelID] = model.id
+                idsByModel[model.persistentModelID] = model.id
             }
         }
+        mapsChanged = true
+    }
+
+    /// Each model's SwiftData identifier by its id.
+    private func identifiersByID() -> [UUID: PersistentIdentifier] {
+        var result: [UUID: PersistentIdentifier] = [:]
+        result.reserveCapacity(idsByModel.count)
+        for (identifier, id) in idsByModel { result[id] = identifier }
+        return result
+    }
+
+    /// One model by its id, without fetching the rest.
+    private func model(_ id: UUID, identifiers: [UUID: PersistentIdentifier], in context: ModelContext) -> (any CloudRecord)? {
+        guard let identifier = identifiers[id],
+              let model = context.model(for: identifier) as? any CloudRecord,
+              !model.isDeleted else { return nil }
+        return model
     }
 
     func recordID(for id: UUID) -> CKRecord.ID {
@@ -539,7 +597,7 @@ final class CloudSync {
     private func makeRecord(for model: any CloudRecord) -> CKRecord {
         let recordID = recordID(for: model.id)
         let record: CKRecord
-        if let data = state.systemFields[recordID.recordName], let cached = Self.decodeSystemFields(data), cached.recordID.zoneID == zoneID {
+        if let data = systemFields[recordID.recordName], let cached = Self.decodeSystemFields(data), cached.recordID.zoneID == zoneID {
             record = cached
         } else {
             record = CKRecord(recordType: type(of: model).recordType, recordID: recordID)
@@ -564,22 +622,6 @@ final class CloudSync {
         fetchModels(type, in: context)
     }
 
-    private func modelsByID(in context: ModelContext) -> [UUID: any CloudRecord] {
-        var result: [UUID: any CloudRecord] = [:]
-        for type in SyncSchema.types {
-            for model in allModels(of: type, in: context) { result[model.id] = model }
-        }
-        return result
-    }
-
-    private func modelsByIdentifier(in context: ModelContext) -> [PersistentIdentifier: any CloudRecord] {
-        var result: [PersistentIdentifier: any CloudRecord] = [:]
-        for type in SyncSchema.types {
-            for model in allModels(of: type, in: context) { result[model.persistentModelID] = model }
-        }
-        return result
-    }
-
     private func latestHistoryToken(in context: ModelContext) -> DefaultHistoryToken? {
         let transactions = (try? context.fetchHistory(HistoryDescriptor<DefaultHistoryTransaction>())) ?? []
         return transactions.last?.token
@@ -600,9 +642,22 @@ final class CloudSync {
         }
     }
 
+    /// Saves what sync remembers a moment later, off the main thread, so a burst of events
+    /// writes once. The big maps (change tags and ids) are written only when they changed.
     private func saveState() {
         state.role = role
-        state.save()
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, !Task.isCancelled else { return }
+            let core = self.state
+            let maps = self.mapsChanged ? SyncMaps(systemFields: self.systemFields, modelIDs: self.idsByModel) : nil
+            self.mapsChanged = false
+            await Task.detached(priority: .utility) {
+                core.save()
+                maps?.save()
+            }.value
+        }
     }
 
     static func encodeSystemFields(of record: CKRecord) -> Data {
@@ -634,17 +689,13 @@ nonisolated final class SyncEngineDelegate: CKSyncEngineDelegate {
 }
 
 /// What sync remembers between launches, in Application Support.
-nonisolated struct SyncState: Codable {
+nonisolated struct SyncState: Codable, @unchecked Sendable {
     var role: CloudSync.Role = .solo
     var zoneName: String = "Family"
     var zoneOwner: String = CKCurrentUserDefaultName
     var historyToken: DefaultHistoryToken?
     var engineState: CKSyncEngine.State.Serialization?
     var didInitialUpload = false
-    /// Each record's CloudKit system fields (its change tag), by record name.
-    var systemFields: [String: Data] = [:]
-    /// Each model's id by its SwiftData identifier, for sending deletes.
-    var modelIDs: [PersistentIdentifier: UUID] = [:]
 
     private static var url: URL {
         let folder = URL.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)
@@ -662,5 +713,41 @@ nonisolated struct SyncState: Codable {
     func save() {
         guard let data = try? JSONEncoder().encode(self) else { return }
         try? data.write(to: Self.url, options: .atomic)
+    }
+}
+
+/// The big part of what sync remembers: every record's change tag and every model's id. Kept
+/// in its own file so the small state can be saved often without rewriting these.
+nonisolated struct SyncMaps: Codable, @unchecked Sendable {
+    var systemFields: [String: Data] = [:]
+    var modelIDs: [PersistentIdentifier: UUID] = [:]
+
+    private static var url: URL {
+        let folder = URL.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder.appendingPathComponent("maps.plist")
+    }
+
+    static func load() -> SyncMaps {
+        guard let data = try? Data(contentsOf: url), let maps = try? PropertyListDecoder().decode(SyncMaps.self, from: data) else {
+            return SyncMaps()
+        }
+        return maps
+    }
+
+    func save() {
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .binary
+        guard let data = try? encoder.encode(self) else { return }
+        try? data.write(to: Self.url, options: .atomic)
+    }
+
+    /// Photos sent as assets go through temporary files; clear out old ones.
+    static func removeOldAssetFiles() {
+        let folder = FileManager.default.temporaryDirectory
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        for file in files where file.lastPathComponent.hasPrefix("caloma-") {
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 }

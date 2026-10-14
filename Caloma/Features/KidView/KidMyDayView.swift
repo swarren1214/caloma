@@ -16,7 +16,6 @@ struct KidMyDayView: View {
     @Query private var packings: [EventPacking]
     @Query private var chores: [Chore]
     @Query private var completions: [ChoreCompletion]
-    @Query private var points: [PointEntry]
 
     private var color: Color { kid.color.color }
 
@@ -27,7 +26,7 @@ struct KidMyDayView: View {
     var body: some View {
         let mine = mine
         let today = CalendarMath.occurrences(of: mine, on: .now)
-        let family = FamilySnapshot(members: members, chores: chores, completions: completions, points: points)
+        let family = FamilySnapshot(members: members, chores: chores, completions: completions, points: [])
         let jobs = family.items(for: kid).filter { !$0.chore.upForGrabs || $0.memberID == kid.id }
         let jobsLeft = jobs.filter { $0.status == .open }.count
         VStack(alignment: .leading, spacing: 18) {

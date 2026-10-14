@@ -11,7 +11,6 @@ struct CalendarView: View {
     @Query(filter: #Predicate<FamilyEvent> { !$0.isArchived }) private var events: [FamilyEvent]
     @Query private var chores: [Chore]
     @Query private var completions: [ChoreCompletion]
-    @Query private var points: [PointEntry]
     @Query(filter: #Predicate<HomeTask> { !$0.isArchived }) private var homeTasks: [HomeTask]
     @Bindable private var filter = CalendarFilter.shared
 
@@ -33,7 +32,7 @@ struct CalendarView: View {
         CalendarData(
             members: members.filter { !$0.isArchived },
             events: events.map(\.record),
-            family: FamilySnapshot(members: members, chores: chores, completions: completions, points: points),
+            family: FamilySnapshot(members: members, chores: chores, completions: completions, points: []),
             homeTasks: homeTasks,
             accent: accent
         )
