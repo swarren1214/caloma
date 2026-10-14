@@ -86,7 +86,9 @@ final class CloudSync {
         state = SyncState.load()
         let maps = SyncMaps.load()
         systemFields = maps.systemFields
-        idsByModel = maps.modelIDs
+        // Model ids aren't loaded from disk: identifiers read back from a file don't hash like
+        // live ones, and mixing the two in one dictionary crashed at launch. They're rebuilt
+        // from the store in `rememberAllIDs()`.
         role = state.role
         SyncMaps.removeOldAssetFiles()
         observeSaves()
@@ -707,7 +709,7 @@ final class CloudSync {
             try? await Task.sleep(for: .seconds(1))
             guard let self, !Task.isCancelled else { return }
             let core = self.state
-            let maps = self.mapsChanged ? SyncMaps(systemFields: self.systemFields, modelIDs: self.idsByModel) : nil
+            let maps = self.mapsChanged ? SyncMaps(systemFields: self.systemFields) : nil
             self.mapsChanged = false
             await Task.detached(priority: .utility) {
                 core.save()
@@ -779,7 +781,7 @@ nonisolated struct SyncState: Codable, @unchecked Sendable {
 /// in its own file so the small state can be saved often without rewriting these.
 nonisolated struct SyncMaps: Codable, @unchecked Sendable {
     var systemFields: [String: Data] = [:]
-    var modelIDs: [PersistentIdentifier: UUID] = [:]
+    // Older versions also saved model ids here; that key is now ignored when loading.
 
     private static var url: URL {
         let folder = URL.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)
