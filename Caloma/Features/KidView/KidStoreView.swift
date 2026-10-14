@@ -20,8 +20,9 @@ struct KidStoreView: View {
     @State private var spent = 0
     @State private var spentKey = 0
     @State private var chippingIn = false
-    /// The reward this kid bookmarked to save for.
+    /// The reward this kid picked to save for.
     @State private var savingID: String?
+    @State private var choosingGoal = false
 
     private var color: Color { kid.color.color }
     private var words: PointWords { PointWords.current() }
@@ -34,8 +35,8 @@ struct KidStoreView: View {
     private var store: [Reward] { rewards.filter { !$0.isFamilyGoal && $0.isAvailable(to: kid.id) } }
     private var familyGoal: Reward? { rewards.first { $0.isFamilyGoal } }
 
-    /// The reward this kid is saving for (they tap the bookmark on one), else the cheapest one
-    /// they can't afford yet.
+    /// The reward this kid picked to save for (Change on the jar), else the cheapest one they
+    /// can't afford yet.
     private func savingFor(_ spendable: Int) -> Reward? {
         if let id = savingID, let pinned = store.first(where: { $0.id.uuidString == id }) {
             return pinned
@@ -51,12 +52,12 @@ struct KidStoreView: View {
             VStack(spacing: 18) {
                 header(spendable)
                 if sizeClass == .compact {
-                    if let goal { JarCard(reward: goal, have: spendable, kid: kid, compact: true) }
+                    if let goal { jar(goal, family, spendable, compact: true) }
                     rewardGrid(family, spendable)
                 } else {
                     HStack(alignment: .top, spacing: 18) {
                         VStack(spacing: 18) {
-                            if let goal { JarCard(reward: goal, have: spendable, kid: kid, compact: false) }
+                            if let goal { jar(goal, family, spendable, compact: false) }
                             if let familyGoal { familyGoalCard(familyGoal, family, spendable) }
                         }
                         .frame(width: 340)
@@ -89,6 +90,12 @@ struct KidStoreView: View {
                     withAnimation(.smooth) { self.asking = nil }
                 }
                 .transition(.opacity)
+            }
+        }
+        .sheet(isPresented: $choosingGoal) {
+            SavingForPicker(rewards: store, current: goal?.id, have: spendable, kid: kid) { reward in
+                pickGoal(reward)
+                choosingGoal = false
             }
         }
         .sheet(isPresented: $chippingIn) {
@@ -144,15 +151,26 @@ struct KidStoreView: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: sizeClass == .compact ? 160 : 220), spacing: 14)], spacing: 14) {
             ForEach(Array(store.enumerated()), id: \.element.id) { index, reward in
                 let check = RewardMath.check(cost: reward.cost, limit: reward.limit, eligible: reward.isAvailable(to: kid.id), spendable: spendable, memberID: kid.id, rewardID: reward.id, redemptions: family.redemptions)
-                StoreTile(reward: reward, kid: kid, check: check, have: spendable, isSaving: savingID == reward.id.uuidString, index: index, compact: sizeClass == .compact) {
+                StoreTile(reward: reward, kid: kid, check: check, have: spendable, isSaving: savingFor(spendable)?.id == reward.id, index: index, compact: sizeClass == .compact) {
                     withAnimation(.smooth) { asking = reward }
-                } onSave: {
-                    let id = reward.id.uuidString
-                    UserDefaults.standard.set(id, forKey: goalKey)
-                    withAnimation(.snappy) { savingID = id }
                 }
             }
         }
+    }
+
+    private func jar(_ goal: Reward, _ family: FamilySnapshot, _ spendable: Int, compact: Bool) -> some View {
+        let check = RewardMath.check(cost: goal.cost, limit: goal.limit, eligible: true, spendable: spendable, memberID: kid.id, rewardID: goal.id, redemptions: family.redemptions)
+        return JarCard(reward: goal, have: spendable, kid: kid, compact: compact, canGet: check == .ok) {
+            withAnimation(.smooth) { asking = goal }
+        } onChange: {
+            choosingGoal = true
+        }
+    }
+
+    private func pickGoal(_ reward: Reward) {
+        let id = reward.id.uuidString
+        UserDefaults.standard.set(id, forKey: goalKey)
+        withAnimation(.snappy) { savingID = id }
     }
 
     private func familyGoalCard(_ goal: Reward, _ family: FamilySnapshot, _ spendable: Int) -> some View {
@@ -223,6 +241,9 @@ private struct JarCard: View {
     var have: Int
     var kid: Member
     var compact: Bool
+    var canGet: Bool
+    var onGet: () -> Void
+    var onChange: () -> Void
 
     @State private var filled = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -243,6 +264,7 @@ private struct JarCard: View {
                     text.multilineTextAlignment(.center)
                     jar.frame(width: 170, height: 226)
                     figure
+                    buttons
                 }
             }
         }
@@ -250,9 +272,35 @@ private struct JarCard: View {
         .padding(22)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 30))
         .onAppear { filled = true }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Saving for \(reward.name): \(have) of \(reward.cost)")
+        .animation(.smooth, value: reward.id)
         .tint(color)
+    }
+
+    /// Get it (when there's enough) and Change, to save for something else.
+    private var buttons: some View {
+        HStack(spacing: 10) {
+            if canGet {
+                Button(action: onGet) {
+                    Text("Get it!")
+                        .font(.system(size: 18, weight: .heavy, design: .rounded))
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .foregroundStyle(.white)
+                        .background(kid.color.color, in: Capsule())
+                }
+                .buttonStyle(KidPressStyle())
+                .accessibilityLabel("Get \(reward.name)")
+            }
+            Button(action: onChange) {
+                Label("Change", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .frame(maxWidth: canGet ? nil : .infinity, minHeight: 48)
+                    .padding(.horizontal, canGet ? 16 : 0)
+                    .foregroundStyle(kid.color.color)
+                    .background(kid.color.color.opacity(0.14), in: Capsule())
+            }
+            .buttonStyle(KidPressStyle())
+            .accessibilityLabel("Change what you're saving for")
+        }
     }
 
     private var text: some View {
@@ -266,7 +314,11 @@ private struct JarCard: View {
             Text(have >= reward.cost ? "You can get it now!" : "\(PointWords.current().count(reward.cost - max(have, 0))) to go")
                 .font(.system(size: 17, weight: .bold, design: .rounded))
                 .foregroundStyle(.secondary)
+            if compact {
+                buttons.padding(.top, 6)
+            }
         }
+        .accessibilityElement(children: .contain)
     }
 
     private var figure: some View {
@@ -376,7 +428,6 @@ private struct StoreTile: View {
     var index: Int
     var compact: Bool
     var onGet: () -> Void
-    var onSave: () -> Void
 
     @State private var nudge = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -410,15 +461,13 @@ private struct StoreTile: View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            Button(action: onSave) {
-                Image(systemName: isSaving ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(isSaving ? kid.color.color : Color.secondary)
-                    .frame(width: 44, height: 44)
+            if isSaving {
+                Image(systemName: "star.circle.fill")
+                    .font(.system(size: 26))
+                    .foregroundStyle(.white, kid.color.color)
+                    .padding(10)
+                    .accessibilityLabel("Saving for this")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(isSaving ? "Saving for this" : "Save for this")
-            .padding(4)
         }
     }
 
@@ -666,5 +715,89 @@ private struct ChipInSheet: View {
                 .background(kid.color.color.opacity(0.14), in: Circle())
         }
         .buttonStyle(KidPressStyle())
+    }
+}
+
+
+/// "What are you saving for?" Every reward this kid can get, with how close they are. Tapping
+/// one makes it the jar's goal.
+private struct SavingForPicker: View {
+    var rewards: [Reward]
+    var current: UUID?
+    var have: Int
+    var kid: Member
+    var onPick: (Reward) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 14)], spacing: 14) {
+                    ForEach(rewards) { reward in
+                        let picked = reward.id == current
+                        let enough = have >= reward.cost
+                        let kindColor = Color(hex: reward.kind.colorHex)
+                        Button {
+                            onPick(reward)
+                        } label: {
+                            VStack(spacing: 10) {
+                                Image(systemName: reward.symbol)
+                                    .font(.system(size: 30, weight: .semibold))
+                                    .foregroundStyle(kindColor)
+                                    .frame(width: 64, height: 64)
+                                    .background(kindColor.opacity(0.14), in: Circle())
+                                Text(reward.name)
+                                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.primary)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.8)
+                                    .frame(minHeight: 46)
+                                PointsLabel(points: reward.cost, font: .system(size: 18, weight: .heavy, design: .rounded), color: Brand.starBright)
+                                    .foregroundStyle(.primary)
+                                if enough {
+                                    Text("You have enough!")
+                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                        .foregroundStyle(kid.color.color)
+                                } else {
+                                    ProgressView(value: min(Double(max(have, 0)) / Double(max(reward.cost, 1)), 1))
+                                        .tint(kid.color.color)
+                                }
+                            }
+                            .padding(16)
+                            .frame(maxWidth: .infinity, minHeight: 230)
+                            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 26).strokeBorder(kid.color.color, lineWidth: picked ? 4 : 0)
+                            }
+                            .overlay(alignment: .topTrailing) {
+                                if picked {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 26))
+                                        .foregroundStyle(.white, kid.color.color)
+                                        .padding(10)
+                                }
+                            }
+                        }
+                        .buttonStyle(KidPressStyle())
+                        .accessibilityLabel("\(reward.name), \(PointWords.current().count(reward.cost))")
+                        .accessibilityAddTraits(picked ? .isSelected : [])
+                    }
+                }
+                .padding(16)
+                .padding(.bottom, 32)
+            }
+            .background(kid.color.color.opacity(0.07).ignoresSafeArea())
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
+            .navigationTitle("What are you saving for?")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark") { dismiss() }
+                }
+            }
+        }
+        .tint(kid.color.color)
     }
 }

@@ -80,7 +80,8 @@ the app was closed in it, so it's safe on a shared iPad.
 - Finishing the last job brings up the party: confetti over everything, a trophy on slowly
   turning rays, "You did it!".
 - **The store**: a jar fills (with a moving surface and twinkling stars) toward the reward
-  the kid bookmarked. Rewards they can afford have a bouncing **Get it!**; the rest show how
+  the kid is saving for. **Change** on the jar opens "What are you saving for?" to swap it, and
+  when they have enough the jar shows **Get it!**. Rewards they can afford have a bouncing **Get it!**; the rest show how
   many more they need. Getting one opens a gift box that wiggles until they confirm, then
   the lid pops off with sparkles and the counter drops. Kids can **Chip In** to the family
   goal.
