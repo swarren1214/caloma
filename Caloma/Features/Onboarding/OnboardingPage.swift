@@ -92,6 +92,23 @@ struct OnboardingPrimaryButton: View {
     }
 }
 
+/// The app icon, from Icon Composer's light and dark PNG exports (CalomaMark in the asset
+/// catalog; re-export them when the icon changes). The welcome screen, as in Suffice.
+struct AppIconBadge: View {
+    var size: CGFloat = 92
+    @Environment(\.accent) private var accent
+
+    var body: some View {
+        Image("CalomaMark")
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .shadow(color: accent.opacity(0.3), radius: 15, y: 10)
+            .accessibilityHidden(true)
+    }
+}
+
 /// An onboarding screen's icon: an SF Symbol on the accent, rounded-square shape.
 struct OnboardingSymbolIcon: View {
     var symbol: String

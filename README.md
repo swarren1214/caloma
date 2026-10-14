@@ -160,6 +160,11 @@ invite from Family with `UICloudSharingController`.
 layered shapes on a pink-to-red gradient, with Liquid Glass translucency. Edit it in Icon Composer
 and copy it back over this one.
 
+The welcome screen shows the icon from Icon Composer's light and dark PNG exports
+(`CalomaMark` in the asset catalog, from `caloma-default-1x.png` and `caloma-dark-1x.png`);
+re-export and replace them when the icon changes. The default accent, rose `#E0284F`, comes
+from the icon's gradient, deepened so white text on it stays readable.
+
 ## Project layout
 
 ```

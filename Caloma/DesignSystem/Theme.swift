@@ -39,15 +39,17 @@ nonisolated enum SettingsKey {
 
 /// Caloma's colors, from the Tend designs on the Claude Design canvas.
 nonisolated enum Brand {
-    /// The default accent. People can pick another in Family › Accent Color.
-    static let defaultAccentHex: UInt32 = 0x1E9E6A
+    /// The default accent, the rose of the app icon's gradient, deep enough for white text.
+    /// People can pick another in Family › Accent Color.
+    static let defaultAccentHex: UInt32 = 0xE0284F
     static var defaultAccent: Color { Color(hex: defaultAccentHex) }
 
     /// The accent choices in Family, in order.
     static let accents: [AccentChoice] = [
+        AccentChoice(name: "Rose", hex: 0xE0284F),
         AccentChoice(name: "Green", hex: 0x1E9E6A), AccentChoice(name: "Teal", hex: 0x0E8A8A),
         AccentChoice(name: "Blue", hex: 0x0A7AFF), AccentChoice(name: "Indigo", hex: 0x5E5CE6),
-        AccentChoice(name: "Pink", hex: 0xC2185B), AccentChoice(name: "Red", hex: 0xD93B30),
+        AccentChoice(name: "Pink", hex: 0xC2185B),
         AccentChoice(name: "Orange", hex: 0xE8650F),
     ]
 

@@ -57,7 +57,7 @@ private struct WelcomeStep: View {
 
     var body: some View {
         OnboardingPage(title: "Caloma", subtitle: "Run the house together, and make chores something kids want to do.") { isShort in
-            OnboardingSymbolIcon(symbol: "house.fill", size: isShort ? 64 : 92)
+            AppIconBadge(size: isShort ? 64 : 92)
         } content: { _ in
             VStack(alignment: .leading, spacing: 18) {
                 OnboardingFeatureRow(symbol: "checklist", title: "Chores kids love", detail: "Big buttons, confetti and a progress track. Parents give the OK.")
