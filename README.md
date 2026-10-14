@@ -268,6 +268,40 @@ embedded in the Watch app. Building Caloma builds and installs all three.
 Kids' watches (the ring, timer, packing list and watch face designs) and Siri come next. Kids'
 watches set up with Family Setup have no iPhone of their own, so they'll sync through iCloud.
 
+## Widgets, CarPlay and Siri
+
+From the CarPlay designs on the canvas. On iOS 26 the iPhone's widgets and Live Activities also
+show on the CarPlay dashboard, so none of this needs a CarPlay app (which Apple only allows for
+navigation, audio, messaging and a few other kinds of app).
+
+- **Widgets** (`CalomaWidgets/`): **Coming Up** (who's going, who's driving), **Kids Today**
+  (rings, and what needs your OK) and **Home Care** (late or due soon, with what to buy). They
+  read the same `WatchSnapshot` the watch gets, saved to the app group by `WatchBridge`
+  whenever the family changes.
+- **"You're driving" Live Activity** (`DrivingLiveActivity`, `Shared/DrivingActivity.swift`):
+  for the next event you're the driver of, from two hours before. Countdown, the bring list
+  with what's packed (it updates as the kids tick things off in Kid View) and Directions. Lock
+  Screen, Dynamic Island, CarPlay and Apple Watch. A Live Activity can only start while Caloma
+  is open or from an intent, so: open Caloma, or say "Start driving in Caloma", or set up a
+  Shortcuts automation **When CarPlay connects → Start Driving** to have it appear in the car.
+- **Siri** (`Services/CalomaIntents.swift`): "Check what needs my OK in Caloma" (reads the oldest
+  request and asks "Approve it?"), "What's coming up in Caloma", "Start driving in Caloma".
+
+### Adding the widget extension in Xcode (once)
+
+1. **File › New › Target… › iOS › Widget Extension**. Product Name `CalomaWidgets`. Untick
+   Include Live Activity, Include Control and Include Configuration App Intent. Embed in
+   **Caloma**.
+2. Xcode makes a `CalomaWidgets` folder, where `CalomaWidgets.swift` already is: delete only
+   Xcode's generated `.swift` files (keep `CalomaWidgets.swift`, `Assets.xcassets`,
+   `Info.plist`).
+3. Select `Caloma/Shared/WatchSnapshot.swift` and `Caloma/Shared/DrivingActivity.swift`; under
+   Target Membership tick **CalomaWidgetsExtension**. (Nothing else from `Caloma/`.)
+4. **CalomaWidgetsExtension › Signing & Capabilities › + Capability › App Groups**, tick
+   `group.com.stephenwarren.caloma`. The Caloma app already lists it in its entitlements;
+   if its Signing & Capabilities shows App Groups unticked, tick it there too.
+5. Deployment target iOS 26, Version the same as the app's (0.1).
+
 ## Apple Calendar
 
 Off by default; Family › Calendar › Apple Calendar turns on either or both, per device:

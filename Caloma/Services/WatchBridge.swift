@@ -3,8 +3,11 @@ import OSLog
 import SwiftData
 import UIKit
 import WatchConnectivity
+import WidgetKit
 
-/// Keeps a parent's Apple Watch up to date, and carries out what they tap on it.
+/// Keeps a parent's Apple Watch up to date, and carries out what they tap on it. The same
+/// snapshot feeds the iPhone's widgets (on the Home Screen and the CarPlay dashboard), and each
+/// update refreshes the "You're driving" Live Activity (`DrivingLiveActivity`).
 ///
 /// Whenever the family's data changes on this phone (a save here, or sync bringing in a kid's
 /// finished chore), a `WatchSnapshot` goes to the watch as its application context: only the
@@ -20,16 +23,21 @@ final class WatchBridge: NSObject {
     private var session: WCSession?
     private var sendTask: Task<Void, Never>?
     private var lastSent: Data?
+    /// What the widgets last got, so they're only reloaded when something changed.
+    private var lastSaved: Data?
     private var saveObserver: NSObjectProtocol?
 
-    /// Starts the watch connection, if this phone has a watch.
+    /// Starts keeping the widgets and Live Activity current, and the watch connection if this
+    /// device can have a watch (an iPad can't).
     func start(with container: ModelContainer) {
-        guard WCSession.isSupported(), self.container == nil else { return }
+        guard self.container == nil else { return }
         self.container = container
-        let session = WCSession.default
-        session.delegate = self
-        session.activate()
-        self.session = session
+        if WCSession.isSupported() {
+            let session = WCSession.default
+            session.delegate = self
+            session.activate()
+            self.session = session
+        }
         // Any save, in any context, means the watch may be out of date.
         saveObserver = NotificationCenter.default.addObserver(forName: ModelContext.didSave, object: nil, queue: .main) { _ in
             Task { @MainActor in WatchBridge.shared.setNeedsUpdate() }
@@ -48,15 +56,23 @@ final class WatchBridge: NSObject {
     }
 
     private func send() {
-        guard let session, session.activationState == .activated, session.isPaired, session.isWatchAppInstalled,
-              let container else { return }
+        guard let container else { return }
         let snapshot = Self.snapshot(in: container.mainContext)
-        guard let data = snapshot.encoded() else { return }
         // `made` changes every time; compare the rest so an unchanged family isn't re-sent.
         var unstamped = snapshot
         unstamped.made = .distantPast
         let fingerprint = unstamped.encoded()
-        guard fingerprint != lastSent else { return }
+
+        // The iPhone's widgets read the snapshot from the shared app group.
+        if fingerprint != lastSaved {
+            snapshot.save()
+            lastSaved = fingerprint
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        Task { await DrivingLiveActivity.refresh(in: container.mainContext) }
+
+        guard let session, session.activationState == .activated, session.isPaired, session.isWatchAppInstalled,
+              let data = snapshot.encoded(), fingerprint != lastSent else { return }
         do {
             try session.updateApplicationContext([WatchSnapshot.contextKey: data])
             lastSent = fingerprint
@@ -157,7 +173,7 @@ final class WatchBridge: NSObject {
             .filter { !$0.isArchived && calendar.startOfDay(for: $0.nextDue) <= soon }
             .sorted { $0.nextDue < $1.nextDue }
             .prefix(6)
-            .map { WatchSnapshot.HomeCareItem(id: $0.id, name: $0.name, symbol: $0.symbol, due: $0.nextDue, location: $0.location) }
+            .map { WatchSnapshot.HomeCareItem(id: $0.id, name: $0.name, symbol: $0.symbol, due: $0.nextDue, location: $0.location, details: $0.details.isEmpty ? nil : $0.details) }
         return snapshot
     }
 

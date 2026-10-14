@@ -69,6 +69,8 @@ nonisolated struct WatchSnapshot: Codable, Sendable, Equatable {
         var symbol: String
         var due: Date
         var location: String
+        /// "16×25×1 MERV 11": what to buy. Optional so older snapshots still decode.
+        var details: String? = nil
     }
 
     var needsOKCount: Int { approvals.count }
