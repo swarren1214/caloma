@@ -22,6 +22,7 @@ struct FamilyView: View {
     @AppStorage(SettingsKey.splitGive) private var splitGive = 10
     @AppStorage(SettingsKey.accentHex) private var accentHex = hexString(Brand.defaultAccentHex)
     @AppStorage(SettingsKey.homeReminders) private var homeReminders = false
+    @AppStorage(SettingsKey.approvalAlerts) private var approvalAlerts = true
 
     @State private var addingRole: MemberRole?
     @State private var payingOut = false
@@ -155,8 +156,16 @@ struct FamilyView: View {
                 })) {
                     settingLabel("Home Care Reminders", "A notification before each task is due")
                 }
+                Toggle(isOn: Binding(get: { approvalAlerts }, set: { on in
+                    approvalAlerts = on
+                    if on { Task { _ = await Reminders.requestPermission() } }
+                })) {
+                    settingLabel("Needs Your OK", "When a kid finishes a chore or asks for a reward")
+                }
             } header: {
                 Text("Reminders")
+            } footer: {
+                Text("Approve or send back right from the notification. Each parent's phone gets them while Caloma is open or in the background.")
             }
 
             Section {

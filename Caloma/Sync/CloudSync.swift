@@ -313,23 +313,32 @@ final class CloudSync {
         var inserted: [any CloudRecord] = []
         var settingsChanged = false
         var calendarChanged = !deletions.isEmpty
+        var newCompletions: [ChoreCompletion] = []
+        var newRedemptions: [Redemption] = []
+        var handled: [UUID] = []
         for record in modifications where record.recordID.zoneID == zoneID {
             guard let type = SyncSchema.type(named: record.recordType),
                   let id = UUID(uuidString: record.recordID.recordName) else { continue }
             if let existing = model(id, identifiers: identifiers, in: context) {
                 existing.read(from: record)
+                if let completion = existing as? ChoreCompletion, completion.status != .pending { handled.append(id) }
+                if let redemption = existing as? Redemption, redemption.status != .pending { handled.append(id) }
             } else {
                 let model = type.blank()
                 model.id = id
                 model.read(from: record)
                 context.insert(model)
                 inserted.append(model)
+                if let completion = model as? ChoreCompletion { newCompletions.append(completion) }
+                if let redemption = model as? Redemption { newRedemptions.append(redemption) }
             }
             if ObjectIdentifier(type) == ObjectIdentifier(FamilySetting.self) { settingsChanged = true }
             if ObjectIdentifier(type) == ObjectIdentifier(FamilyEvent.self) || ObjectIdentifier(type) == ObjectIdentifier(HomeTask.self) { calendarChanged = true }
             systemFields[record.recordID.recordName] = Self.encodeSystemFields(of: record)
         }
         for recordID in deletions where recordID.zoneID == zoneID {
+            // A chore undone or a reward request taken back: its notification goes too.
+            if let id = UUID(uuidString: recordID.recordName) { handled.append(id) }
             if let id = UUID(uuidString: recordID.recordName), let model = model(id, identifiers: identifiers, in: context) {
                 idsByModel[model.persistentModelID] = nil
                 context.delete(model)
@@ -352,6 +361,7 @@ final class CloudSync {
             EventAlerts.reschedule(in: context)
             Reminders.reschedule(in: context)
         }
+        ApprovalAlerts.update(newCompletions: newCompletions, newRedemptions: newRedemptions, handled: handled, in: context)
     }
 
     private func handleSent(_ sent: CKSyncEngine.Event.SentRecordZoneChanges) {

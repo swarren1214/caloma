@@ -100,6 +100,75 @@ struct OccurrenceRef: Identifiable, Hashable {
     var eventID: UUID
     var day: Date
     var id: String { "\(eventID.uuidString)@\(Int(day.timeIntervalSince1970))" }
+
+    init(eventID: UUID, day: Date) {
+        self.eventID = eventID
+        self.day = day
+    }
+
+    /// Back from a drag's text ("<uuid>@<day>").
+    init?(payload: String) {
+        let parts = payload.split(separator: "@")
+        guard parts.count == 2, let id = UUID(uuidString: String(parts[0])), let seconds = TimeInterval(parts[1]) else { return nil }
+        self.init(eventID: id, day: Date(timeIntervalSince1970: seconds))
+    }
+}
+
+/// An event dragged somewhere else: onto a day (keeps its time) or onto a time on the iPad grid.
+struct EventMove: Identifiable {
+    var ref: OccurrenceRef
+    var toDay: Date
+    /// Nil when dropped on a day rather than a time.
+    var toStart: Date?
+    let id = UUID()
+}
+
+extension View {
+    /// Long-press an event to pick it up.
+    func eventDraggable(_ ref: OccurrenceRef, title: String, color: Color) -> some View {
+        draggable(ref.id) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .foregroundStyle(color.mix(with: .primary, by: 0.3))
+                .background(color.opacity(0.22), in: .rect(cornerRadius: 10))
+        }
+    }
+
+    /// A day an event can be dropped on, outlined while one hovers over it.
+    func eventDropTarget(on day: Date, cornerRadius: CGFloat = 12, perform: ((OccurrenceRef, Date) -> Void)?) -> some View {
+        modifier(EventDropTarget(day: day, cornerRadius: cornerRadius, perform: perform))
+    }
+}
+
+private struct EventDropTarget: ViewModifier {
+    var day: Date
+    var cornerRadius: CGFloat
+    var perform: ((OccurrenceRef, Date) -> Void)?
+    @State private var targeted = false
+    @Environment(\.accent) private var accent
+
+    func body(content: Content) -> some View {
+        if let perform {
+            content
+                .overlay {
+                    if targeted {
+                        RoundedRectangle(cornerRadius: cornerRadius)
+                            .strokeBorder(accent, lineWidth: 2)
+                            .background(accent.opacity(0.1), in: .rect(cornerRadius: cornerRadius))
+                            .allowsHitTesting(false)
+                    }
+                }
+                .dropDestination(for: String.self) { items, _ in
+                    guard let ref = items.first.flatMap(OccurrenceRef.init(payload:)) else { return false }
+                    perform(ref, day)
+                    return true
+                } isTargeted: { targeted = $0 }
+        } else {
+            content
+        }
+    }
 }
 
 /// A profile photo inside a ring of the person's color. Dimmed and gray when they're hidden.

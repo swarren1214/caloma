@@ -7,6 +7,7 @@ struct CalendarView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accent) private var accent
+    @Environment(\.modelContext) private var context
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @Query(filter: #Predicate<FamilyEvent> { !$0.isArchived }) private var events: [FamilyEvent]
     @Query private var chores: [Chore]
@@ -20,6 +21,8 @@ struct CalendarView: View {
     @State private var person: UUID?
     @State private var open: OccurrenceRef?
     @State private var creating: NewEventRequest?
+    /// A repeating event that was dragged, waiting on "Only this one" or "All of them".
+    @State private var pendingMove: EventMove?
 
     private let apple = AppleCalendar.shared
 
@@ -50,7 +53,7 @@ struct CalendarView: View {
         let data = data
         Group {
             if sizeClass == .regular {
-                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { creating = $0 }) { open = $0 }
+                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { creating = $0 }, onOpen: { open = $0 }, onMove: move)
             } else {
                 compact(data)
             }
@@ -82,6 +85,14 @@ struct CalendarView: View {
                 EventDetailView(eventID: ref.eventID, day: ref.day)
             }
         }
+        .confirmationDialog("Move this event?", isPresented: Binding(get: { pendingMove != nil }, set: { if !$0 { pendingMove = nil } }), titleVisibility: .visible, presenting: pendingMove) { move in
+            Button("Only This One") { perform(move, all: false) }
+            Button("All of Them") { perform(move, all: true) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("It repeats. Move just this day, or every time it happens?")
+        }
+        .sensoryFeedback(.success, trigger: moved)
         .onChange(of: router.pendingNewEvent, initial: true) { _, pending in
             guard pending else { return }
             router.pendingNewEvent = false
@@ -100,9 +111,9 @@ struct CalendarView: View {
             .pickerStyle(.segmented)
 
             if mode == .week {
-                WeekStrip(day: $day, data: data, visible: visible) { date in creating = NewEventRequest(day: date) }
+                WeekStrip(day: $day, data: data, visible: visible, onNew: { date in creating = NewEventRequest(day: date) }, onDrop: { ref, date in move(EventMove(ref: ref, toDay: date)) })
             } else {
-                MonthGrid(day: $day, data: data, visible: visible) { date in creating = NewEventRequest(day: date) }
+                MonthGrid(day: $day, data: data, visible: visible, onNew: { date in creating = NewEventRequest(day: date) }, onDrop: { ref, date in move(EventMove(ref: ref, toDay: date)) })
             }
 
             if data.members.count > 1 {
@@ -151,6 +162,40 @@ struct CalendarView: View {
         }
     }
 
+    @State private var moved = 0
+
+    /// An event was dragged to a new day or time. Repeating events ask first.
+    private func move(_ move: EventMove) {
+        guard let event = Family.event(move.ref.eventID, in: context) else { return }
+        let (oldStart, newStart) = starts(of: event, for: move)
+        // Dropped back where it was.
+        guard abs(newStart.timeIntervalSince(oldStart)) >= 60 else { return }
+        if event.repeatRule == .never {
+            perform(move, all: false)
+        } else {
+            pendingMove = move
+        }
+    }
+
+    /// Where the dragged occurrence was, and where it's going.
+    private func starts(of event: FamilyEvent, for move: EventMove) -> (Date, Date) {
+        let oldStart = Family.occurrenceStart(of: event, on: move.ref.day)
+        if let toStart = move.toStart { return (oldStart, toStart) }
+        if event.isAllDay { return (oldStart, Calendar.current.startOfDay(for: move.toDay)) }
+        return (oldStart, Family.sameTime(as: oldStart, on: move.toDay))
+    }
+
+    private func perform(_ move: EventMove, all: Bool) {
+        pendingMove = nil
+        guard let event = Family.event(move.ref.eventID, in: context) else { return }
+        let (oldStart, newStart) = starts(of: event, for: move)
+        guard abs(newStart.timeIntervalSince(oldStart)) >= 60 else { return }
+        withAnimation(.snappy) {
+            _ = Family.move(event, from: move.ref.day, to: newStart, allOccurrences: all, in: context)
+        }
+        moved += 1
+    }
+
     private var dayTitle: String {
         let calendar = Calendar.current
         if calendar.isDateInToday(day) { return "Today" }
@@ -194,6 +239,8 @@ struct WeekStrip: View {
     var visible: (EventRecord) -> Bool
     /// Long-pressing a day offers New Event on it.
     var onNew: ((Date) -> Void)? = nil
+    /// An event dropped on a day.
+    var onDrop: ((OccurrenceRef, Date) -> Void)? = nil
     @Environment(\.accent) private var accent
 
     var body: some View {
@@ -244,6 +291,7 @@ struct WeekStrip: View {
                         Button("New Event", systemImage: "plus") { onNew(date) }
                     }
                 }
+                .eventDropTarget(on: date, perform: onDrop)
             }
             Button {
                 move(by: 7)
@@ -288,6 +336,8 @@ struct MonthGrid: View {
     var cellHeight: CGFloat = 46
     /// Long-pressing a day offers New Event on it.
     var onNew: ((Date) -> Void)? = nil
+    /// An event dropped on a day.
+    var onDrop: ((OccurrenceRef, Date) -> Void)? = nil
     @Environment(\.accent) private var accent
 
     var body: some View {
@@ -355,6 +405,7 @@ struct MonthGrid: View {
                             Button("New Event", systemImage: "plus") { onNew(date) }
                         }
                     }
+                    .eventDropTarget(on: date, cornerRadius: 10, perform: onDrop)
                 }
             }
         }

@@ -28,6 +28,7 @@ enum Family {
         let chore = chore(completion.choreID, in: context)
         award(completion, title: chore?.title ?? "Chore", in: context)
         Persistence.save(context)
+        ApprovalAlerts.clear([completion.id])
     }
 
     /// Opens it again for the kid.
@@ -35,6 +36,7 @@ enum Family {
         completion.status = .sentBack
         completion.reviewedAt = .now
         Persistence.save(context)
+        ApprovalAlerts.clear([completion.id])
     }
 
     /// Takes a completion back entirely, points and all.
@@ -53,6 +55,7 @@ enum Family {
             award(completion, title: chore(completion.choreID, in: context)?.title ?? "Chore", in: context)
         }
         Persistence.save(context)
+        ApprovalAlerts.clear(completions.map(\.id))
     }
 
     private static func award(_ completion: ChoreCompletion, title: String, in context: ModelContext) {
@@ -113,12 +116,14 @@ enum Family {
         let name = reward(redemption.rewardID, in: context)?.name ?? "Reward"
         context.insert(PointEntry(memberID: memberID, points: -redemption.cost, kind: .reward, refID: redemption.id, note: name))
         Persistence.save(context)
+        ApprovalAlerts.clear([redemption.id])
     }
 
     static func decline(_ redemption: Redemption, in context: ModelContext) {
         redemption.status = .declined
         redemption.reviewedAt = .now
         Persistence.save(context)
+        ApprovalAlerts.clear([redemption.id])
     }
 
     /// A kid putting points toward a family goal.

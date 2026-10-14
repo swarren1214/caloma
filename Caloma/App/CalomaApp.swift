@@ -11,6 +11,7 @@ struct CalomaApp: App {
     init() {
         let container = Persistence.makeContainer()
         self.container = container
+        AppRouter.shared.container = container
         StarterData.seedIfNeeded(in: container.mainContext)
         Upgrades.run(in: container.mainContext)
         CloudSync.shared.start(with: container)
@@ -62,6 +63,8 @@ final class AppRouter {
     var sheet: AppSheet?
     /// Set to open New Event on the calendar (⌘E); the calendar clears it.
     var pendingNewEvent = false
+    /// The app's store, for notification actions that arrive outside a view.
+    var container: ModelContainer?
 
     func newEvent() {
         tab = .calendar
@@ -79,6 +82,22 @@ final class AppRouter {
             UserDefaults.standard.set(memberID.uuidString, forKey: SettingsKey.kidViewMember)
         }
         kidViewOpen = true
+    }
+
+    /// caloma://calendar, caloma://approvals and so on, from widgets and notifications.
+    func open(_ url: URL) {
+        guard url.scheme == "caloma" else { return }
+        switch url.host() {
+        case "chores": tab = .chores
+        case "calendar": tab = .calendar
+        case "rewards": tab = .rewards
+        case "homecare": tab = .homeCare
+        case "approvals":
+            // A kid's device in Kid View shouldn't open the parents' approvals.
+            guard !kidViewOpen else { return }
+            sheet = .approvals
+        default: tab = .home
+        }
     }
 
     /// Opens Kid View on "Who's doing chores?", so the kids pick.
@@ -151,16 +170,7 @@ struct AppRoot: View {
             Button("OK") { sync.notice = nil }
         }
         // Notifications open caloma://homecare, caloma://chores, caloma://rewards.
-        .onOpenURL { url in
-            guard url.scheme == "caloma" else { return }
-            switch url.host() {
-            case "chores": router.tab = .chores
-            case "calendar": router.tab = .calendar
-            case "rewards": router.tab = .rewards
-            case "homecare": router.tab = .homeCare
-            default: router.tab = .home
-            }
-        }
+        .onOpenURL { url in router.open(url) }
     }
 }
 

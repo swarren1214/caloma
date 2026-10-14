@@ -31,6 +31,7 @@ struct DayAgenda: View {
                             AllDayStrip(title: occurrence.event.title, symbol: nil, detail: data.whoLabel(occurrence.event), color: data.color(for: occurrence.event), dashed: false)
                         }
                         .buttonStyle(.plain)
+                        .eventDraggable(OccurrenceRef(eventID: occurrence.event.id, day: Calendar.current.startOfDay(for: occurrence.start)), title: occurrence.event.title, color: data.color(for: occurrence.event))
                     }
                     ForEach(appleAllDay) { event in
                         AllDayStrip(title: event.title, symbol: nil, detail: event.calendarTitle, color: event.color, dashed: false)
@@ -56,6 +57,7 @@ struct DayAgenda: View {
                         EventRow(occurrence: occurrence, data: data)
                     }
                     .buttonStyle(.plain)
+                    .eventDraggable(OccurrenceRef(eventID: occurrence.event.id, day: Calendar.current.startOfDay(for: occurrence.start)), title: occurrence.event.title, color: data.color(for: occurrence.event))
                 case .apple(let event):
                     AppleEventRow(event: event)
                 }

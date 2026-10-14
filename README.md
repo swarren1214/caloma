@@ -48,7 +48,10 @@ months. Onboarding offers eight starter chores and the family store from the des
   event someone's counting down to. Events show who's going (faces), who's driving and what
   to bring. iPad: the family down the side, each person's photo in a ring of their color (tap
   to hide or show them), beside a week grid of hours with a line for now, or the month and
-  day side by side.
+  day side by side. To reschedule, touch and hold an event and drag it: on the iPad week grid
+  to another day and time (snapping to the quarter hour, with the new time shown as you
+  drag), and anywhere else onto a day in the week strip, the month or the all-day row (it
+  keeps its time). A repeating event asks whether to move only that day or all of them.
 - **New Event**: name (with a dot in the color it shows in), location, who's going (Everyone or anyone in the family), who's
   driving, all day or times, repeat (never, daily, weekly on chosen days, monthly, yearly,
   with an optional last day), an alert, notes. For the kids going: Remember to Bring (they
@@ -196,6 +199,20 @@ Before the first run with sync:
 3. Test sharing with two Apple Accounts (two devices, or a device and a second account on
    another device). Development builds share in the development environment.
 4. Before TestFlight, deploy the development schema to production in the CloudKit Console.
+
+### "Needs your OK" notifications
+
+When a kid finishes a chore that needs approval, or asks for a reward, each parent's phone
+shows a notification: "Max finished a chore · Clean the bathroom sink · +15 stars", with the
+photo if there is one. Touch and hold it for **Approve** and **Send Back** (or **Decline** for
+a reward); both ask for Face ID, so a kid can't approve from the lock screen. Tapping it opens
+Needs Your OK. When one parent handles it, the other parent's notification goes away.
+
+There's no server: CloudKit's silent push wakes the phone, sync fetches the new request, and
+the phone posts the notification itself (`ApprovalAlerts`). iOS decides when to deliver
+background pushes, so they can lag by a few minutes, and a phone where Caloma was swiped
+away in the app switcher won't get them until it's opened. Devices in Kid View don't show
+them. Family › Reminders › Needs Your OK turns them off per phone.
 
 ## Apple Calendar
 

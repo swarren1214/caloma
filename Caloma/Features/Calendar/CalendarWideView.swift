@@ -10,6 +10,7 @@ struct CalendarWideView: View {
     var visible: (EventRecord) -> Bool
     var onNew: (NewEventRequest) -> Void
     var onOpen: (OccurrenceRef) -> Void
+    var onMove: (EventMove) -> Void
 
     @Environment(\.accent) private var accent
     private let apple = AppleCalendar.shared
@@ -21,10 +22,10 @@ struct CalendarWideView: View {
             VStack(alignment: .leading, spacing: 14) {
                 header
                 if mode == .week {
-                    WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, showHomeCare: filter.showHomeCare, onNew: onNew, onOpen: onOpen)
+                    WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, showHomeCare: filter.showHomeCare, onNew: onNew, onOpen: onOpen, onMove: onMove)
                 } else {
                     HStack(alignment: .top, spacing: 16) {
-                        MonthGrid(day: $day, data: data, visible: visible, cellHeight: 64) { date in onNew(NewEventRequest(day: date)) }
+                        MonthGrid(day: $day, data: data, visible: visible, cellHeight: 64, onNew: { date in onNew(NewEventRequest(day: date)) }, onDrop: { ref, date in onMove(EventMove(ref: ref, toDay: date)) })
                             .frame(maxWidth: 520)
                         ScrollView {
                             VStack(alignment: .leading, spacing: 10) {
@@ -161,10 +162,19 @@ struct WeekGrid: View {
     var showHomeCare: Bool
     var onNew: (NewEventRequest) -> Void
     var onOpen: (OccurrenceRef) -> Void
+    var onMove: (EventMove) -> Void
 
     @Environment(\.accent) private var accent
     private let apple = AppleCalendar.shared
     private let hourHeight: CGFloat = 52
+    /// The event being dragged to a new time, and how far it's gone. Resets by itself when the
+    /// touch ends or is cancelled.
+    @GestureState(resetTransaction: Transaction(animation: .snappy)) private var dragging: Dragging?
+
+    private struct Dragging: Equatable {
+        var id: String
+        var translation: CGSize = .zero
+    }
     /// The whole day, midnight to midnight. It opens scrolled to the morning (or to now).
     private let firstHour = 0
     private let lastHour = 24
@@ -215,6 +225,7 @@ struct WeekGrid: View {
                                 chip(occurrence.event.title, color: data.color(for: occurrence.event), dashed: false)
                             }
                             .buttonStyle(.plain)
+                            .eventDraggable(OccurrenceRef(eventID: occurrence.event.id, day: calendar.startOfDay(for: occurrence.start)), title: occurrence.event.title, color: data.color(for: occurrence.event))
                         }
                         ForEach(appleEvents.filter { $0.isAllDay && calendar.isDate($0.start, inSameDayAs: date) }) { event in
                             chip(event.title, color: event.color, dashed: false)
@@ -238,6 +249,7 @@ struct WeekGrid: View {
                     .onTapGesture {
                         onNew(NewEventRequest(day: date, start: calendar.startOfDay(for: date), allDay: true))
                     }
+                    .eventDropTarget(on: date, cornerRadius: 6) { ref, day in onMove(EventMove(ref: ref, toDay: day)) }
                     .overlay(alignment: .leading) { Rectangle().fill(Color(.separator)).frame(width: 0.5) }
                 }
             }
@@ -262,8 +274,11 @@ struct WeekGrid: View {
                                 .id(hour)
                         }
                     }
-                    ForEach(week, id: \.self) { date in
-                        dayColumn(date, occurrences: timed(on: date, occurrences: occurrences), apple: appleEvents.filter { !$0.isAllDay && calendar.isDate($0.start, inSameDayAs: date) })
+                    ForEach(Array(week.enumerated()), id: \.element) { index, date in
+                        let timedHere = timed(on: date, occurrences: occurrences)
+                        dayColumn(date, index: index, occurrences: timedHere, apple: appleEvents.filter { !$0.isAllDay && calendar.isDate($0.start, inSameDayAs: date) })
+                            // The column with the event being dragged draws over its neighbors.
+                            .zIndex(timedHere.contains { $0.id == dragging?.id } ? 1 : 0)
                     }
                 }
                 .background(alignment: .top) {
@@ -279,6 +294,8 @@ struct WeekGrid: View {
                     .padding(.leading, gutter)
                 }
             }
+            // Holding an event still while it's picked up, so the drag moves it, not the hours.
+            .scrollDisabled(dragging != nil)
             .task {
                 // After the grid is laid out, or the scroll has nowhere to go.
                 try? await Task.sleep(for: .milliseconds(50))
@@ -344,7 +361,7 @@ struct WeekGrid: View {
         var lanes = 1
     }
 
-    private func dayColumn(_ date: Date, occurrences: [EventOccurrence], apple: [AppleEvent]) -> some View {
+    private func dayColumn(_ date: Date, index: Int, occurrences: [EventOccurrence], apple: [AppleEvent]) -> some View {
         let calendar = Calendar.current
         let dayStart = calendar.date(bySettingHour: firstHour, minute: 0, second: 0, of: date) ?? date
         var items: [Placed] = occurrences.map { occurrence in
@@ -370,9 +387,27 @@ struct WeekGrid: View {
                     let top = CGFloat(item.start.timeIntervalSince(dayStart) / 3600) * hourHeight
                     let height = max(CGFloat(item.end.timeIntervalSince(item.start) / 3600) * hourHeight - 2, 22)
                     let width = (proxy.size.width - 4) / CGFloat(item.lanes)
-                    block(item, height: height)
-                        .frame(width: width - 2, height: height)
-                        .offset(x: 2 + CGFloat(item.lane) * width, y: top + 1)
+                    let isDragging = dragging?.id == item.id
+                    block(item, height: height, column: proxy.size.width, index: index, dayStart: dayStart)
+                        .frame(width: isDragging ? proxy.size.width - 4 : width - 2, height: height)
+                        .overlay(alignment: .topTrailing) {
+                            if isDragging, let start = droppedStart(item, by: dragging?.translation ?? .zero, column: proxy.size.width, index: index, dayStart: dayStart) {
+                                Text(start.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
+                                    .font(.caption2.weight(.bold))
+                                    .monospacedDigit()
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .foregroundStyle(.white)
+                                    .background(item.color, in: Capsule())
+                                    .fixedSize()
+                                    .offset(y: -22)
+                            }
+                        }
+                        .scaleEffect(isDragging ? 1.04 : 1)
+                        .shadow(color: .black.opacity(isDragging ? 0.2 : 0), radius: 10, y: 4)
+                        .offset(x: (isDragging ? 2 : 2 + CGFloat(item.lane) * width) + (isDragging ? dragging!.translation.width : 0),
+                                y: top + 1 + (isDragging ? dragging!.translation.height : 0))
+                        .zIndex(isDragging ? 1 : 0)
                 }
                 if isToday {
                     TimelineView(.everyMinute) { context in
@@ -396,8 +431,21 @@ struct WeekGrid: View {
         .overlay(alignment: .leading) { Rectangle().fill(Color(.separator)).frame(width: 0.5) }
     }
 
+    /// Where a dragged event would land: whole days across, quarter hours down.
+    private func droppedStart(_ item: Placed, by translation: CGSize, column: CGFloat, index: Int, dayStart: Date) -> Date? {
+        guard column > 0 else { return nil }
+        let calendar = Calendar.current
+        let days = min(max(Int((translation.width / column).rounded()), -index), week.count - 1 - index)
+        let length = item.end.timeIntervalSince(item.start)
+        let minutesFromMidnight = item.start.timeIntervalSince(dayStart) / 60 + Double(translation.height / hourHeight * 60)
+        let latest = Double(lastHour * 60) - max(length / 60, 15)
+        let snapped = (min(max(minutesFromMidnight, 0), latest) / 15).rounded() * 15
+        guard let day = calendar.date(byAdding: .day, value: days, to: dayStart) else { return nil }
+        return day.addingTimeInterval(snapped * 60)
+    }
+
     @ViewBuilder
-    private func block(_ item: Placed, height: CGFloat) -> some View {
+    private func block(_ item: Placed, height: CGFloat, column: CGFloat, index: Int, dayStart: Date) -> some View {
         let content = VStack(alignment: .leading, spacing: 1) {
             Text(item.title)
                 .font(.caption.weight(.semibold))
@@ -420,9 +468,39 @@ struct WeekGrid: View {
             }
         }
         if let ref = item.ref {
-            Button { onOpen(ref) } label: { content }
-                .buttonStyle(.plain)
+            // Tap to open; touch and hold, then drag, to move it.
+            content
+                .contentShape(.rect(cornerRadius: 8))
+                .onTapGesture { onOpen(ref) }
+                .gesture(
+                    LongPressGesture(minimumDuration: 0.35)
+                        .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
+                        .updating($dragging) { value, state, transaction in
+                            switch value {
+                            case .first(true):
+                                if state?.id != item.id {
+                                    transaction.animation = .snappy(duration: 0.2)
+                                    state = Dragging(id: item.id)
+                                }
+                            case .second(true, let drag):
+                                state = Dragging(id: item.id, translation: drag?.translation ?? .zero)
+                            default:
+                                break
+                            }
+                        }
+                        .onEnded { value in
+                            guard case .second(true, let drag?) = value else { return }
+                            let start = droppedStart(item, by: drag.translation, column: column, index: index, dayStart: dayStart)
+                            if let start, abs(start.timeIntervalSince(item.start)) >= 60 {
+                                onMove(EventMove(ref: ref, toDay: Calendar.current.startOfDay(for: start), toStart: start))
+                            }
+                        }
+                )
+                .sensoryFeedback(.impact(weight: .medium), trigger: dragging?.id == item.id)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
                 .accessibilityLabel("\(item.title), \(item.start.formatted(date: .omitted, time: .shortened))")
+                .accessibilityAction { onOpen(ref) }
         } else {
             content
         }

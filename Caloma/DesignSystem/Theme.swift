@@ -37,6 +37,8 @@ nonisolated enum SettingsKey {
     static let familyName = "family.name"
     /// Remind about home care tasks before they're due.
     static let homeReminders = "homeCare.reminders"
+    /// Notify parents when a chore or reward needs their OK (on unless turned off).
+    static let approvalAlerts = "approvals.alerts"
 }
 
 /// Caloma's colors, from the Tend designs on the Claude Design canvas.
