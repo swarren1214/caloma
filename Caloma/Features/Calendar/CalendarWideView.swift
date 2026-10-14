@@ -238,6 +238,9 @@ struct WeekGrid: View {
                 }
             }
             .frame(minHeight: 50)
+            // As tall as its tallest day, so each day's cell fills the row (and can be tapped)
+            // without taking the hours' room.
+            .fixedSize(horizontal: false, vertical: true)
             Divider()
             // Hours.
             ScrollViewReader { scroller in
@@ -272,7 +275,11 @@ struct WeekGrid: View {
                     .padding(.leading, gutter)
                 }
             }
-            .onAppear { scroller.scrollTo(openingHour, anchor: .top) }
+            .task {
+                // After the grid is laid out, or the scroll has nowhere to go.
+                try? await Task.sleep(for: .milliseconds(50))
+                scroller.scrollTo(openingHour, anchor: .top)
+            }
             .onChange(of: week.first) { _, _ in
                 withAnimation(.snappy) { scroller.scrollTo(openingHour, anchor: .top) }
             }
