@@ -111,7 +111,6 @@ struct KidMyDayView: View {
                                 Text(occurrence.start.formatted(.dateTime.weekday(.abbreviated)).uppercased())
                                     .font(.system(size: 13, weight: .heavy, design: .rounded))
                                     .foregroundStyle(color)
-                                IconTile(symbol: occurrence.event.symbol, color: color, size: 46)
                                 Text(occurrence.event.title)
                                     .font(.system(size: 17, weight: .heavy, design: .rounded))
                                     .lineLimit(2)
@@ -189,7 +188,7 @@ private struct CountdownHero: View {
                         Text("+\(sleeps - 7)")
                             .font(.system(size: 17, weight: .heavy, design: .rounded))
                     }
-                    Image(systemName: occurrence.event.symbol)
+                    Image(systemName: "sparkles")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(Color(hex: 0x2A1E78))
                         .frame(width: 42, height: 42)
@@ -252,7 +251,6 @@ private struct KidEventStep: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
-                    IconTile(symbol: event.symbol, color: color, size: 50)
                     VStack(alignment: .leading, spacing: 2) {
                         if isNext {
                             Text("UP NEXT")

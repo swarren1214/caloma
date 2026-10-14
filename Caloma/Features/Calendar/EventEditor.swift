@@ -54,7 +54,11 @@ struct EventEditor: View {
             Form {
                 Section {
                     HStack(spacing: 12) {
-                        IconTile(symbol: symbol, color: leadColor, size: 40, filled: true)
+                        // The color it shows in on the calendar.
+                        Circle()
+                            .fill(leadColor)
+                            .frame(width: 14, height: 14)
+                            .animation(.snappy, value: leadColor)
                         TextField("Event name", text: $title)
                             .font(.title3.weight(.semibold))
                     }
@@ -64,10 +68,6 @@ struct EventEditor: View {
                         Image(systemName: "mappin.and.ellipse")
                             .foregroundStyle(.secondary)
                     }
-                }
-
-                Section("Icon") {
-                    IconPicker(quick: SymbolSets.events, selection: $symbol, color: leadColor)
                 }
 
                 Section {

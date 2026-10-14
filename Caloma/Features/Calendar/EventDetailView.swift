@@ -52,7 +52,9 @@ struct EventDetailView: View {
         return List {
             Section {
                 HStack(spacing: 14) {
-                    IconTile(symbol: event.symbol, color: color, size: 52, filled: true)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(color)
+                        .frame(width: 6, height: 58)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(event.title)
                             .font(.title2.bold())

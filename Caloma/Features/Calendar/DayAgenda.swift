@@ -28,12 +28,12 @@ struct DayAgenda: View {
                         Button {
                             onOpen(OccurrenceRef(eventID: occurrence.event.id, day: day))
                         } label: {
-                            AllDayStrip(title: occurrence.event.title, symbol: occurrence.event.symbol, detail: data.whoLabel(occurrence.event), color: data.color(for: occurrence.event), dashed: false)
+                            AllDayStrip(title: occurrence.event.title, symbol: nil, detail: data.whoLabel(occurrence.event), color: data.color(for: occurrence.event), dashed: false)
                         }
                         .buttonStyle(.plain)
                     }
                     ForEach(appleAllDay) { event in
-                        AllDayStrip(title: event.title, symbol: "calendar", detail: event.calendarTitle, color: event.color, dashed: false)
+                        AllDayStrip(title: event.title, symbol: nil, detail: event.calendarTitle, color: event.color, dashed: false)
                     }
                     ForEach(homeTasks) { task in
                         NavigationLink {
@@ -115,15 +115,18 @@ struct DayAgenda: View {
 /// A full-width all-day line: "Picture day · Ella, Max". Home care is dashed.
 struct AllDayStrip: View {
     var title: String
-    var symbol: String
+    /// Home care shows its task's icon; events don't have one.
+    var symbol: String?
     var detail: String
     var color: Color
     var dashed: Bool
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.subheadline.weight(.semibold))
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(.subheadline.weight(.semibold))
+            }
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)

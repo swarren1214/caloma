@@ -49,7 +49,7 @@ months. Onboarding offers eight starter chores and the family store from the des
   to bring. iPad: the family down the side, each person's photo in a ring of their color (tap
   to hide or show them), beside a week grid of hours with a line for now, or the month and
   day side by side.
-- **New Event**: name, icon, location, who's going (Everyone or anyone in the family), who's
+- **New Event**: name (with a dot in the color it shows in), location, who's going (Everyone or anyone in the family), who's
   driving, all day or times, repeat (never, daily, weekly on chosen days, monthly, yearly,
   with an optional last day), an alert, notes. For the kids going: Remember to Bring (they
   tick it off in Kid View), Show in Kid View, Count Down to It, and a Get-Ready Chore

@@ -276,7 +276,9 @@ struct ComingUpCard: View {
         let calendar = Calendar.current
         let when = calendar.isDateInToday(occurrence.start) ? "Today" : "Tomorrow"
         return HStack(spacing: 12) {
-            IconTile(symbol: occurrence.event.symbol, color: color, size: 34)
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color)
+                .frame(width: 4, height: 34)
             VStack(alignment: .leading, spacing: 2) {
                 Text(occurrence.event.title)
                     .lineLimit(1)
