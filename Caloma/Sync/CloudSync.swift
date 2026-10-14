@@ -59,11 +59,16 @@ final class CloudSync {
     @ObservationIgnored private var retries: [String: Int] = [:]
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var lastRestart: Date?
+    /// Why iCloud refused the last records sent, if it did.
+    @ObservationIgnored private var sendError: String?
     private var scanTask: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
     private let log = Logger(subsystem: "com.stephenwarren.caloma", category: "sync")
 
     static let author = "sync"
+    /// Raise to have every device send everything again once (after records were refused,
+    /// like before the CloudKit schema was in Production).
+    static let uploadGeneration = 2
     static let zoneName = "Family"
 
     var zoneID: CKRecordZone.ID { CKRecordZone.ID(zoneName: state.zoneName, ownerName: state.zoneOwner) }
@@ -107,9 +112,10 @@ final class CloudSync {
             engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
         }
         rememberAllIDs()
-        if !state.didInitialUpload {
+        if !state.didInitialUpload || (state.uploadGeneration ?? 1) < Self.uploadGeneration {
             queueEverything()
             state.didInitialUpload = true
+            state.uploadGeneration = Self.uploadGeneration
         }
         scanHistory()
         saveState()
@@ -262,8 +268,12 @@ final class CloudSync {
             status = .syncing
 
         case .didFetchChanges, .didSendChanges:
-            status = .upToDate
-            lastSynced = .now
+            if let sendError {
+                status = .failed(sendError)
+            } else {
+                status = .upToDate
+                lastSynced = .now
+            }
 
         case .willFetchRecordZoneChanges, .didFetchRecordZoneChanges:
             break
@@ -376,6 +386,7 @@ final class CloudSync {
         mapsChanged = true
         var retry: [CKSyncEngine.PendingRecordZoneChange] = []
         var needsZone = false
+        var rejected: CKError?
         for failure in sent.failedRecordSaves {
             let recordID = failure.record.recordID
             // Give up on a record after a few tries this session, so one bad record can't
@@ -383,6 +394,7 @@ final class CloudSync {
             let tries = retries[recordID.recordName, default: 0] + 1
             retries[recordID.recordName] = tries
             if tries > 3 {
+                rejected = failure.error
                 log.error("Gave up sending \(recordID.recordName, privacy: .public): \(failure.error.localizedDescription, privacy: .public)")
                 continue
             }
@@ -405,8 +417,18 @@ final class CloudSync {
                 // The engine tries these again by itself.
                 break
             default:
+                rejected = failure.error
                 log.error("Couldn't send \(recordID.recordName, privacy: .public): \(failure.error.localizedDescription, privacy: .public)")
             }
+        }
+        // Shown in Family › Family Sharing, rather than "Up to date" while iCloud refuses
+        // the records (an undeployed schema on a TestFlight build, say).
+        sendError = rejected.map { "iCloud didn't accept \(sent.failedRecordSaves.count) change\(sent.failedRecordSaves.count == 1 ? "" : "s"): \($0.localizedDescription)" }
+        if let sendError {
+            status = .failed(sendError)
+            // Refused records aren't queued anymore; send everything again next launch, once
+            // whatever iCloud objected to may be fixed.
+            state.didInitialUpload = false
         }
         if needsZone && role == .participant {
             // Their zone is gone: the family isn't shared anymore.
@@ -730,6 +752,9 @@ nonisolated struct SyncState: Codable, @unchecked Sendable {
     var historyToken: DefaultHistoryToken?
     var engineState: CKSyncEngine.State.Serialization?
     var didInitialUpload = false
+    /// Which full resend this device has done (see `CloudSync.uploadGeneration`). Optional so
+    /// older saved states still load.
+    var uploadGeneration: Int?
 
     private static var url: URL {
         let folder = URL.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)

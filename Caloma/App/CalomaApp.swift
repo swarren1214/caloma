@@ -12,7 +12,11 @@ struct CalomaApp: App {
         let container = Persistence.makeContainer()
         self.container = container
         AppRouter.shared.container = container
-        StarterData.seedIfNeeded(in: container.mainContext)
+        // Starter home care is added at the end of onboarding, so a device that picks up a
+        // family already in iCloud doesn't add a second copy.
+        if UserDefaults.standard.bool(forKey: SettingsKey.onboarded) {
+            StarterData.seedIfNeeded(in: container.mainContext)
+        }
         Upgrades.run(in: container.mainContext)
         CloudSync.shared.start(with: container)
         SharedSettings.shared.start(with: container)

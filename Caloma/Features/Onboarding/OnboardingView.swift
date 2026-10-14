@@ -51,6 +51,14 @@ private struct WelcomeStep: View {
     @Binding var draft: FamilyDraft
     var next: () -> Void
 
+    /// Filled in by sync when this Apple Account already has a family in iCloud (a second
+    /// device, or Caloma reinstalled).
+    @Query(filter: #Predicate<Member> { !$0.isArchived }, sort: \Member.sortOrder) private var existing: [Member]
+    @AppStorage(SettingsKey.onboarded) private var onboarded = false
+    @AppStorage(SettingsKey.currentMember) private var currentMember = ""
+    private var sync: CloudSync { CloudSync.shared }
+    private var parents: [Member] { existing.filter { !$0.isKid } }
+
     @AppStorage(SettingsKey.appleUserID) private var appleUserID = ""
     @Environment(\.colorScheme) private var colorScheme
     @State private var errorMessage: String?
@@ -66,7 +74,59 @@ private struct WelcomeStep: View {
                 OnboardingFeatureRow(symbol: "icloud.fill", title: "Private by design", detail: "Your family's data lives in your own iCloud. No ads, no servers.")
             }
         } controls: { _ in
+            if !parents.isEmpty {
+                existingFamily
+            } else {
+                newFamilyControls
+            }
+        }
+        .alert("Couldn't sign in", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
+        .animation(.smooth, value: parents.count)
+    }
+
+    /// "Your family is already in iCloud": pick who you are and go straight in.
+    private var existingFamily: some View {
+        VStack(spacing: 10) {
+            Text("Your family is already in iCloud. Who's using this \(UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone")?")
+                .font(.subheadline.weight(.semibold))
+                .multilineTextAlignment(.center)
+            ForEach(parents) { parent in
+                Button {
+                    currentMember = parent.id.uuidString
+                    // Starter home care came with the family, so nothing to add.
+                    UserDefaults.standard.set(true, forKey: SettingsKey.seeded)
+                    onboarded = true
+                } label: {
+                    HStack(spacing: 10) {
+                        MemberAvatar(name: parent.name, color: parent.color.color, photo: parent.photoData, size: 32)
+                        Text("I'm \(parent.name)")
+                            .font(.headline)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 52)
+                    .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var newFamilyControls: some View {
             VStack(spacing: 6) {
+                if sync.status == .syncing || sync.status == .off {
+                    Label("Checking iCloud for your family…", systemImage: "icloud")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 4)
+                }
                 SignInWithAppleButton(.continue) { request in
                     request.requestedScopes = [.fullName]
                 } onCompletion: { result in
@@ -97,12 +157,6 @@ private struct WelcomeStep: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-        }
-        .alert("Couldn't sign in", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage ?? "")
-        }
     }
 }
 
@@ -291,6 +345,7 @@ private struct StarterStep: View {
             if draft.addRewards { StarterData.insertRewards(into: context) }
         }
         Persistence.save(context)
+        StarterData.seedIfNeeded(in: context)
         currentMember = me.id.uuidString
         onboarded = true
     }

@@ -198,7 +198,22 @@ Before the first run with sync:
    environment the first time each kind of record is saved.
 3. Test sharing with two Apple Accounts (two devices, or a device and a second account on
    another device). Development builds share in the development environment.
-4. Before TestFlight, deploy the development schema to production in the CloudKit Console.
+4. Before TestFlight, the record types have to be in **Production**. TestFlight and App Store
+   builds use Production, where records can't create new types, and the types only appear in
+   Development when a build run from Xcode saves them. `CloudKit/schema.ckdb` lists every
+   type and field, so there's no need to wait for that:
+   - In the CloudKit Console, **Settings › Tokens**, create a Management token, then run
+     `xcrun cktool save-token --type management` and paste it.
+   - `xcrun cktool import-schema --team-id BH8R3BX5WF --container-id iCloud.com.stephenwarren.caloma --environment development --file CloudKit/schema.ckdb`
+   - In the Console, **Deploy Schema Changes…** to Production.
+
+   Adding a synced field or model means adding it to `CloudRecord.swift` *and* to
+   `schema.ckdb`, importing and deploying again before the TestFlight build goes out. If
+   iCloud refuses records, Family › Family Sharing says so, and the device sends everything
+   again on its next launch.
+
+   A second device on the same Apple Account (or a reinstall) finds the family on the welcome
+   screen and asks "Who's using this iPad?" instead of setting up again.
 
 ### "Needs your OK" notifications
 
