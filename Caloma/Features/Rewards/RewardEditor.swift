@@ -45,8 +45,7 @@ struct RewardEditor: View {
                 }
 
                 Section("Icon") {
-                    SymbolGrid(symbols: SymbolSets.rewards, selection: $symbol, color: color)
-                        .padding(.vertical, 4)
+                    IconPicker(quick: SymbolSets.rewards, selection: $symbol, color: color)
                 }
 
                 Section {
@@ -118,6 +117,7 @@ struct RewardEditor: View {
                     }
                 }
             }
+            .contentMargins(.bottom, 56, for: .scrollContent)
             .navigationTitle(reward == nil ? "New Reward" : "Edit Reward")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

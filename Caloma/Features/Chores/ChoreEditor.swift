@@ -50,8 +50,7 @@ struct ChoreEditor: View {
                 }
 
                 Section("Icon") {
-                    SymbolGrid(symbols: SymbolSets.chores, selection: $symbol, color: accent)
-                        .padding(.vertical, 4)
+                    IconPicker(quick: SymbolSets.chores, selection: $symbol, color: accent)
                 }
 
                 Section {
@@ -69,6 +68,10 @@ struct ChoreEditor: View {
                             .padding(.vertical, 4)
                         }
                         .scrollIndicators(.hidden)
+                        // Up for grabs is open to every kid, so there's no one to pick.
+                        .disabled(upForGrabs)
+                        .opacity(upForGrabs ? 0.4 : 1)
+                        .animation(.smooth, value: upForGrabs)
                     }
                     Toggle(isOn: $upForGrabs) {
                         Label {
@@ -99,8 +102,8 @@ struct ChoreEditor: View {
                 } header: {
                     Text("Assign To")
                 } footer: {
-                    if upForGrabs && assignees.isEmpty {
-                        Text("Any kid can claim it. Pick kids to limit who can.")
+                    if upForGrabs {
+                        Text("Any kid can claim it. The first to finish gets the \(words.plural).")
                     }
                 }
 
@@ -159,6 +162,14 @@ struct ChoreEditor: View {
                     } footer: {
                         Text("Points already earned stay with each kid.")
                     }
+                }
+            }
+            .contentMargins(.bottom, 56, for: .scrollContent)
+            .onChange(of: upForGrabs) { _, on in
+                guard on else { return }
+                withAnimation(.smooth) {
+                    assignees = []
+                    rotates = false
                 }
             }
             .navigationTitle(chore == nil ? "New Chore" : "Edit Chore")

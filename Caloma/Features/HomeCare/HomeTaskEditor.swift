@@ -40,8 +40,7 @@ struct HomeTaskEditor: View {
                 }
 
                 Section("Icon") {
-                    SymbolGrid(symbols: SymbolSets.homeCare, selection: $symbol, color: color)
-                        .padding(.vertical, 4)
+                    IconPicker(quick: SymbolSets.homeCare, selection: $symbol, color: color)
                 }
 
                 Section {
@@ -82,6 +81,7 @@ struct HomeTaskEditor: View {
                     }
                 }
             }
+            .contentMargins(.bottom, 56, for: .scrollContent)
             .navigationTitle(task == nil ? "New Task" : "Edit Task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -39,7 +39,8 @@ months. Onboarding offers eight starter chores and the family store from the des
   shows each chore with a dot per day.
 - **Needs Your OK**: finished chores (with the kid's photo when the chore asks for one) and
   reward requests. Send Back reopens a chore for the kid; Approve All clears the list.
-- **New Chore**: name and icon, kids, Up for Grabs, Take Turns (swaps each week), Once /
+- **New Chore**: name and icon (a dozen quick picks, or More Icons for a searchable library of
+  about 250 grouped by Cleaning, Kitchen, Pets, School, Rewards, Home Care and more), kids, Up for Grabs (open to every kid, so it clears and locks the kid picks), Take Turns (swaps each week), Once /
   Daily / Weekdays / Weekly on chosen days, points (with the allowance it's worth), Ask for a
   Photo, Needs a Parent's OK.
 - **Rewards**: each kid's balance, the family goal, and the store filtered by Privileges,
