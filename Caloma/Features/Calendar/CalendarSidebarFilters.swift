@@ -24,28 +24,22 @@ struct CalendarSidebarFilters: View {
 
             heading("Also Show")
                 .padding(.top, 14)
-            Toggle(isOn: $filter.showChores) {
-                Label("Chores & Home Care", systemImage: "checklist")
+            checkRow("Chores & Home Care", on: filter.showChores) {
+                filter.showChores.toggle()
             }
-            .padding(.horizontal, 12)
-            .frame(minHeight: 44)
-            Button {
-                showsAppleSettings = true
-            } label: {
-                HStack {
-                    Label("Apple Calendar", systemImage: "calendar")
-                    Spacer()
-                    Text(apple.showsAppleEvents && apple.hasAccess ? "On" : "Off")
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+            checkRow("Apple Calendar", on: apple.showsAppleEvents && apple.hasAccess) {
+                // The first time, it needs setting up (access and which calendars).
+                if apple.hasAccess && apple.showsAppleEvents {
+                    apple.showsAppleEvents = false
+                } else if apple.hasAccess {
+                    apple.showsAppleEvents = true
+                } else {
+                    showsAppleSettings = true
                 }
-                .padding(.horizontal, 12)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .contextMenu {
+                Button("Choose Calendars…", systemImage: "calendar") { showsAppleSettings = true }
+            }
 
             let visible = events.map(\.record).filter { self.filter.shows($0) }
             if let countdown = CalendarMath.nextCountdown(visible) {
@@ -77,6 +71,32 @@ struct CalendarSidebarFilters: View {
     private func color(for event: EventRecord) -> Color {
         if event.isEveryone { return accent }
         return members.first { event.attendeeIDs.contains($0.id) }?.color.color ?? accent
+    }
+
+    /// "Also Show" lines: a check circle and a name, like the family above.
+    private func checkRow(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.smooth(duration: 0.2)) { action() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(on ? accent : Color(.tertiaryLabel))
+                    .frame(width: 38)
+                    .contentTransition(.symbolEffect(.replace))
+                Text(title)
+                    .foregroundStyle(on ? Color.primary : Color.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(on ? "Shown" : "Hidden")
     }
 
     private func personRow(_ member: Member?, key: String, name: String) -> some View {
