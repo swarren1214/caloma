@@ -70,6 +70,8 @@ final class Chore {
     var requiresApproval: Bool = true
     /// Set when a home care task was handed to a kid; finishing it marks the task done.
     var homeTaskID: UUID?
+    /// The room it's in, if any.
+    var roomID: UUID?
     var isArchived: Bool = false
     var sortOrder: Int = 0
     var createdAt: Date = Date.now
@@ -97,7 +99,7 @@ final class Chore {
     }
 
     var record: ChoreRecord {
-        ChoreRecord(id: id, title: title, symbol: symbol, points: points, assigneeIDs: assigneeIDs, rotates: rotates, upForGrabs: upForGrabs, repeatRule: repeatRule, weekdayMask: weekdayMask, startDate: startDate, requiresPhoto: requiresPhoto, requiresApproval: requiresApproval, isArchived: isArchived, sortOrder: sortOrder)
+        ChoreRecord(id: id, title: title, symbol: symbol, points: points, assigneeIDs: assigneeIDs, rotates: rotates, upForGrabs: upForGrabs, repeatRule: repeatRule, weekdayMask: weekdayMask, startDate: startDate, requiresPhoto: requiresPhoto, requiresApproval: requiresApproval, isArchived: isArchived, sortOrder: sortOrder, roomID: roomID)
     }
 
     nonisolated static func encode(_ ids: [UUID]) -> String {
@@ -477,5 +479,22 @@ final class HomeTaskLog {
         self.doneAt = doneAt
         self.daysLate = daysLate
         self.previousDue = previousDue
+    }
+}
+
+/// A room in the house: Kitchen, Ella's Room, the garage. Chores can be assigned to one.
+@Model
+final class Room {
+    var id: UUID = UUID()
+    var name: String = ""
+    var symbol: String = "door.left.hand.closed"
+    var sortOrder: Int = 0
+    var isArchived: Bool = false
+    var createdAt: Date = Date.now
+
+    init(name: String, symbol: String, sortOrder: Int = 0) {
+        self.name = name
+        self.symbol = symbol
+        self.sortOrder = sortOrder
     }
 }

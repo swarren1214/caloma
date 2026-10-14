@@ -55,6 +55,32 @@ enum IconLibrary {
     }
 
     private static let raw: [(String, [IconOption])] = [
+        ("Rooms", [
+            i("fork.knife", "kitchen"),
+            i("refrigerator", "kitchen pantry"),
+            i("sofa", "living room family room"),
+            i("chair", "dining room"),
+            i("chair.lounge", "den lounge patio"),
+            i("tv", "family room tv room media"),
+            i("bed.double", "bedroom master"),
+            i("bed.double.fill", "bedroom"),
+            i("teddybear", "playroom nursery kids room"),
+            i("shower", "bathroom"),
+            i("bathtub", "bathroom"),
+            i("toilet", "bathroom powder room"),
+            i("washer", "laundry room"),
+            i("door.garage.closed", "garage"),
+            i("car", "garage driveway"),
+            i("leaf", "yard garden"),
+            i("tree", "backyard"),
+            i("stairs", "stairs hallway"),
+            i("door.left.hand.closed", "entry hallway door"),
+            i("books.vertical", "office study library"),
+            i("desktopcomputer", "office"),
+            i("dumbbell", "gym"),
+            i("archivebox", "storage basement attic"),
+            i("house", "whole house"),
+        ]),
         ("Cleaning", [
             i("sparkles", "clean tidy shine dust"),
             i("bubbles.and.sparkles", "wash scrub soap clean"),

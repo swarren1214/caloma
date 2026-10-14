@@ -12,6 +12,7 @@ enum Persistence {
         PointEntry.self,
         HomeTask.self,
         HomeTaskLog.self,
+        Room.self,
     ])
 
     private static let log = Logger(subsystem: "com.stephenwarren.caloma", category: "persistence")
@@ -141,6 +142,23 @@ enum StarterData {
         StarterHomeTask(name: "Check fire extinguisher", symbol: "flame", area: .safety, count: 1, unit: .years, firstDueInDays: 90),
         StarterHomeTask(name: "Service the furnace", symbol: "heater.vertical", area: .heatingAir, count: 1, unit: .years, firstDueInDays: 120),
     ]
+
+    /// Rooms most homes have, offered in Family › Rooms with Add Common Rooms.
+    static let rooms: [(name: String, symbol: String)] = [
+        ("Kitchen", "fork.knife"), ("Living Room", "sofa"), ("Dining Room", "chair"),
+        ("Bathroom", "shower"), ("Laundry Room", "washer"), ("Garage", "door.garage.closed"),
+        ("Yard", "leaf"), ("Playroom", "teddybear"),
+    ]
+
+    /// Adds the common rooms, skipping any the family already has by name.
+    static func insertRooms(into context: ModelContext, existing: [Room]) {
+        let names = Set(existing.filter { !$0.isArchived }.map { $0.name.lowercased() })
+        var order = (existing.map(\.sortOrder).max() ?? -1) + 1
+        for room in rooms where !names.contains(room.name.lowercased()) {
+            context.insert(Room(name: room.name, symbol: room.symbol, sortOrder: order))
+            order += 1
+        }
+    }
 
     /// Adds the starter home care tasks once, the first time the app opens with an empty store.
     static func seedIfNeeded(in context: ModelContext, defaults: UserDefaults = .standard, now: Date = .now) {

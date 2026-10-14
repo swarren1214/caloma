@@ -51,6 +51,11 @@ months. Onboarding offers eight starter chores and the family store from the des
 - **Home Care**: Overdue / Next 30 days / Done this year, grouped by date or by area. Task
   detail has Mark Done (tap again to undo), Give to a Kid (becomes a one-time chore; approving
   it marks the task done), details, history and notes.
+- **Rooms** (Family › Rooms): optional rooms with a name and icon (Add Common Rooms adds
+  Kitchen, Living Room, Dining Room, Bathroom, Laundry Room, Garage, Yard and Playroom). A chore
+  can be in one room, picked in New Chore (with New Room right there). The room shows on chore
+  rows and as a capsule on Kid View tiles, and the Chores board has a room filter next to
+  Today / This Week.
 - **Family**: members (photos cropped in Move and Scale; a color for everyone, from the
   presets or any custom color), what points are called (Points, Stars, Coins or
   your own word), approvals by default, streak bonus, allowance (rate, payday, spend / save /
@@ -114,6 +119,7 @@ a chore or a reward never deletes anyone's history.
   aside so they can't be spent twice.
 - `PointEntry`: every change to a kid's points (chore, streak bonus, reward, family goal,
   allowance, adjustment). A balance is the sum.
+- `Room`: name, icon, order. `Chore.roomID` links a chore to one.
 - `HomeTask`, `HomeTaskLog`: what needs doing, how often, when it's next due, and each time
   it was done.
 
@@ -121,7 +127,7 @@ All the arithmetic (who has what on which day, turns, streaks, balances, reward 
 allowance, due dates) is in `Models/ChoreMath.swift` on plain Sendable records, and tested in
 `CalomaTests/ChoreMathTests.swift`.
 
-Every property has a default and nothing is unique, so all eight models sync with CloudKit
+Every property has a default and nothing is unique, so all nine models sync with CloudKit
 as they are.
 
 ## Turning on iCloud sync

@@ -16,6 +16,8 @@ struct ChoresView: View {
 
     @State private var range: BoardRange = .today
     @State private var kidFilter: UUID?
+    @State private var roomFilter: UUID?
+    @Query(filter: #Predicate<Room> { !$0.isArchived }, sort: \Room.sortOrder) private var rooms: [Room]
     @State private var editing: Chore?
 
     enum BoardRange: String, CaseIterable, Identifiable {
@@ -23,8 +25,31 @@ struct ChoresView: View {
         var id: String { rawValue }
     }
 
+    /// With a room picked, the board is built from that room's chores only.
     private var family: FamilySnapshot {
-        FamilySnapshot(members: members, chores: chores, completions: completions, points: points, redemptions: redemptions)
+        let shown = roomFilter.map { room in chores.filter { $0.roomID == room } } ?? chores
+        return FamilySnapshot(members: members, chores: shown, completions: completions, points: points, redemptions: redemptions)
+    }
+
+    private var roomMenu: some View {
+        Menu {
+            Picker("Room", selection: $roomFilter) {
+                Label("All Rooms", systemImage: "house").tag(UUID?.none)
+                ForEach(rooms) { room in
+                    Label(room.name, systemImage: room.symbol).tag(UUID?.some(room.id))
+                }
+            }
+        } label: {
+            let room = rooms.first { $0.id == roomFilter }
+            Label(room?.name ?? "All Rooms", systemImage: room?.symbol ?? "door.left.hand.open")
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 32)
+                .foregroundStyle(room == nil ? Color.primary : Color.white)
+                .background(room == nil ? AnyShapeStyle(Color(.secondarySystemGroupedBackground)) : AnyShapeStyle(accent), in: Capsule())
+        }
+        .accessibilityLabel("Room filter")
     }
 
     var body: some View {
@@ -73,10 +98,15 @@ struct ChoresView: View {
 
     @ViewBuilder
     private func controls(_ family: FamilySnapshot) -> some View {
-        Picker("Range", selection: $range) {
-            ForEach(BoardRange.allCases) { Text($0.rawValue).tag($0) }
+        HStack(spacing: 10) {
+            Picker("Range", selection: $range) {
+                ForEach(BoardRange.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            if !rooms.isEmpty {
+                roomMenu
+            }
         }
-        .pickerStyle(.segmented)
 
         if family.kids.count > 1 {
             ScrollView(.horizontal) {
@@ -262,6 +292,13 @@ struct ChoreRow: View {
     var onEdit: (UUID) -> Void
     var onToggle: () -> Void
 
+    @Query private var rooms: [Room]
+
+    private var room: Room? {
+        guard let id = item.chore.roomID else { return nil }
+        return rooms.first { $0.id == id && !$0.isArchived }
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             Button(action: onToggle) {
@@ -283,6 +320,11 @@ struct ChoreRow: View {
                             .foregroundStyle(item.status == .approved ? .secondary : .primary)
                             .lineLimit(2)
                         HStack(spacing: 6) {
+                            if let room {
+                                RoomLabel(room: room)
+                                    .foregroundStyle(.secondary)
+                                Text("·").font(.caption).foregroundStyle(.tertiary)
+                            }
                             Text(item.chore.repeatRule.label)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)

@@ -640,8 +640,26 @@ private struct JobTile: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulse = false
+    @Query private var rooms: [Room]
 
     private var color: Color { kid.color.color }
+
+    private var room: Room? {
+        guard let id = item.chore.roomID else { return nil }
+        return rooms.first { $0.id == id && !$0.isArchived }
+    }
+
+    /// Where the job is, as a little capsule in the kid's color.
+    @ViewBuilder
+    private var roomTag: some View {
+        if let room {
+            RoomLabel(room: room, font: .system(size: compact ? 13 : 15, weight: .bold, design: .rounded))
+                .foregroundStyle(color)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(color.opacity(0.12), in: Capsule())
+        }
+    }
     private var words: PointWords { PointWords.current() }
     private var open: Bool { item.status == .open }
 
@@ -651,6 +669,7 @@ private struct JobTile: View {
                 HStack(spacing: 14) {
                     icon(size: 58)
                     VStack(alignment: .leading, spacing: 3) {
+                        roomTag
                         title
                         subtitle
                     }
@@ -662,6 +681,7 @@ private struct JobTile: View {
                 VStack(spacing: 12) {
                     icon(size: 92)
                     VStack(spacing: 6) {
+                        roomTag
                         title.multilineTextAlignment(.center)
                         subtitle
                     }

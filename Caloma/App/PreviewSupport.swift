@@ -62,7 +62,14 @@ enum SampleData {
         let table = chore("Set the table", "fork.knife", 5, [june], order: 9)
         let trash = chore("Take out trash and recycling", "trash", 15, [ella, max, june], .someDays, mask: tuesday, order: 10)
         trash.upForGrabs = true
-        _ = vacuum
+        let kitchen = Room(name: "Kitchen", symbol: "fork.knife", sortOrder: 0)
+        let living = Room(name: "Living Room", symbol: "sofa", sortOrder: 1)
+        let bathroom = Room(name: "Bathroom", symbol: "shower", sortOrder: 2)
+        for room in [kitchen, living, bathroom] { context.insert(room) }
+        dishes.roomID = kitchen.id
+        table.roomID = kitchen.id
+        vacuum.roomID = living.id
+        sink.roomID = bathroom.id
 
         func done(_ chore: Chore, _ kid: Member, _ status: CompletionStatus) {
             let completion = ChoreCompletion(choreID: chore.id, memberID: kid.id, day: today, points: chore.points, status: status)

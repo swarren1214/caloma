@@ -9,12 +9,15 @@ struct ChoreEditor: View {
     @Environment(\.modelContext) private var context
     @Environment(\.accent) private var accent
     @Query(sort: \Member.sortOrder) private var members: [Member]
+    @Query(filter: #Predicate<Room> { !$0.isArchived }, sort: \Room.sortOrder) private var rooms: [Room]
     @AppStorage(SettingsKey.centsPer100) private var centsPer100 = 500
     @AppStorage(SettingsKey.allowanceOn) private var allowanceOn = true
     @AppStorage(SettingsKey.approvalsByDefault) private var approvalsByDefault = true
 
     @State private var title = ""
     @State private var symbol = "checkmark.circle"
+    @State private var roomID: UUID?
+    @State private var addingRoom = false
     @State private var assignees: [UUID] = []
     @State private var rotates = false
     @State private var upForGrabs = false
@@ -107,6 +110,26 @@ struct ChoreEditor: View {
                     }
                 }
 
+                Section {
+                    Picker(selection: $roomID) {
+                        Text("No Room").tag(UUID?.none)
+                        ForEach(rooms) { room in
+                            Label(room.name, systemImage: room.symbol).tag(UUID?.some(room.id))
+                        }
+                    } label: {
+                        Label("Room", systemImage: "door.left.hand.open")
+                    }
+                    Button {
+                        addingRoom = true
+                    } label: {
+                        Label("New Room", systemImage: "plus")
+                    }
+                } header: {
+                    Text("Room")
+                } footer: {
+                    Text("Optional. Shows on the chore so kids know where to go.")
+                }
+
                 Section("Schedule") {
                     Picker("Repeat", selection: $repeatRule) {
                         ForEach(ChoreRepeat.allCases) { Text($0.label).tag($0) }
@@ -165,6 +188,9 @@ struct ChoreEditor: View {
                 }
             }
             .contentMargins(.bottom, 56, for: .scrollContent)
+            .sheet(isPresented: $addingRoom) {
+                RoomEditor(room: nil) { room in roomID = room.id }
+            }
             .onChange(of: upForGrabs) { _, on in
                 guard on else { return }
                 withAnimation(.smooth) {
@@ -229,6 +255,7 @@ struct ChoreEditor: View {
             points = chore.points
             requiresPhoto = chore.requiresPhoto
             requiresApproval = chore.requiresApproval
+            roomID = chore.roomID
         } else {
             requiresApproval = approvalsByDefault
             if kids.count == 1, let only = kids.first { assignees = [only.id] }
@@ -258,6 +285,7 @@ struct ChoreEditor: View {
         target.points = points
         target.requiresPhoto = requiresPhoto
         target.requiresApproval = requiresApproval
+        target.roomID = roomID
         Persistence.save(context)
         dismiss()
     }

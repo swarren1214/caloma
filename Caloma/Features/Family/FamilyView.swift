@@ -8,6 +8,7 @@ struct FamilyView: View {
     @Environment(\.accent) private var accent
     @Query(sort: \Member.sortOrder) private var allMembers: [Member]
     @Query private var points: [PointEntry]
+    @Query(filter: #Predicate<Room> { !$0.isArchived }) private var rooms: [Room]
 
     @AppStorage(SettingsKey.pointName) private var pointName = PointName.stars.rawValue
     @AppStorage(SettingsKey.customPointName) private var customPointName = ""
@@ -61,6 +62,22 @@ struct FamilyView: View {
                 Text("Members")
             } footer: {
                 Text("Kids can use Kid View on a parent's phone or on a shared iPad.")
+            }
+
+            Section {
+                NavigationLink {
+                    RoomsView()
+                } label: {
+                    LabeledContent {
+                        Text(rooms.isEmpty ? "None yet" : "\(rooms.count)")
+                    } label: {
+                        Label("Rooms", systemImage: "door.left.hand.open")
+                    }
+                }
+            } header: {
+                Text("House")
+            } footer: {
+                Text("Optional. Put chores in rooms so kids know where to go, and see the board one room at a time.")
             }
 
             Section {

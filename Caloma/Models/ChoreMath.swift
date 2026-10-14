@@ -21,6 +21,7 @@ nonisolated struct ChoreRecord: Hashable, Sendable {
     var requiresApproval: Bool = true
     var isArchived: Bool = false
     var sortOrder: Int = 0
+    var roomID: UUID?
 }
 
 nonisolated struct CompletionRecord: Hashable, Sendable {
