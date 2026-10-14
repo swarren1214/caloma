@@ -72,6 +72,8 @@ final class Chore {
     var homeTaskID: UUID?
     /// The room it's in, if any.
     var roomID: UUID?
+    /// How important it is: 0 none, 1 low, 2 medium, 3 high (`ChorePriority`).
+    var priorityRaw: Int = 0
     var isArchived: Bool = false
     var sortOrder: Int = 0
     var createdAt: Date = Date.now
@@ -98,8 +100,13 @@ final class Chore {
         set { repeatRaw = newValue.rawValue }
     }
 
+    var priority: ChorePriority {
+        get { ChorePriority(rawValue: priorityRaw) ?? .unset }
+        set { priorityRaw = newValue.rawValue }
+    }
+
     var record: ChoreRecord {
-        ChoreRecord(id: id, title: title, symbol: symbol, points: points, assigneeIDs: assigneeIDs, rotates: rotates, upForGrabs: upForGrabs, repeatRule: repeatRule, weekdayMask: weekdayMask, startDate: startDate, requiresPhoto: requiresPhoto, requiresApproval: requiresApproval, isArchived: isArchived, sortOrder: sortOrder, roomID: roomID)
+        ChoreRecord(id: id, title: title, symbol: symbol, points: points, assigneeIDs: assigneeIDs, rotates: rotates, upForGrabs: upForGrabs, repeatRule: repeatRule, weekdayMask: weekdayMask, startDate: startDate, requiresPhoto: requiresPhoto, requiresApproval: requiresApproval, isArchived: isArchived, sortOrder: sortOrder, roomID: roomID, priority: priority)
     }
 
     nonisolated static func encode(_ ids: [UUID]) -> String {
@@ -129,6 +136,41 @@ nonisolated enum ChoreRepeat: String, CaseIterable, Identifiable, Codable, Senda
         case .weekdays: "Weekdays"
         case .someDays: "Weekly"
         }
+    }
+}
+
+/// How important a chore is. Optional: most chores have none. Higher ones come first on the
+/// board and in Kid View.
+nonisolated enum ChorePriority: Int, CaseIterable, Identifiable, Comparable, Sendable {
+    case unset = 0, low, medium, high
+
+    var id: Int { rawValue }
+
+    static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
+
+    var label: String {
+        switch self {
+        case .unset: "None"
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        }
+    }
+
+    /// Reminders-style marks: !, !!, !!!.
+    var marks: String { String(repeating: "!", count: rawValue) }
+
+    /// What Kid View calls it. Low doesn't show there.
+    var kidLabel: String? {
+        switch self {
+        case .unset, .low: nil
+        case .medium: "Important"
+        case .high: "Do this first"
+        }
+    }
+
+    var kidSymbol: String {
+        self == .high ? "flame.fill" : "exclamationmark.circle.fill"
     }
 }
 
@@ -210,7 +252,7 @@ final class Reward {
     }
 
     var limit: RewardLimit {
-        get { RewardLimit(rawValue: limitRaw) ?? .none }
+        get { RewardLimit(rawValue: limitRaw) ?? .unset }
         set { limitRaw = newValue.rawValue }
     }
 

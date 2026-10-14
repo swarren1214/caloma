@@ -660,6 +660,34 @@ private struct JobTile: View {
                 .background(color.opacity(0.12), in: Capsule())
         }
     }
+    /// "Do this first" or "Important", on the chores a parent marked high or medium.
+    @ViewBuilder
+    private var priorityTag: some View {
+        if let label = item.chore.priority.kidLabel, open {
+            let tint: Color = item.chore.priority == .high ? .red : Brand.waiting
+            Label(label, systemImage: item.chore.priority.kidSymbol)
+                .font(.system(size: compact ? 13 : 15, weight: .heavy, design: .rounded))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(tint, in: Capsule())
+                .symbolEffect(.pulse, isActive: item.chore.priority == .high && !reduceMotion)
+        }
+    }
+
+    /// The little tags above the title: priority, then room.
+    @ViewBuilder
+    private var tags: some View {
+        if compact {
+            HStack(spacing: 6) { priorityTag; roomTag }
+        } else {
+            ViewThatFits {
+                HStack(spacing: 6) { priorityTag; roomTag }
+                VStack(spacing: 6) { priorityTag; roomTag }
+            }
+        }
+    }
+
     private var words: PointWords { PointWords.current() }
     private var open: Bool { item.status == .open }
 
@@ -669,7 +697,7 @@ private struct JobTile: View {
                 HStack(spacing: 14) {
                     icon(size: 58)
                     VStack(alignment: .leading, spacing: 3) {
-                        roomTag
+                        tags
                         title
                         subtitle
                     }
@@ -681,7 +709,7 @@ private struct JobTile: View {
                 VStack(spacing: 12) {
                     icon(size: 92)
                     VStack(spacing: 6) {
-                        roomTag
+                        tags
                         title.multilineTextAlignment(.center)
                         subtitle
                     }

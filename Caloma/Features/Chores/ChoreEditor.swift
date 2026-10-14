@@ -17,6 +17,7 @@ struct ChoreEditor: View {
     @State private var title = ""
     @State private var symbol = "checkmark.circle"
     @State private var roomID: UUID?
+    @State private var priority: ChorePriority = .unset
     @State private var addingRoom = false
     @State private var assignees: [UUID] = []
     @State private var rotates = false
@@ -128,6 +129,19 @@ struct ChoreEditor: View {
                     Text("Room")
                 } footer: {
                     Text("Optional. Shows on the chore so kids know where to go.")
+                }
+
+                Section {
+                    Picker("Priority", selection: $priority) {
+                        ForEach(ChorePriority.allCases) { level in
+                            Text(level.label).tag(level)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Priority")
+                } footer: {
+                    Text(priorityFooter)
                 }
 
                 Section("Schedule") {
@@ -256,11 +270,21 @@ struct ChoreEditor: View {
             requiresPhoto = chore.requiresPhoto
             requiresApproval = chore.requiresApproval
             roomID = chore.roomID
+            priority = chore.priority
         } else {
             requiresApproval = approvalsByDefault
             if kids.count == 1, let only = kids.first { assignees = [only.id] }
             let weekday = Calendar.current.component(.weekday, from: .now)
             weekdayMask = ChoreMath.bit(forWeekday: weekday)
+        }
+    }
+
+    private var priorityFooter: String {
+        switch priority {
+        case .unset: "Optional. Higher priority chores come first on the board and in Kid View."
+        case .low: "Comes after the more important chores."
+        case .medium: "Comes first on the board. Kid View marks it Important."
+        case .high: "Comes first of all. Kid View tells the kid to do it first."
         }
     }
 
@@ -286,6 +310,7 @@ struct ChoreEditor: View {
         target.requiresPhoto = requiresPhoto
         target.requiresApproval = requiresApproval
         target.roomID = roomID
+        target.priority = priority
         Persistence.save(context)
         dismiss()
     }

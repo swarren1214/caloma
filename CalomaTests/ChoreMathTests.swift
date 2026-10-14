@@ -23,6 +23,17 @@ struct ChoreMathTests {
         ChoreRecord(title: "Chore", points: points, assigneeIDs: kids ?? [ella], repeatRule: rule, weekdayMask: mask, startDate: calendar.startOfDay(for: day(start)))
     }
 
+    // MARK: Priority
+
+    @Test func higherPriorityChoresComeFirstOnTheBoard() {
+        var plain = chore(); plain.title = "A plain chore"; plain.sortOrder = 0
+        var low = chore(); low.title = "Low"; low.sortOrder = 1; low.priority = .low
+        var high = chore(); high.title = "High"; high.sortOrder = 5; high.priority = .high
+        var medium = chore(); medium.title = "Medium"; medium.sortOrder = 2; medium.priority = .medium
+        let items = ChoreMath.items(on: day(13), chores: [plain, low, high, medium], completions: [], calendar: calendar)
+        #expect(items.map(\.chore.title) == ["High", "Medium", "Low", "A plain chore"])
+    }
+
     // MARK: Schedules
 
     @Test func dailyChoresComeUpEveryDayFromTheirStart() {

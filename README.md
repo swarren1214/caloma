@@ -33,7 +33,8 @@ months. Onboarding offers eight starter chores and the family store from the des
 
 - **Home**: each kid's ring for today with their points (tap for the kid's page), Needs Your
   OK, the next three home care tasks, and the family goal. Toolbar: Kid View and Family.
-- **Chores**: Today or This Week, filtered by kid. iPhone shows a card per kid; iPad shows a
+- **Chores**: Today or This Week, filtered by kid. Higher-priority chores come first and
+  show !, !! or !!! like Reminders. iPhone shows a card per kid; iPad shows a
   column per kid with Needs Your OK alongside. A parent's tap on a check approves it (or
   undoes it); tapping a chore edits it. Up-for-grabs chores ask which kid did it. This Week
   shows each chore with a dot per day.
@@ -41,7 +42,7 @@ months. Onboarding offers eight starter chores and the family store from the des
   reward requests. Send Back reopens a chore for the kid; Approve All clears the list.
 - **New Chore**: name and icon (a dozen quick picks, or More Icons for a searchable library of
   about 250 grouped by Cleaning, Kitchen, Pets, School, Rewards, Home Care and more), kids, Up for Grabs (open to every kid, so it clears and locks the kid picks), Take Turns (swaps each week), Once /
-  Daily / Weekdays / Weekly on chosen days, points (with the allowance it's worth), Ask for a
+  Daily / Weekdays / Weekly on chosen days, an optional priority (Low / Medium / High), points (with the allowance it's worth), Ask for a
   Photo, Needs a Parent's OK.
 - **Rewards**: each kid's balance, the family goal, and the store filtered by Privileges,
   Experiences, Money or Items. Long-press the goal to mark it reached.
@@ -80,7 +81,8 @@ the app was closed in it, so it's safe on a shared iPad.
   floats "+15" up, and flies stars in an arc to the star counter, which bounces when they
   land. A success haptic plays.
 - A progress track at the top moves the kid's avatar from stop to stop toward a trophy.
-- The next job's button gently pulses so younger kids know what to do next.
+- The next job's button gently pulses so younger kids know what to do next. High-priority
+  jobs come first with a red **Do this first** tag; medium ones say **Important**.
 - Chores that ask for a photo open the camera (the photo library in the Simulator).
 - Finishing the last job brings up the party: confetti over everything, a trophy on slowly
   turning rays, "You did it!".
@@ -111,7 +113,7 @@ a chore or a reward never deletes anyone's history.
 - `Member`: name, parent or kid, color (a preset name or "#RRGGBB"), photo (a 600 px square
   JPEG, `@Attribute(.externalStorage)`).
 - `Chore`: title, icon, points, kids (comma-separated UUIDs), take turns, up for grabs,
-  repeat rule and weekdays, start day, photo, needs OK, and `homeTaskID` when it came from
+  repeat rule and weekdays, start day, priority (`priorityRaw`, 0 is none), photo, needs OK, and `homeTaskID` when it came from
   Home Care.
 - `ChoreCompletion`: chore, kid, the day it counts for, pending / approved / sent back, the
   points at the time, photo.

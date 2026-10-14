@@ -67,6 +67,7 @@ enum SampleData {
         let bathroom = Room(name: "Bathroom", symbol: "shower", sortOrder: 2)
         for room in [kitchen, living, bathroom] { context.insert(room) }
         dishes.roomID = kitchen.id
+        dishes.priority = .high
         table.roomID = kitchen.id
         vacuum.roomID = living.id
         sink.roomID = bathroom.id

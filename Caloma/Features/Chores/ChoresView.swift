@@ -320,6 +320,9 @@ struct ChoreRow: View {
                             .foregroundStyle(item.status == .approved ? .secondary : .primary)
                             .lineLimit(2)
                         HStack(spacing: 6) {
+                            if item.chore.priority != .unset {
+                                PriorityMarks(priority: item.chore.priority)
+                            }
                             if let room {
                                 RoomLabel(room: room)
                                     .foregroundStyle(.secondary)
@@ -498,4 +501,24 @@ private struct WeekBoard: View {
 #Preview {
     NavigationStack { ChoresView() }
         .previewEnvironment()
+}
+
+/// Reminders-style priority marks in the chore list: ! low, !! medium, !!! high.
+struct PriorityMarks: View {
+    var priority: ChorePriority
+
+    var body: some View {
+        Text(priority.marks)
+            .font(.caption.weight(.heavy))
+            .foregroundStyle(color)
+            .accessibilityLabel("\(priority.label) priority")
+    }
+
+    private var color: Color {
+        switch priority {
+        case .unset, .low: .secondary
+        case .medium: Brand.waiting
+        case .high: .red
+        }
+    }
 }

@@ -22,6 +22,7 @@ nonisolated struct ChoreRecord: Hashable, Sendable {
     var isArchived: Bool = false
     var sortOrder: Int = 0
     var roomID: UUID?
+    var priority: ChorePriority = .unset
 }
 
 nonisolated struct CompletionRecord: Hashable, Sendable {
@@ -115,12 +116,18 @@ nonisolated enum ChoreMath {
         return Int((Double(days) / 7).rounded(.down))
     }
 
+    /// Board order: higher priority first, then the family's order, then by name.
+    static func boardOrder(_ a: ChoreRecord, _ b: ChoreRecord) -> Bool {
+        if a.priority != b.priority { return a.priority > b.priority }
+        return (a.sortOrder, a.title) < (b.sortOrder, b.title)
+    }
+
     /// Everything on the board for a day, in chore order. Kids each get their own line for a
     /// shared chore; an up-for-grabs chore is one line until someone claims it.
     static func items(on day: Date, chores: [ChoreRecord], completions: [CompletionRecord], calendar: Calendar = .current) -> [BoardItem] {
         let date = calendar.startOfDay(for: day)
         var result: [BoardItem] = []
-        for chore in chores.sorted(by: { ($0.sortOrder, $0.title) < ($1.sortOrder, $1.title) }) where !chore.isArchived {
+        for chore in chores.sorted(by: boardOrder) where !chore.isArchived {
             let start = calendar.startOfDay(for: chore.startDate)
             let occurrence: Date
             if chore.repeatRule == .once {
