@@ -24,7 +24,7 @@ struct CalendarSidebarFilters: View {
 
             heading("Also Show")
                 .padding(.top, 14)
-            checkRow("Chores & Home Care", on: filter.showChores) {
+            checkRow("Chores", on: filter.showChores) {
                 filter.showChores.toggle()
             }
             checkRow("Apple Calendar", on: apple.showsAppleEvents && apple.hasAccess) {
@@ -86,8 +86,8 @@ struct CalendarSidebarFilters: View {
                     .contentTransition(.symbolEffect(.replace))
                 Text(title)
                     .foregroundStyle(on ? Color.primary : Color.secondary)
+                    .font(.body)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
@@ -95,7 +95,7 @@ struct CalendarSidebarFilters: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(title)
+        .accessibilityLabel(title == "Chores" ? "Chores and Home Care" : title)
         .accessibilityValue(on ? "Shown" : "Hidden")
     }
 
