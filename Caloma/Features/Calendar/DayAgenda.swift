@@ -11,6 +11,8 @@ struct DayAgenda: View {
     var chores: [BoardItem]
     var homeTasks: [HomeTask]
     var onOpen: (OccurrenceRef) -> Void
+    /// Starts a new event on this day (tapping "Nothing planned").
+    var onNew: (() -> Void)? = nil
 
     var body: some View {
         let allDay = occurrences.filter(\.event.isAllDay)
@@ -64,16 +66,24 @@ struct DayAgenda: View {
             }
 
             if isEmpty {
-                VStack(spacing: 6) {
-                    Text("Nothing planned")
-                        .font(.headline)
-                    Text("A free day.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                Button {
+                    onNew?()
+                } label: {
+                    VStack(spacing: 6) {
+                        Text("Nothing planned")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Text(onNew == nil ? "A free day." : "A free day. Tap to add something.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 28)
+                    .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22))
+                    .contentShape(Rectangle())
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 28)
-                .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22))
+                .buttonStyle(.plain)
+                .disabled(onNew == nil)
             }
         }
     }

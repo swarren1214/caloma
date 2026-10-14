@@ -8,7 +8,7 @@ struct CalendarWideView: View {
     @Binding var day: Date
     @Binding var mode: CalendarView.Mode
     var visible: (EventRecord) -> Bool
-    var onNew: () -> Void
+    var onNew: (NewEventRequest) -> Void
     var onOpen: (OccurrenceRef) -> Void
 
     @Environment(\.accent) private var accent
@@ -21,10 +21,10 @@ struct CalendarWideView: View {
             VStack(alignment: .leading, spacing: 14) {
                 header
                 if mode == .week {
-                    WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, onOpen: onOpen)
+                    WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, onNew: onNew, onOpen: onOpen)
                 } else {
                     HStack(alignment: .top, spacing: 16) {
-                        MonthGrid(day: $day, data: data, visible: visible, cellHeight: 64)
+                        MonthGrid(day: $day, data: data, visible: visible, cellHeight: 64) { date in onNew(NewEventRequest(day: date)) }
                             .frame(maxWidth: 520)
                         ScrollView {
                             VStack(alignment: .leading, spacing: 10) {
@@ -37,7 +37,8 @@ struct CalendarWideView: View {
                                     appleEvents: apple.events(from: day, through: day),
                                     chores: showChores ? data.chores(on: day) : [],
                                     homeTasks: showChores ? data.homeTasksDue(on: day) : [],
-                                    onOpen: onOpen
+                                    onOpen: onOpen,
+                                    onNew: { onNew(NewEventRequest(day: day)) }
                                 )
                             }
                         }
@@ -104,7 +105,9 @@ struct CalendarWideView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(accent)
                 filterMenu
-                Button(action: onNew) {
+                Button {
+                    onNew(NewEventRequest(day: day))
+                } label: {
                     Label("New Event", systemImage: "plus")
                         .font(.subheadline.weight(.semibold))
                         .padding(.leading, 12)
@@ -154,6 +157,7 @@ struct WeekGrid: View {
     var week: [Date]
     var visible: (EventRecord) -> Bool
     var showChores: Bool
+    var onNew: (NewEventRequest) -> Void
     var onOpen: (OccurrenceRef) -> Void
 
     @Environment(\.accent) private var accent
@@ -223,7 +227,12 @@ struct WeekGrid: View {
                         }
                     }
                     .padding(3)
-                    .frame(maxWidth: .infinity, alignment: .top)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .contentShape(Rectangle())
+                    // Tapping the empty part of the row starts an all-day event that day.
+                    .onTapGesture {
+                        onNew(NewEventRequest(day: date, start: calendar.startOfDay(for: date), allDay: true))
+                    }
                     .overlay(alignment: .leading) { Rectangle().fill(Color(.separator)).frame(width: 0.5) }
                 }
             }
@@ -323,6 +332,15 @@ struct WeekGrid: View {
         let isToday = calendar.isDateInToday(date)
         return GeometryReader { proxy in
             ZStack(alignment: .topLeading) {
+                // Tapping an empty time starts an event there, on the half hour.
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { location in
+                        let minutes = Int(location.y / hourHeight * 60) / 30 * 30
+                        let start = calendar.date(byAdding: .minute, value: minutes, to: dayStart) ?? dayStart
+                        onNew(NewEventRequest(day: date, start: start))
+                    }
+                    .accessibilityHidden(true)
                 ForEach(placed) { item in
                     let top = CGFloat(item.start.timeIntervalSince(dayStart) / 3600) * hourHeight
                     let height = max(CGFloat(item.end.timeIntervalSince(item.start) / 3600) * hourHeight - 2, 22)

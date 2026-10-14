@@ -83,6 +83,14 @@ final class CalendarFilter {
     }
 }
 
+/// A new event to start: from the + button (just a day), a tapped time, or the all-day row.
+struct NewEventRequest: Identifiable {
+    var day: Date
+    var start: Date?
+    var allDay = false
+    let id = UUID()
+}
+
 /// Which occurrence is open: an event and the day it's on.
 struct OccurrenceRef: Identifiable, Hashable {
     var eventID: UUID

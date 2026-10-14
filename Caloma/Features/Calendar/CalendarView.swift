@@ -20,7 +20,7 @@ struct CalendarView: View {
     /// iPhone: one person's calendar, or everyone's.
     @State private var person: UUID?
     @State private var open: OccurrenceRef?
-    @State private var creating = false
+    @State private var creating: NewEventRequest?
 
     private let apple = AppleCalendar.shared
 
@@ -51,7 +51,7 @@ struct CalendarView: View {
         let data = data
         Group {
             if sizeClass == .regular {
-                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { creating = true }) { open = $0 }
+                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { creating = $0 }) { open = $0 }
             } else {
                 compact(data)
             }
@@ -68,15 +68,15 @@ struct CalendarView: View {
                         withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
                     }
                     Button {
-                        creating = true
+                        creating = NewEventRequest(day: day)
                     } label: {
                         Label("New Event", systemImage: "plus")
                     }
                 }
             }
         }
-        .sheet(isPresented: $creating) {
-            EventEditor(event: nil, day: day)
+        .sheet(item: $creating) { request in
+            EventEditor(event: nil, day: request.day, startAt: request.start, allDay: request.allDay)
         }
         .sheet(item: $open) { ref in
             NavigationStack {
@@ -86,7 +86,7 @@ struct CalendarView: View {
         .onChange(of: router.pendingNewEvent, initial: true) { _, pending in
             guard pending else { return }
             router.pendingNewEvent = false
-            creating = true
+            creating = NewEventRequest(day: day)
         }
     }
 
@@ -101,9 +101,9 @@ struct CalendarView: View {
             .pickerStyle(.segmented)
 
             if mode == .week {
-                WeekStrip(day: $day, data: data, visible: visible)
+                WeekStrip(day: $day, data: data, visible: visible) { date in creating = NewEventRequest(day: date) }
             } else {
-                MonthGrid(day: $day, data: data, visible: visible)
+                MonthGrid(day: $day, data: data, visible: visible) { date in creating = NewEventRequest(day: date) }
             }
 
             if data.members.count > 1 {
@@ -161,7 +161,8 @@ struct CalendarView: View {
                     appleEvents: person == nil ? apple.events(from: day, through: day) : [],
                     chores: filter.showChores ? data.chores(on: day, for: person) : [],
                     homeTasks: filter.showChores && person == nil ? data.homeTasksDue(on: day) : [],
-                    onOpen: { open = $0 }
+                    onOpen: { open = $0 },
+                    onNew: { creating = NewEventRequest(day: day) }
                 )
             }
         }
@@ -182,6 +183,8 @@ struct WeekStrip: View {
     @Binding var day: Date
     var data: CalendarData
     var visible: (EventRecord) -> Bool
+    /// Long-pressing a day offers New Event on it.
+    var onNew: ((Date) -> Void)? = nil
     @Environment(\.accent) private var accent
 
     var body: some View {
@@ -227,6 +230,11 @@ struct WeekStrip: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(date.formatted(.dateTime.weekday(.wide).month().day()) + (today ? ", today" : ""))
                 .accessibilityAddTraits(selected ? .isSelected : [])
+                .contextMenu {
+                    if let onNew {
+                        Button("New Event", systemImage: "plus") { onNew(date) }
+                    }
+                }
             }
             Button {
                 move(by: 7)
@@ -269,6 +277,8 @@ struct MonthGrid: View {
     var data: CalendarData
     var visible: (EventRecord) -> Bool
     var cellHeight: CGFloat = 46
+    /// Long-pressing a day offers New Event on it.
+    var onNew: ((Date) -> Void)? = nil
     @Environment(\.accent) private var accent
 
     var body: some View {
@@ -331,6 +341,11 @@ struct MonthGrid: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(date.formatted(.dateTime.weekday(.wide).month().day()))
                     .accessibilityAddTraits(selected ? .isSelected : [])
+                    .contextMenu {
+                        if let onNew {
+                            Button("New Event", systemImage: "plus") { onNew(date) }
+                        }
+                    }
                 }
             }
         }

@@ -6,6 +6,10 @@ import SwiftUI
 struct EventEditor: View {
     var event: FamilyEvent?
     var day: Date
+    /// For a new event: the time tapped on the calendar.
+    var startAt: Date? = nil
+    /// For a new event: tapped in the all-day row.
+    var allDay = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -288,11 +292,17 @@ struct EventEditor: View {
             countsDown = event.countsDown
             getReady = event.getReadyChoreID != nil
         } else {
-            // The next whole hour on the day that was showing.
-            let hour = calendar.component(.hour, from: .now) + 1
-            let base = calendar.isDateInToday(day) ? min(hour, 20) : 16
-            start = calendar.date(bySettingHour: base, minute: 0, second: 0, of: day) ?? day
-            end = start.addingTimeInterval(3600)
+            if let startAt {
+                // Where they tapped on the calendar.
+                start = startAt
+            } else {
+                // The next whole hour on the day that was showing.
+                let hour = calendar.component(.hour, from: .now) + 1
+                let base = calendar.isDateInToday(day) ? min(hour, 20) : 16
+                start = calendar.date(bySettingHour: base, minute: 0, second: 0, of: day) ?? day
+            }
+            isAllDay = allDay
+            end = allDay ? start : start.addingTimeInterval(3600)
             weekdayMask = ChoreMath.bit(forWeekday: calendar.component(.weekday, from: start))
             repeatEnd = calendar.date(byAdding: .month, value: 3, to: start) ?? start
             alertMinutes = 60
