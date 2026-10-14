@@ -117,7 +117,7 @@ struct MemberAvatar: View {
     }
 
     init(_ member: Member, size: CGFloat = 36) {
-        self.init(name: member.name, color: member.isKid ? member.color.color : Color(.systemGray), photo: member.photoData, size: size)
+        self.init(name: member.name, color: member.color.color, photo: member.photoData, size: size)
     }
 
     var body: some View {

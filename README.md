@@ -50,7 +50,8 @@ months. Onboarding offers eight starter chores and the family store from the des
 - **Home Care**: Overdue / Next 30 days / Done this year, grouped by date or by area. Task
   detail has Mark Done (tap again to undo), Give to a Kid (becomes a one-time chore; approving
   it marks the task done), details, history and notes.
-- **Family**: members (photos, kid colors), what points are called (Points, Stars, Coins or
+- **Family**: members (photos cropped in Move and Scale; a color for everyone, from the
+  presets or any custom color), what points are called (Points, Stars, Coins or
   your own word), approvals by default, streak bonus, allowance (rate, payday, spend / save /
   give split, Pay Out Now), home care reminders, accent color, erase.
 - **Kid page** (from Home or Rewards): balance, waiting points, streak, this week, today's
@@ -100,7 +101,8 @@ Points are whole numbers in a ledger, so balances never drift. Records link by U
 (`choreID`, `memberID`, `rewardID`, `taskID`) rather than SwiftData relationships, so deleting
 a chore or a reward never deletes anyone's history.
 
-- `Member`: name, parent or kid, color, photo (`@Attribute(.externalStorage)`).
+- `Member`: name, parent or kid, color (a preset name or "#RRGGBB"), photo (a 600 px square
+  JPEG, `@Attribute(.externalStorage)`).
 - `Chore`: title, icon, points, kids (comma-separated UUIDs), take turns, up for grabs,
   repeat rule and weekdays, start day, photo, needs OK, and `homeTaskID` when it came from
   Home Care.

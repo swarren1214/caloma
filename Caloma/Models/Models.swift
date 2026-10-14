@@ -17,10 +17,11 @@ final class Member {
     var isArchived: Bool = false
     var createdAt: Date = Date.now
 
-    init(name: String, role: MemberRole, color: KidColor = .blue, sortOrder: Int = 0) {
+    /// Without a color, kids start blue and parents gray.
+    init(name: String, role: MemberRole, color: KidColor? = nil, sortOrder: Int = 0) {
         self.name = name
         self.roleRaw = role.rawValue
-        self.colorRaw = color.rawValue
+        self.colorRaw = (color ?? (role == .kid ? .blue : .gray)).rawValue
         self.sortOrder = sortOrder
     }
 

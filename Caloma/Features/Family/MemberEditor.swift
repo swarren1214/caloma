@@ -1,7 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Adding or editing a parent or kid: name, photo and (for kids) their color.
+/// Adding or editing a parent or kid: name, photo (cropped to the circle) and their color,
+/// a preset or any custom color.
 struct MemberEditor: View {
     var member: Member?
     var role: MemberRole
@@ -26,7 +27,7 @@ struct MemberEditor: View {
             Section {
                 HStack {
                     Spacer()
-                    PhotoPickerAvatar(name: name, color: role == .kid ? color.color : Color(.systemGray), photo: $photo, size: 96)
+                    PhotoPickerAvatar(name: name, color: color.color, photo: $photo, size: 96)
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
@@ -43,37 +44,56 @@ struct MemberEditor: View {
                     .font(.title3)
             }
 
-            if role == .kid {
-                Section("Color") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 10)], spacing: 10) {
-                        ForEach(KidColor.allCases) { option in
-                            Button {
-                                color = option
-                            } label: {
-                                Circle()
-                                    .fill(option.color)
-                                    .frame(width: 36, height: 36)
-                                    .overlay {
-                                        if option == color {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 14, weight: .bold))
-                                                .foregroundStyle(.white)
-                                        }
-                                    }
-                                    .frame(width: 44, height: 44)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(option.name)
-                            .accessibilityAddTraits(option == color ? .isSelected : [])
+            Section {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 10)], spacing: 10) {
+                    ForEach(KidColor.swatches) { option in
+                        Button {
+                            color = option
+                        } label: {
+                            swatch(option.color, isSelected: option == color)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(option.name)
+                        .accessibilityAddTraits(option == color ? .isSelected : [])
+                    }
+                    // Any other color, from the system color picker.
+                    ColorPicker("Custom color", selection: Binding(
+                        get: { color.color },
+                        set: { color = KidColor(hex: $0.hexValue) }
+                    ), supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(width: 44, height: 44)
+                    .overlay {
+                        if color.isCustom {
+                            Circle()
+                                .strokeBorder(color.color, lineWidth: 3)
+                                .frame(width: 44, height: 44)
+                                .allowsHitTesting(false)
                         }
                     }
-                    .padding(.vertical, 4)
                 }
+                .padding(.vertical, 4)
+            } header: {
+                Text("Color")
+            } footer: {
+                Text(role == .kid ? "Their avatar, their column on the chore board and all of Kid View." : "Their avatar around the app.")
             }
 
             if member != nil && !isMe {
                 Section {
-                    Button("Remove from Family", role: .destructive) { confirmsRemove = true }
+                    Button(role: .destructive) {
+                        confirmsRemove = true
+                    } label: {
+                        Label("Remove from Family", systemImage: "trash")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.large)
+                    .tint(.red)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
                 } footer: {
                     Text(role == .kid ? "Their chores come off the board. Their history stays." : "")
                 }
@@ -102,6 +122,20 @@ struct MemberEditor: View {
         .onAppear(perform: load)
     }
 
+    private func swatch(_ fill: Color, isSelected: Bool) -> some View {
+        Circle()
+            .fill(fill)
+            .frame(width: 36, height: 36)
+            .overlay {
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+            .frame(width: 44, height: 44)
+    }
+
     private func load() {
         guard !loaded else { return }
         loaded = true
@@ -110,7 +144,7 @@ struct MemberEditor: View {
             color = member.color
             photo = member.photoData
         } else {
-            color = KidColor.next(after: members.filter { $0.isKid && !$0.isArchived }.map(\.color))
+            color = role == .kid ? KidColor.next(after: members.filter { $0.isKid && !$0.isArchived }.map(\.color)) : .gray
         }
     }
 

@@ -71,31 +71,57 @@ extension EnvironmentValues {
     @Entry var accent: Color = Brand.defaultAccent
 }
 
-/// A kid's color: their avatar, their column on the chore board and the whole of Kid View.
-nonisolated enum KidColor: String, CaseIterable, Identifiable, Codable, Sendable {
-    case blue, purple, orange, green, pink, teal, indigo, red
+/// A person's color: their avatar, a kid's column on the chore board and the whole of Kid
+/// View. One of the presets, or a custom color someone picked, saved as "#RRGGBB". The raw
+/// value is what's stored, so the preset names saved before ("blue", "purple"…) read the same.
+nonisolated struct KidColor: RawRepresentable, Hashable, Identifiable, Sendable {
+    let rawValue: String
 
-    var id: String { rawValue }
-    var name: String { rawValue.capitalized }
-
-    var hex: UInt32 {
-        switch self {
-        case .blue: 0x0A84FF
-        case .purple: 0xAF52DE
-        case .orange: 0xFF9F0A
-        case .green: 0x1E9E6A
-        case .pink: 0xE0457B
-        case .teal: 0x0E8A8A
-        case .indigo: 0x5E5CE6
-        case .red: 0xD93B30
-        }
+    init?(rawValue: String) {
+        guard Self.presetHex[rawValue] != nil || Self.parseHex(rawValue) != nil else { return nil }
+        self.rawValue = rawValue
     }
 
+    private init(preset: String) { rawValue = preset }
+
+    /// A custom color.
+    init(hex: UInt32) { rawValue = hexString(hex) }
+
+    static let blue = KidColor(preset: "blue")
+    static let purple = KidColor(preset: "purple")
+    static let orange = KidColor(preset: "orange")
+    static let green = KidColor(preset: "green")
+    static let pink = KidColor(preset: "pink")
+    static let teal = KidColor(preset: "teal")
+    static let indigo = KidColor(preset: "indigo")
+    static let red = KidColor(preset: "red")
+    /// Parents start out gray.
+    static let gray = KidColor(preset: "gray")
+
+    /// The presets handed out to kids, in order.
+    static let allCases: [KidColor] = [.blue, .purple, .orange, .green, .pink, .teal, .indigo, .red]
+    /// Every preset a profile can pick, gray included.
+    static let swatches: [KidColor] = allCases + [.gray]
+
+    var id: String { rawValue }
+    var isCustom: Bool { Self.presetHex[rawValue] == nil }
+    var name: String { isCustom ? "Custom" : rawValue.capitalized }
+    var hex: UInt32 { Self.presetHex[rawValue] ?? Self.parseHex(rawValue) ?? 0x8E8E93 }
     var color: Color { Color(hex: hex) }
 
     /// The colors handed out as kids are added, so siblings start out different.
     static func next(after used: [KidColor]) -> KidColor {
         allCases.first { !used.contains($0) } ?? allCases[used.count % allCases.count]
+    }
+
+    private static let presetHex: [String: UInt32] = [
+        "blue": 0x0A84FF, "purple": 0xAF52DE, "orange": 0xFF9F0A, "green": 0x1E9E6A,
+        "pink": 0xE0457B, "teal": 0x0E8A8A, "indigo": 0x5E5CE6, "red": 0xD93B30, "gray": 0x8E8E93,
+    ]
+
+    private static func parseHex(_ raw: String) -> UInt32? {
+        guard raw.hasPrefix("#"), raw.count == 7 else { return nil }
+        return UInt32(raw.dropFirst(), radix: 16)
     }
 }
 
@@ -153,6 +179,16 @@ extension Color {
     nonisolated init?(hexString: String) {
         guard hexString.hasPrefix("#"), hexString.count == 7, let value = UInt32(hexString.dropFirst(), radix: 16) else { return nil }
         self.init(hex: value)
+    }
+}
+
+extension Color {
+    /// The color as 0xRRGGBB in sRGB, for saving a color someone picked.
+    var hexValue: UInt32 {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        func channel(_ value: CGFloat) -> UInt32 { UInt32((min(max(value, 0), 1) * 255).rounded()) }
+        return (channel(r) << 16) | (channel(g) << 8) | channel(b)
     }
 }
 
