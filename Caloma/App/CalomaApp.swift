@@ -9,9 +9,13 @@ struct CalomaApp: App {
     private let container: ModelContainer
 
     init() {
-        let container = Persistence.makeContainer()
+        ScreenshotMode.prepareLaunch()
+        // Screenshot mode (Debug only) runs on an in-memory store of demo content, with no
+        // sync, watch or settings mirroring, so the device's own family and iCloud are untouched.
+        let container = Persistence.makeContainer(inMemory: ScreenshotMode.isOn)
         self.container = container
         AppRouter.shared.container = container
+        guard !ScreenshotMode.isOn else { return }
         // Starter home care is added at the end of onboarding, so a device that picks up a
         // family already in iCloud doesn't add a second copy.
         if UserDefaults.standard.bool(forKey: SettingsKey.onboarded) {
@@ -76,9 +80,13 @@ final class AppRouter {
         pendingNewEvent = true
     }
 
-    /// Kid View covers the whole app. Remembered, so a kid's iPad opens back into it.
-    var kidViewOpen: Bool = UserDefaults.standard.bool(forKey: SettingsKey.kidViewOpen) {
-        didSet { UserDefaults.standard.set(kidViewOpen, forKey: SettingsKey.kidViewOpen) }
+    /// Kid View covers the whole app. Remembered, so a kid's iPad opens back into it (except
+    /// in screenshot mode, which leaves the device's setting alone).
+    var kidViewOpen: Bool = ScreenshotMode.isOn ? false : UserDefaults.standard.bool(forKey: SettingsKey.kidViewOpen) {
+        didSet {
+            guard !ScreenshotMode.isOn else { return }
+            UserDefaults.standard.set(kidViewOpen, forKey: SettingsKey.kidViewOpen)
+        }
     }
 
     /// Opens Kid View on a kid, or on the last kid it showed.
@@ -97,6 +105,12 @@ final class AppRouter {
         case "calendar": tab = .calendar
         case "rewards": tab = .rewards
         case "homecare": tab = .homeCare
+        case "directions":
+            // From the "You're driving" Live Activity: hand the address to Maps.
+            let to = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "to" }?.value
+            if let to, let maps = DrivingAttributes.mapsURL(to: to) {
+                UIApplication.shared.open(maps)
+            }
         case "approvals":
             // A kid's device in Kid View shouldn't open the parents' approvals.
             guard !kidViewOpen else { return }

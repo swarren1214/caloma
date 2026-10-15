@@ -13,14 +13,18 @@ struct KidModeView: View {
 
     @State private var showsParentGate = false
     @State private var authenticating = false
+    /// Only screenshot mode pushes onto this; the store links push as before.
+    @State private var path = NavigationPath()
 
     private var kids: [Member] { members.filter { $0.isKid && !$0.isArchived } }
     private var kid: Member? {
-        kids.first { $0.id.uuidString == kidIDString } ?? (kids.count == 1 ? kids.first : nil)
+        // Screenshot mode: the demo kid, without saving over the device's last kid.
+        if ScreenshotMode.isOn, let demo = kids.first(where: { $0.id == ScreenshotMode.demoKidID }) { return demo }
+        return kids.first { $0.id.uuidString == kidIDString } ?? (kids.count == 1 ? kids.first : nil)
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if let kid {
                     KidDayView(kid: kid, kids: kids, onPick: pick, onLeave: leave)
@@ -31,8 +35,17 @@ struct KidModeView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: ScreenshotRoute.self) { _ in
+                if let kid { KidStoreView(kid: kid) }
+            }
         }
         .tint(kid?.color.color ?? .accentColor)
+        // Screenshot mode (Debug): straight on to the kid's store.
+        .task {
+            guard ScreenshotMode.screen == .kidstore, kid != nil else { return }
+            try? await Task.sleep(for: .milliseconds(500))
+            path.append(ScreenshotRoute.kidStore)
+        }
         .sheet(isPresented: $showsParentGate) {
             ParentGate {
                 showsParentGate = false
@@ -401,6 +414,10 @@ struct KidDayView: View {
             }
         }
         .sensoryFeedback(.success, trigger: celebration)
+        // Screenshot mode (Debug): the My Day page.
+        .task {
+            if ScreenshotMode.screen == .kidday { page = .day }
+        }
         .sheet(item: $photoFor) { item in
             CameraPicker { image in
                 finish(item, photo: PhotoTools.jpeg(from: image), family: family)

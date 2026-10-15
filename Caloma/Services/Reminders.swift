@@ -15,6 +15,8 @@ enum Reminders {
     }
 
     static func reschedule(in context: ModelContext) {
+        // Screenshot mode: the device's own reminders stay as they are.
+        guard !ScreenshotMode.isOn else { return }
         let tasks = Persistence.fetchAll(HomeTask.self, in: context).filter { !$0.isArchived }
         let plans = tasks.map { Plan(id: $0.id, name: $0.name, due: $0.nextDue, daysBefore: $0.remindDaysBefore) }
         Task { await schedule(plans) }

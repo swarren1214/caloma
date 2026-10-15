@@ -9,12 +9,15 @@ enum AppTab: Hashable {
 struct RootTabView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// Only screenshot mode pushes onto these; the tabs' own links push as before.
+    @State private var homePath = NavigationPath()
+    @State private var homeCarePath = NavigationPath()
 
     var body: some View {
         @Bindable var router = router
         TabView(selection: $router.tab) {
             Tab(value: AppTab.home) {
-                NavigationStack { HomeView() }
+                NavigationStack(path: $homePath) { HomeView().screenshotDestinations() }
             } label: {
                 tabLabel("Home", "house")
             }
@@ -38,7 +41,7 @@ struct RootTabView: View {
             }
 
             Tab(value: AppTab.homeCare) {
-                NavigationStack { HomeCareView() }
+                NavigationStack(path: $homeCarePath) { HomeCareView().screenshotDestinations() }
             } label: {
                 tabLabel("Home Care", "wrench.and.screwdriver")
             }
@@ -52,6 +55,8 @@ struct RootTabView: View {
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
+        // Debug: marketing screenshots. Does nothing otherwise.
+        .screenshotStage(homePath: $homePath, homeCarePath: $homeCarePath)
     }
 
     /// Icon only in the iPhone tab bar (VoiceOver still reads the name); icon and name on iPad.

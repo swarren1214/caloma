@@ -129,7 +129,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = NotificationResponder.shared
         ApprovalAlerts.registerCategories()
-        if AppConfig.cloudSyncEnabled { application.registerForRemoteNotifications() }
+        if AppConfig.cloudSyncEnabled && !ScreenshotMode.isOn { application.registerForRemoteNotifications() }
         return true
     }
 

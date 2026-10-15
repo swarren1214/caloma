@@ -8,6 +8,8 @@ enum EventAlerts {
     nonisolated private static let prefix = "event."
 
     static func reschedule(in context: ModelContext) {
+        // Screenshot mode: no permission prompt, and the device's own alerts stay as they are.
+        guard !ScreenshotMode.isOn else { return }
         let events = Persistence.fetchAll(FamilyEvent.self, in: context).filter { !$0.isArchived && $0.alertMinutes >= 0 }
         let members = Persistence.fetchAll(Member.self, in: context)
         let now = Date.now

@@ -92,7 +92,8 @@ final class AppleCalendar {
     /// Apple Calendar events from the start of one day through the end of another.
     func events(from: Date, through: Date, calendar: Calendar = .current) -> [AppleEvent] {
         _ = revision
-        guard showsAppleEvents, hasAccess else { return [] }
+        // Screenshot mode shows the demo family's calendar only.
+        guard !ScreenshotMode.isOn, showsAppleEvents, hasAccess else { return [] }
         let shown = calendars.filter { !hiddenCalendarIDs.contains($0.calendarIdentifier) }
         guard !shown.isEmpty else { return [] }
         let start = calendar.startOfDay(for: from)
@@ -116,7 +117,7 @@ final class AppleCalendar {
     /// Writes the next two months of family events to the Caloma calendar (and takes away
     /// ones that were deleted or moved). Does nothing unless it's turned on.
     func pushFamilyEvents(in context: ModelContext) {
-        guard addsFamilyEvents, hasAccess, let target = calomaCalendar() else { return }
+        guard !ScreenshotMode.isOn, addsFamilyEvents, hasAccess, let target = calomaCalendar() else { return }
         let members = Persistence.fetchAll(Member.self, in: context)
         let events = Persistence.fetchAll(FamilyEvent.self, in: context).filter { !$0.isArchived }
         let now = Date.now
