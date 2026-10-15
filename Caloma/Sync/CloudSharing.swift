@@ -22,25 +22,65 @@ extension CloudSync {
         }
     }
 
-    /// The share to invite with: the existing one, or a new share of the whole family zone.
+    /// The share to invite with: the existing one, or a new share of the whole family zone,
+    /// saved to iCloud. Throws if iCloud won't save it: a share that was never saved has no
+    /// link, and the invitation would sit in Messages loading forever.
     func makeShare(familyName: String) async throws -> CKShare {
-        if let existing = await fetchShare() { return existing }
+        if let existing = await fetchShare(), existing.url != nil {
+            if existing[CKShare.SystemFieldKey.title] as? String != familyName {
+                existing[CKShare.SystemFieldKey.title] = familyName
+                _ = try? await ckContainer.privateCloudDatabase.modifyRecords(saving: [existing], deleting: [], savePolicy: .changedKeys)
+            }
+            return existing
+        }
         let database = ckContainer.privateCloudDatabase
         // The zone has to exist before it can be shared.
-        _ = try await database.modifyRecordZones(saving: [CKRecordZone(zoneID: zoneID)], deleting: [])
+        let (zones, _) = try await database.modifyRecordZones(saving: [CKRecordZone(zoneID: zoneID)], deleting: [])
+        if case .failure(let error)? = zones[zoneID] {
+            sharingLog.error("Couldn't save the family zone: \(error.localizedDescription, privacy: .public)")
+            throw error
+        }
         let share = CKShare(recordZoneID: zoneID)
         share[CKShare.SystemFieldKey.title] = familyName
         share.publicPermission = .none
         let (results, _) = try await database.modifyRecords(saving: [share], deleting: [])
-        if let result = results[share.recordID], case .success(let saved) = result, let savedShare = saved as? CKShare {
+        switch results[share.recordID] {
+        case .success(let saved as CKShare)? where saved.url != nil:
             becameOwner()
-            return savedShare
+            return saved
+        case .failure(let error)?:
+            sharingLog.error("Couldn't save the family share: \(error.localizedDescription, privacy: .public)")
+            throw error
+        default:
+            sharingLog.error("iCloud saved the share without a link")
+            throw SharingError.noLink
         }
-        becameOwner()
-        return share
     }
 
-    /// Opens Apple's sharing sheet: invite people, see who's joined, stop sharing.
+    /// Invite: the share sheet, with the family attached as a collaboration, so Messages sends
+    /// a proper invitation (and Mail, AirDrop or Copy Link work too).
+    func presentInvite(familyName: String) async throws {
+        let share = try await makeShare(familyName: familyName)
+        let provider = NSItemProvider()
+        provider.registerCKShare(share, container: ckContainer, allowedSharingOptions: CKAllowedSharingOptions(allowedParticipantPermissionOptions: .readWrite, allowedParticipantAccessOptions: .specifiedRecipientsOnly))
+        let configuration = UIActivityItemsConfiguration(itemProviders: [provider])
+        configuration.metadataProvider = { key in
+            switch key {
+            case .title: familyName
+            default: nil
+            }
+        }
+        let controller = UIActivityViewController(activityItemsConfiguration: configuration)
+        guard let presenter = UIApplication.shared.topViewController else { return }
+        if let popover = controller.popoverPresentationController {
+            popover.sourceView = presenter.view
+            popover.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 1, height: 1)
+            popover.permittedArrowDirections = []
+        }
+        presenter.present(controller, animated: true)
+    }
+
+    /// Opens Apple's sharing screen: see who's joined, remove someone, stop sharing.
     func presentSharing(familyName: String) async throws {
         let share = try await makeShare(familyName: familyName)
         let controller = UICloudSharingController(share: share, container: ckContainer)
@@ -83,6 +123,16 @@ extension CloudSync {
             // Leave locally anyway; the share is gone or unreachable.
         }
         await leaveLocally(message: "You left the family. Caloma is starting fresh on this iPhone.")
+    }
+}
+
+private let sharingLog = Logger(subsystem: "com.stephenwarren.caloma", category: "sharing")
+
+enum SharingError: LocalizedError {
+    case noLink
+
+    var errorDescription: String? {
+        "iCloud didn't make an invitation link. Check that you're signed in to iCloud, then try again."
     }
 }
 

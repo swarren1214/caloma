@@ -41,7 +41,7 @@ struct FamilySharingView: View {
                         Task { await invite() }
                     } label: {
                         HStack {
-                            Label(share == nil ? "Invite Family" : "Manage Sharing", systemImage: share == nil ? "person.badge.plus" : "person.2")
+                            Label("Invite Family", systemImage: "person.badge.plus")
                             if loading {
                                 Spacer()
                                 ProgressView()
@@ -49,6 +49,14 @@ struct FamilySharingView: View {
                         }
                     }
                     .disabled(loading || !canSync)
+                    if share != nil {
+                        Button {
+                            Task { await manage() }
+                        } label: {
+                            Label("Manage People", systemImage: "person.2")
+                        }
+                        .disabled(loading || !canSync)
+                    }
                 } footer: {
                     Text("Send the invitation in Messages or Mail. When they tap it, Caloma asks them to join, and their phone switches to this family.")
                 }
@@ -133,6 +141,18 @@ struct FamilySharingView: View {
     }
 
     private func invite() async {
+        loading = true
+        defer { loading = false }
+        do {
+            try await sync.presentInvite(familyName: title)
+            share = await sync.fetchShare()
+            error = nil
+        } catch {
+            self.error = (error as? CKError).map { CloudSync.describe($0) } ?? error.localizedDescription
+        }
+    }
+
+    private func manage() async {
         loading = true
         defer { loading = false }
         do {
