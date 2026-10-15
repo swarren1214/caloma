@@ -25,6 +25,8 @@ final class PhoneLink: NSObject {
     /// What was tapped lately, so a snapshot the phone sent before hearing about it doesn't
     /// bring it back for a moment.
     @ObservationIgnored private var recentlyHandled: [UUID: Date] = [:]
+    /// My chores ticked or unticked lately, and when.
+    @ObservationIgnored private var recentChoreTicks: [UUID: (done: Bool, at: Date)] = [:]
 
     override init() {
         let saved = WatchSnapshot.load()
@@ -58,6 +60,13 @@ final class PhoneLink: NSObject {
         case .homeTaskDone(let id):
             updated.homeCare.removeAll { $0.id == id }
             recentlyHandled[id] = .now
+        case .choreDone(let id), .choreUndone(let id):
+            var done = false
+            if case .choreDone = action { done = true }
+            if let index = updated.myChores?.firstIndex(where: { $0.choreID == id }) {
+                updated.myChores?[index].done = done
+            }
+            recentChoreTicks[id] = (done, .now)
         }
         // Newer than anything the phone sent before this tap.
         updated.made = .now
@@ -100,11 +109,19 @@ final class PhoneLink: NSObject {
         for transfer in WCSession.default.outstandingUserInfoTransfers {
             switch WatchAction(message: transfer.userInfo) {
             case .approve(let id), .sendBack(let id), .decline(let id), .homeTaskDone(let id): handled.insert(id)
-            case nil: break
+            case .choreDone, .choreUndone, nil: break
             }
         }
         incoming.approvals.removeAll { handled.contains($0.id) }
         incoming.homeCare.removeAll { handled.contains($0.id) }
+        // A chore ticked a moment ago stays as ticked until the phone has caught up.
+        recentChoreTicks = recentChoreTicks.filter { $0.value.at > cutoff }
+        if var chores = incoming.myChores {
+            for index in chores.indices {
+                if let tick = recentChoreTicks[chores[index].choreID] { chores[index].done = tick.done }
+            }
+            incoming.myChores = chores
+        }
         use(incoming)
     }
 

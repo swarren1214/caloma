@@ -19,7 +19,7 @@ struct CalomaWatchApp: App {
 }
 
 enum WatchPage: String, Hashable {
-    case approvals, comingUp = "comingup", kids, homeCare = "homecare"
+    case approvals, myChores = "mychores", comingUp = "comingup", kids, homeCare = "homecare"
 }
 
 /// The pages, one above the other: turn the crown to move between them. Opens on Needs Your
@@ -33,6 +33,9 @@ struct WatchRootView: View {
             if link.hasData {
                 TabView(selection: $page) {
                     ApprovalsPage().tag(WatchPage.approvals)
+                    if !(link.snapshot.myChores ?? []).isEmpty {
+                        MyChoresPage().tag(WatchPage.myChores)
+                    }
                     ComingUpPage().tag(WatchPage.comingUp)
                     KidsPage { page = .approvals }.tag(WatchPage.kids)
                     HomeCarePage().tag(WatchPage.homeCare)

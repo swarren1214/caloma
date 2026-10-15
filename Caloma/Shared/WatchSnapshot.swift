@@ -22,6 +22,17 @@ nonisolated struct WatchSnapshot: Codable, Sendable, Equatable {
     /// Tonight's dinner from BigTable's meal plan, when BigTable is on the phone and has one.
     /// Optional so older snapshots still decode.
     var dinner: Dinner? = nil
+    /// Today's chores for this phone's parent, to tick off on the watch. Optional so older
+    /// snapshots still decode.
+    var myChores: [MyChore]? = nil
+
+    nonisolated struct MyChore: Codable, Sendable, Equatable, Identifiable {
+        var id: UUID { choreID }
+        var choreID: UUID
+        var title: String
+        var symbol: String
+        var done: Bool
+    }
 
     nonisolated struct Approval: Codable, Sendable, Equatable, Identifiable {
         nonisolated enum Kind: String, Codable, Sendable { case chore, reward }
@@ -156,6 +167,10 @@ nonisolated enum WatchAction: Codable, Sendable, Equatable {
     case sendBack(UUID)
     case decline(UUID)
     case homeTaskDone(UUID)
+    /// One of my chores, ticked off today (by chore id).
+    case choreDone(UUID)
+    /// Taken back (a mis-tap).
+    case choreUndone(UUID)
 
     static let messageKey = "action"
 

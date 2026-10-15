@@ -188,6 +188,13 @@ final class WatchBridge: NSObject {
             return WatchSnapshot.Kid(id: kid.id, name: kid.name, color: kid.color.hex, done: progress.done, total: progress.total, balance: family.balance(of: kid))
         }
 
+        // This phone's parent's own chores today.
+        if let me, let parent = members.first(where: { $0.id == me }) {
+            snapshot.myChores = family.items(for: parent, on: now).map { item in
+                WatchSnapshot.MyChore(choreID: item.chore.id, title: item.chore.title, symbol: item.chore.symbol, done: item.status.isDone)
+            }
+        }
+
         // Home care that's late or due within three days.
         let soon = calendar.date(byAdding: .day, value: 3, to: today) ?? today
         snapshot.homeCare = Persistence.fetchAll(HomeTask.self, in: context)
@@ -234,6 +241,27 @@ final class WatchBridge: NSObject {
             if let task = Family.homeTask(id, in: context) {
                 let me = UserDefaults.standard.string(forKey: SettingsKey.currentMember).flatMap(UUID.init(uuidString:))
                 Family.markHomeTaskDone(task, by: me, in: context)
+            }
+        case .choreDone(let choreID), .choreUndone(let choreID):
+            guard let me = UserDefaults.standard.string(forKey: SettingsKey.currentMember).flatMap(UUID.init(uuidString:)),
+                  let parent = Family.member(me, in: context) else { break }
+            let family = FamilySnapshot(
+                members: Persistence.fetchAll(Member.self, in: context),
+                chores: Persistence.fetchAll(Chore.self, in: context),
+                completions: Persistence.fetchAll(ChoreCompletion.self, in: context),
+                points: []
+            )
+            guard let item = family.items(for: parent).first(where: { $0.chore.id == choreID }) else { break }
+            if case .choreDone = action, !item.status.isDone {
+                // A parent checking off their own chore needs nobody's OK.
+                Family.markDone(item, by: me, byParent: true, in: context)
+            } else if case .choreUndone = action, item.status.isDone, let completionID = item.completionID {
+                let target = completionID
+                var descriptor = FetchDescriptor<ChoreCompletion>(predicate: #Predicate { $0.id == target })
+                descriptor.fetchLimit = 1
+                if let completion = try? context.fetch(descriptor).first {
+                    Family.undo(completion, in: context)
+                }
             }
         }
         // Answer right away rather than after the debounce, even if nothing changed (another
