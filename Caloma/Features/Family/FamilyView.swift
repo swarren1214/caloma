@@ -170,6 +170,15 @@ struct FamilyView: View {
 
             Section {
                 NavigationLink {
+                    MealTimesView(app: .caloma)
+                } label: {
+                    LabeledContent {
+                        Text(HearthLink.shared.mealTimes.summary)
+                    } label: {
+                        Label("Meal Times", systemImage: "fork.knife")
+                    }
+                }
+                NavigationLink {
                     AppleCalendarSettingsView()
                 } label: {
                     LabeledContent {
@@ -181,7 +190,7 @@ struct FamilyView: View {
             } header: {
                 Text("Calendar")
             } footer: {
-                Text("Optional. Show your other calendars beside the family's, or add family events to Apple Calendar.")
+                Text("Meal times place BigTable's meals on the calendar, and change in BigTable too. Apple Calendar is optional: show your other calendars beside the family's, or add family events to it.")
             }
 
             Section("Accent Color") {

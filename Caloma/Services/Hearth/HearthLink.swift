@@ -13,6 +13,8 @@ final class HearthLink {
 
     /// BigTable's plan, when BigTable is on this device and has shared one recently.
     private(set) var mealPlan: HearthMealPlan?
+    /// When the family eats (set here or in BigTable), for meals on the calendar.
+    private(set) var mealTimes = HearthMealTimes.standard
 
     /// BigTable's red, for its meals on the calendar.
     static let bigTableColor = Color(hex: 0xD9472B)
@@ -35,6 +37,8 @@ final class HearthLink {
         guard !ScreenshotMode.isOn else { return }
         // Another app may have a new photo of someone.
         HearthPhotos.shared.reset()
+        let times = HearthMealTimes.current
+        if times != mealTimes { mealTimes = times }
         let plan = Hearth.read(HearthMealPlan.self, from: .bigtable, maxAge: 14 * 24 * 60 * 60)?.value
         guard plan != mealPlan else { return }
         mealPlan = plan
@@ -200,10 +204,10 @@ extension HearthMealPlan.Meal {
         return url
     }
 
-    /// When the meal sits on the calendar (BigTable plans meals, not times): 8 AM, noon, 6 PM.
+    /// When the meal sits on the calendar (BigTable plans meals, not times): the family's
+    /// meal times, set in Caloma or BigTable.
     func start(on day: Date, calendar: Calendar = .current) -> Date {
-        let hour = ["breakfast": 8, "lunch": 12, "dinner": 18][slot] ?? 18
-        return calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day) ?? day
+        HearthLink.shared.mealTimes.start(for: slot, on: day, calendar: calendar)
     }
 
     /// Dinner takes an hour on the calendar; breakfast and lunch 45 minutes.
