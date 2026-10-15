@@ -46,6 +46,11 @@ final class HearthLink {
         mealPlan?.meal("dinner", on: day)
     }
 
+    /// The day's planned meals in order: breakfast, lunch, dinner.
+    func meals(on day: Date) -> [HearthMealPlan.Meal] {
+        (mealPlan?.day(day)?.meals ?? []).sorted { $0.slotOrder < $1.slotOrder }
+    }
+
     /// Tonight's dinner for the widgets and watch (`WatchBridge.snapshot(in:)`). When Caloma was
     /// woken in the background (a tap on the watch) before `start()`, the plan is read first so
     /// the snapshot doesn't drop it.
@@ -177,55 +182,30 @@ extension HearthMealPlan.Meal {
         return "Not eating: " + names.formatted(.list(type: .and))
     }
 
-    var symbol: String { kind == "dineOut" ? "takeoutbag.and.cup.and.straw" : "fork.knife" }
+    var isDineOut: Bool { kind == "dineOut" }
+
+    var symbol: String { isDineOut ? "takeoutbag.and.cup.and.straw" : "fork.knife" }
 
     var openURL: URL? { link.flatMap(URL.init(string:)) }
-}
 
-/// Tonight's dinner from BigTable, on Home. Shows nothing when there's no plan for tonight.
-struct DinnerTonightCard: View {
-    @Environment(\.openURL) private var openURL
-    private var link: HearthLink { HearthLink.shared }
+    /// "Breakfast", "Lunch", "Dinner".
+    var slotLabel: String { slot.capitalized }
 
-    var body: some View {
-        if let dinner = link.dinner(on: .now) {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionTitle("Dinner Tonight")
-                CardList(items: [dinner], inset: 58) { meal in
-                    Button {
-                        if let url = meal.openURL { openURL(url) }
-                    } label: {
-                        row(meal)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Opens in BigTable")
-                }
-            }
-        }
+    var slotOrder: Int { ["breakfast": 0, "lunch": 1, "dinner": 2][slot] ?? 3 }
+
+    /// The recipe's photo, or the restaurant's logo when eating out.
+    var artworkURL: URL? {
+        let raw = isDineOut ? logoURL : imageURL
+        guard let raw, let url = URL(string: raw), url.scheme == "https" else { return nil }
+        return url
     }
 
-    private func row(_ meal: HearthMealPlan.Meal) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: meal.symbol)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(HearthLink.bigTableColor)
-                .frame(width: 34, height: 34)
-                .background(HearthLink.bigTableColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 9))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(meal.title)
-                    .lineLimit(2)
-                Text(meal.notEatingLabel ?? "From BigTable")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 4)
-            Image(systemName: "arrow.up.forward.app")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 12)
-        .frame(minHeight: 60)
-        .contentShape(Rectangle())
+    /// When the meal sits on the calendar (BigTable plans meals, not times): 8 AM, noon, 6 PM.
+    func start(on day: Date, calendar: Calendar = .current) -> Date {
+        let hour = ["breakfast": 8, "lunch": 12, "dinner": 18][slot] ?? 18
+        return calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day) ?? day
     }
+
+    /// Dinner takes an hour on the calendar; breakfast and lunch 45 minutes.
+    var calendarMinutes: Int { slot == "dinner" ? 60 : 45 }
 }

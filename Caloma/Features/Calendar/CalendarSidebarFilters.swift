@@ -30,6 +30,11 @@ struct CalendarSidebarFilters: View {
             checkRow("Home Care", on: filter.showHomeCare) {
                 filter.showHomeCare.toggle()
             }
+            if HearthLink.shared.mealPlan != nil {
+                checkRow("Meals", on: filter.showMeals) {
+                    filter.showMeals.toggle()
+                }
+            }
             checkRow("Apple Calendar", on: apple.showsAppleEvents && apple.hasAccess) {
                 // The first time, it needs setting up (access and which calendars).
                 if apple.hasAccess && apple.showsAppleEvents {

@@ -23,7 +23,7 @@ struct CalendarWideView: View {
             VStack(alignment: .leading, spacing: 14) {
                 header
                 if mode == .week {
-                    WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, showHomeCare: filter.showHomeCare, onNew: onNew, onOpen: onOpen, onMove: onMove)
+                    WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, showHomeCare: filter.showHomeCare, showMeals: filter.showMeals, onNew: onNew, onOpen: onOpen, onMove: onMove)
                 } else {
                     HStack(alignment: .top, spacing: 16) {
                         MonthGrid(day: $day, data: data, visible: visible, cellHeight: 64, onNew: { date in onNew(NewEventRequest(day: date)) }, onDrop: { ref, date in onMove(EventMove(ref: ref, toDay: date)) })
@@ -134,6 +134,9 @@ struct CalendarWideView: View {
             }
             Toggle("Chores", isOn: Binding(get: { filter.showChores }, set: { filter.showChores = $0 }))
             Toggle("Home Care", isOn: Binding(get: { filter.showHomeCare }, set: { filter.showHomeCare = $0 }))
+            if HearthLink.shared.mealPlan != nil {
+                Toggle("Meals", isOn: Binding(get: { filter.showMeals }, set: { filter.showMeals = $0 }))
+            }
         } label: {
             Image(systemName: filter.hidden.isEmpty ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
                 .font(.body.weight(.semibold))
@@ -161,11 +164,14 @@ struct WeekGrid: View {
     var visible: (EventRecord) -> Bool
     var showChores: Bool
     var showHomeCare: Bool
+    /// BigTable's meals, at breakfast, lunch and dinner time with their photos.
+    var showMeals: Bool = false
     var onNew: (NewEventRequest) -> Void
     var onOpen: (OccurrenceRef) -> Void
     var onMove: (EventMove) -> Void
 
     @Environment(\.accent) private var accent
+    @Environment(\.openURL) private var openURL
     private let apple = AppleCalendar.shared
     private let hourHeight: CGFloat = 52
     /// Where a dragged event would land, shown as a line with its new time.
@@ -348,6 +354,8 @@ struct WeekGrid: View {
         var end: Date
         var color: Color
         var ref: OccurrenceRef?
+        /// A meal from BigTable, drawn with its photo.
+        var meal: HearthMealPlan.Meal? = nil
         var lane = 0
         var lanes = 1
     }
@@ -360,6 +368,12 @@ struct WeekGrid: View {
         }
         items += apple.map { event in
             Placed(id: "apple-" + event.id, title: event.title, subtitle: event.calendarTitle, start: event.start, end: max(event.end, event.start.addingTimeInterval(1800)), color: event.color, ref: nil)
+        }
+        if showMeals {
+            items += HearthLink.shared.meals(on: date).map { meal in
+                let start = meal.start(on: date)
+                return Placed(id: "meal-\(meal.slot)", title: meal.isDineOut ? (meal.placeName ?? meal.title) : meal.title, subtitle: meal.slotLabel, start: start, end: start.addingTimeInterval(Double(meal.calendarMinutes) * 60), color: HearthLink.bigTableColor, ref: nil, meal: meal)
+            }
         }
         let placed = lay(items.sorted { $0.start < $1.start })
         let isToday = calendar.isDateInToday(date)
@@ -414,6 +428,54 @@ struct WeekGrid: View {
 
     @ViewBuilder
     private func block(_ item: Placed, height: CGFloat) -> some View {
+        if let meal = item.meal {
+            mealBlock(meal, title: item.title, height: height)
+        } else {
+            eventBlock(item, height: height)
+        }
+    }
+
+    /// A meal from BigTable: its photo (or restaurant logo) beside the meal and its name.
+    /// Tapping opens it in BigTable.
+    private func mealBlock(_ meal: HearthMealPlan.Meal, title: String, height: CGFloat) -> some View {
+        let thumb = min(height - 8, 36)
+        return Button {
+            if let url = meal.openURL { openURL(url) }
+        } label: {
+            HStack(alignment: .top, spacing: 6) {
+                MealArtwork(meal: meal, cornerRadius: 6)
+                    .frame(width: thumb, height: thumb)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(height < 40 ? 1 : 2)
+                    if height >= 40 {
+                        Text(meal.slotLabel)
+                            .font(.caption2)
+                            .lineLimit(1)
+                            .opacity(0.85)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .foregroundStyle(HearthLink.bigTableColor.mix(with: .primary, by: 0.3))
+            .background(HearthLink.bigTableColor.opacity(0.14), in: .rect(cornerRadius: 8))
+            .overlay(alignment: .leading) {
+                UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 8)
+                    .fill(HearthLink.bigTableColor)
+                    .frame(width: 3)
+            }
+            .clipShape(.rect(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(meal.slotLabel): \(title)")
+        .accessibilityHint("Opens in BigTable")
+    }
+
+    @ViewBuilder
+    private func eventBlock(_ item: Placed, height: CGFloat) -> some View {
         let content = VStack(alignment: .leading, spacing: 1) {
             Text(item.title)
                 .font(.caption.weight(.semibold))

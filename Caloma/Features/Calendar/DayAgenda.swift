@@ -20,20 +20,21 @@ struct DayAgenda: View {
         let timed = occurrences.filter { !$0.event.isAllDay }
         let appleAllDay = appleEvents.filter(\.isAllDay)
         let appleTimed = appleEvents.filter { !$0.isAllDay }
-        let dinner = HearthLink.shared.dinner(on: day)
-        let isEmpty = occurrences.isEmpty && appleEvents.isEmpty && chores.isEmpty && homeTasks.isEmpty && dinner == nil
+        let meals = CalendarFilter.shared.showMeals ? HearthLink.shared.meals(on: day) : []
+        let isEmpty = occurrences.isEmpty && appleEvents.isEmpty && chores.isEmpty && homeTasks.isEmpty && meals.isEmpty
 
         VStack(alignment: .leading, spacing: 8) {
-            if !allDay.isEmpty || !appleAllDay.isEmpty || !homeTasks.isEmpty || dinner != nil {
+            if !allDay.isEmpty || !appleAllDay.isEmpty || !homeTasks.isEmpty || !meals.isEmpty {
                 VStack(spacing: 6) {
-                    if let dinner {
-                        // Dinner from BigTable; tapping opens it there.
+                    // The day's meals from BigTable, with their photos; tapping opens them there.
+                    ForEach(meals) { meal in
                         Button {
-                            if let url = dinner.openURL { openURL(url) }
+                            if let url = meal.openURL { openURL(url) }
                         } label: {
-                            AllDayStrip(title: dinner.title, symbol: dinner.symbol, detail: "Dinner", color: HearthLink.bigTableColor, dashed: false)
+                            MealStrip(meal: meal)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("\(meal.slotLabel): \(meal.isDineOut ? (meal.placeName ?? meal.title) : meal.title)")
                         .accessibilityHint("Opens in BigTable")
                     }
                     ForEach(allDay) { occurrence in

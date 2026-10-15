@@ -75,6 +75,11 @@ final class CalendarFilter {
         didSet { UserDefaults.standard.set(showHomeCare, forKey: "calendar.showHomeCare") }
     }
 
+    /// BigTable's planned meals, with their photos (only offered when BigTable shares a plan).
+    var showMeals: Bool = UserDefaults.standard.object(forKey: "calendar.showMeals") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showMeals, forKey: "calendar.showMeals") }
+    }
+
     func isShown(_ key: String) -> Bool { !hidden.contains(key) }
 
     func toggle(_ key: String) {

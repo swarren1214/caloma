@@ -127,6 +127,9 @@ struct CalendarView: View {
                         }
                         LayerChip(title: "Chores", isOn: filter.showChores) { filter.showChores.toggle() }
                         LayerChip(title: "Home Care", isOn: filter.showHomeCare) { filter.showHomeCare.toggle() }
+                        if HearthLink.shared.mealPlan != nil {
+                            LayerChip(title: "Meals", isOn: filter.showMeals) { filter.showMeals.toggle() }
+                        }
                     }
                     .padding(.horizontal, 16)
                 }
