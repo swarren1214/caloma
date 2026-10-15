@@ -100,7 +100,7 @@ final class HearthLink {
             )
         }
         let current = UserDefaults.standard.string(forKey: SettingsKey.currentMember)
-        let me = shared.first { $0.id == current }?.id
+        let me = shared.first(where: { $0.id == current })?.id
         let published = Hearth.publish(HearthFamily(name: nil, members: shared, dietaryRestrictions: nil, me: me), from: .caloma)
         // A new photo under the same file name doesn't change the family file, so say so.
         if photoChanged && !published { Hearth.postChange() }
