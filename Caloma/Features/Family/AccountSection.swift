@@ -39,8 +39,11 @@ struct AccountSection: View {
                     }
                 }
                 .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                .frame(height: 44)
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .frame(height: 50)
+                .clipShape(Capsule())
+                // Just the button, without the list's card behind it.
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             } else {
                 LabeledContent {
                     Image(systemName: "checkmark.circle.fill")
