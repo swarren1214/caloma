@@ -127,10 +127,19 @@ final class WatchBridge: NSObject {
         approvals = Array(approvals.prefix(12))
         // Photos are kept tiny, and only for the first few, so the update stays small.
         for index in approvals.indices.prefix(4) where approvals[index].kind == .chore {
-            if let photo = completions.first(where: { $0.id == approvals[index].id })?.photoData {
-                approvals[index].photo = thumbnail(photo)
+            let id = approvals[index].id
+            if let cached = thumbnails[id] {
+                approvals[index].photo = cached
+            } else if let photo = completions.first(where: { $0.id == id })?.photoData {
+                // Shrunk once per chore: decoding a full-size photo on every save made the app
+                // stutter more and more as photo chores piled up.
+                let small = thumbnail(photo)
+                thumbnails[id] = small
+                approvals[index].photo = small
             }
         }
+        let waiting = Set(approvals.map(\.id))
+        thumbnails = thumbnails.filter { waiting.contains($0.key) }
         snapshot.approvals = approvals
 
         // Coming up: today, tomorrow and the day after.
@@ -188,6 +197,9 @@ final class WatchBridge: NSObject {
             .map { WatchSnapshot.HomeCareItem(id: $0.id, name: $0.name, symbol: $0.symbol, due: $0.nextDue, location: $0.location, details: $0.details.isEmpty ? nil : $0.details) }
         return snapshot
     }
+
+    /// Small photos already made, by completion.
+    private static var thumbnails: [UUID: Data?] = [:]
 
     /// About 160 points across, as a small JPEG.
     private static func thumbnail(_ data: Data) -> Data? {

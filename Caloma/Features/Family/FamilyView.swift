@@ -213,6 +213,8 @@ struct FamilyView: View {
                 .padding(.vertical, 4)
             }
 
+            AccountSection()
+
             Section {
                 LabeledContent("Sync", value: AppConfig.cloudSyncEnabled ? (CloudSync.shared.isShared ? "iCloud, shared" : "iCloud") : "This device")
                 LabeledContent("Version", value: AppConfig.version)
