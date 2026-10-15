@@ -126,8 +126,17 @@ struct ComingUpView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
+            let dinner = snapshot.dinner(on: entry.date)
             VStack(alignment: .leading, spacing: 8) {
-                WidgetHeader(title: "Coming up", color: Color(rgb: snapshot.accent))
+                HStack(spacing: 8) {
+                    WidgetHeader(title: "Coming up", color: Color(rgb: snapshot.accent))
+                        .layoutPriority(1)
+                    // Medium: tonight's dinner fits beside the header.
+                    if family == .systemMedium, let dinner {
+                        Spacer(minLength: 4)
+                        DinnerLine(dinner: dinner)
+                    }
+                }
                 if events.isEmpty {
                     Text("Nothing planned")
                         .font(.headline)
@@ -140,6 +149,10 @@ struct ComingUpView: View {
                     }
                 }
                 Spacer(minLength: 0)
+                // Small: only when there's room under a single event.
+                if family == .systemSmall, events.count < 2, let dinner {
+                    DinnerLine(dinner: dinner)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -166,6 +179,25 @@ private struct EventLine: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// fork.knife + "Tacos": tonight's dinner from BigTable.
+private struct DinnerLine: View {
+    var dinner: WatchSnapshot.Dinner
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: dinner.symbol)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(Color(rgb: WatchSnapshot.Dinner.color))
+            Text(dinner.title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Dinner: \(dinner.title)")
     }
 }
 
@@ -476,6 +508,7 @@ extension WatchSnapshot {
         snapshot.homeCare = [
             .init(id: UUID(), name: "Replace HVAC filter", symbol: "air.purifier", due: now.addingTimeInterval(-3 * 86400), location: "Upstairs hallway", details: "16×25×1 MERV 11"),
         ]
+        snapshot.dinner = .init(day: Calendar.current.startOfDay(for: now), title: "Tacos", symbol: "fork.knife")
         return snapshot
     }
 }

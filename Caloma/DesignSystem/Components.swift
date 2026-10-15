@@ -102,7 +102,8 @@ struct IconTile: View {
     }
 }
 
-/// A person's circle: their photo, or their initial on a gradient of their color.
+/// A person's circle: their photo, or one another Hearth app has of them (`HearthPhotos`), or
+/// their initial on a gradient of their color.
 struct MemberAvatar: View {
     var name: String
     var color: Color
@@ -124,6 +125,10 @@ struct MemberAvatar: View {
         Group {
             if let photo, let image = UIImage(data: photo) {
                 Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if photo == nil, let shared = HearthPhotos.shared.image(forName: name) {
+                Image(uiImage: shared)
                     .resizable()
                     .scaledToFill()
             } else {

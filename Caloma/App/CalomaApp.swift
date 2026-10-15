@@ -174,6 +174,7 @@ struct AppRoot: View {
         .task {
             EventAlerts.reschedule(in: context)
             AppleCalendar.shared.pushFamilyEvents(in: context)
+            HearthLink.shared.start()
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
@@ -181,6 +182,7 @@ struct AppRoot: View {
             EventAlerts.reschedule(in: context)
             // "Coming up" and today's chores move on with the clock.
             WatchBridge.shared.setNeedsUpdate()
+            HearthLink.shared.reload()
         }
         .sheet(item: Binding(get: { sync.pendingInvite.map(InviteRef.init) }, set: { if $0 == nil { sync.pendingInvite = nil } })) { invite in
             JoinFamilySheet(metadata: invite.metadata)

@@ -19,6 +19,9 @@ nonisolated struct WatchSnapshot: Codable, Sendable, Equatable {
     var kids: [Kid] = []
     /// Late, or due in the next few days, soonest first.
     var homeCare: [HomeCareItem] = []
+    /// Tonight's dinner from BigTable's meal plan, when BigTable is on the phone and has one.
+    /// Optional so older snapshots still decode.
+    var dinner: Dinner? = nil
 
     nonisolated struct Approval: Codable, Sendable, Equatable, Identifiable {
         nonisolated enum Kind: String, Codable, Sendable { case chore, reward }
@@ -73,7 +76,33 @@ nonisolated struct WatchSnapshot: Codable, Sendable, Equatable {
         var details: String? = nil
     }
 
+    nonisolated struct Dinner: Codable, Sendable, Equatable {
+        /// The day it's planned for, so last night's dinner isn't shown after midnight.
+        var day: Date
+        /// "Sheet-Pan Fajitas + Rice", "Café Rio".
+        var title: String
+        /// "fork.knife", or a takeout bag when eating out.
+        var symbol: String
+        /// Who isn't eating, if anyone.
+        var notEating: [String]? = nil
+
+        /// BigTable's red.
+        static let color: UInt32 = 0xD9472B
+
+        /// "Not eating: Sam and Ava", or nil when everyone is.
+        var notEatingLabel: String? {
+            guard let notEating, !notEating.isEmpty else { return nil }
+            return "Not eating: " + notEating.formatted(.list(type: .and))
+        }
+    }
+
     var needsOKCount: Int { approvals.count }
+
+    /// Tonight's dinner, when the snapshot's dinner is for `now`'s day.
+    func dinner(on now: Date = .now, calendar: Calendar = .current) -> Dinner? {
+        guard let dinner, calendar.isDate(dinner.day, inSameDayAs: now) else { return nil }
+        return dinner
+    }
 
     /// "+15 stars", "1 star".
     func points(_ count: Int, plus: Bool = false) -> String {

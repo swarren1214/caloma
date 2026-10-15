@@ -3,6 +3,7 @@ import SwiftUI
 /// One day on the calendar: all-day things on top, then events by time (family and Apple
 /// Calendar together), then the day's chores. Tapping a family event opens it.
 struct DayAgenda: View {
+    @Environment(\.openURL) private var openURL
     var day: Date
     var data: CalendarData
     var occurrences: [EventOccurrence]
@@ -19,11 +20,22 @@ struct DayAgenda: View {
         let timed = occurrences.filter { !$0.event.isAllDay }
         let appleAllDay = appleEvents.filter(\.isAllDay)
         let appleTimed = appleEvents.filter { !$0.isAllDay }
-        let isEmpty = occurrences.isEmpty && appleEvents.isEmpty && chores.isEmpty && homeTasks.isEmpty
+        let dinner = HearthLink.shared.dinner(on: day)
+        let isEmpty = occurrences.isEmpty && appleEvents.isEmpty && chores.isEmpty && homeTasks.isEmpty && dinner == nil
 
         VStack(alignment: .leading, spacing: 8) {
-            if !allDay.isEmpty || !appleAllDay.isEmpty || !homeTasks.isEmpty {
+            if !allDay.isEmpty || !appleAllDay.isEmpty || !homeTasks.isEmpty || dinner != nil {
                 VStack(spacing: 6) {
+                    if let dinner {
+                        // Dinner from BigTable; tapping opens it there.
+                        Button {
+                            if let url = dinner.openURL { openURL(url) }
+                        } label: {
+                            AllDayStrip(title: dinner.title, symbol: dinner.symbol, detail: "Dinner", color: HearthLink.bigTableColor, dashed: false)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens in BigTable")
+                    }
                     ForEach(allDay) { occurrence in
                         Button {
                             onOpen(OccurrenceRef(eventID: occurrence.event.id, day: day))

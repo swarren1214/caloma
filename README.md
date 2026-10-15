@@ -236,7 +236,7 @@ A Watch app for parents, from the Tend designs. Turn the crown between four page
   Back** (or **Decline** for a reward), then a check and the next one.
 - **Coming Up**: the next event counting down ("Starts in 25 min"), with **You're driving**
   when it's you, **Directions** in Maps and a **5m** nudge; the rest of today and tomorrow
-  below.
+  below, then tonight's dinner when BigTable has one planned.
 - **Kids Today**: a ring per kid filling as their jobs get done, and how many need your OK.
 - **Home Care**: what's late or due in the next few days, each with **Mark Done**.
 
@@ -277,7 +277,10 @@ navigation, audio, messaging and a few other kinds of app).
 - **Widgets** (`CalomaWidgets/`): **Coming Up** (who's going, who's driving), **Kids Today**
   (rings, and what needs your OK) and **Home Care** (late or due soon, with what to buy). They
   read the same `WatchSnapshot` the watch gets, saved to the app group by `WatchBridge`
-  whenever the family changes.
+  whenever the family changes. Coming Up also shows tonight's dinner from BigTable (beside
+  the header on medium; under a lone event on small). It's `WatchSnapshot.dinner`, filled from
+  `HearthLink` (`Services/Hearth/`), and a new BigTable plan refreshes the snapshot; the widgets
+  don't need the Hearth app group.
 - **"You're driving" Live Activity** (`DrivingLiveActivity`, `Shared/DrivingActivity.swift`):
   for the next event you're the driver of, from two hours before. Countdown, the bring list
   with what's packed (it updates as the kids tick things off in Kid View) and Directions. Lock
@@ -301,6 +304,25 @@ navigation, audio, messaging and a few other kinds of app).
    `group.com.stephenwarren.caloma`. The Caloma app already lists it in its entitlements;
    if its Signing & Capabilities shows App Groups unticked, tick it there too.
 5. Deployment target iOS 26, Version the same as the app's (0.1).
+
+## Other Hearth apps
+
+Caloma shares with Steve's other apps on the same device through the app group
+`group.com.stephenwarren.hearth` (`Services/Hearth/`; `HearthShared.swift` is synced from
+`~/Developer/hearthkit`, don't edit it here).
+
+- **The family**: `HearthLink.publishFamily(in:)` (after every save, via `WatchBridge`) shares
+  names, roles, colors, who this device belongs to (`me`), and each person's photo as a 512 px
+  JPEG in the shared photos folder. Photos are only re-encoded when they change (a size + hash
+  fingerprint per member), and photos of people who've gone are deleted.
+- **Photos from the other apps**: anyone without a photo in Caloma shows the one another Hearth
+  app has for the same name (`HearthPhotos`, read once per name and refreshed when another app
+  shares something). Your own photo in Caloma always wins.
+- **One Sign in with Apple**: after signing in, the Apple user ID and name go to
+  `HearthAccounts.saveAppleID` (Apple only gives the name to the first app that asks). When
+  Hearken or another Hearth app already signed in, Welcome shows **Continue as <name>**
+  instead of the Apple button, once Apple confirms the sign-in is still good.
+- **Tonight's dinner** from BigTable on Home, the calendar, the widgets and the watch.
 
 ## Apple Calendar
 

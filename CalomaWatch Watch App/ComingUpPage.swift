@@ -38,6 +38,10 @@ struct ComingUpPage: View {
                         .frame(maxWidth: .infinity)
                         .padding(.top, 20)
                     }
+                    if let dinner = link.snapshot.dinner(on: context.date) {
+                        DinnerRow(dinner: dinner)
+                            .padding(.top, 4)
+                    }
                 }
             }
             .containerBackground(Color(rgb: events.first?.color ?? link.snapshot.accent).gradient.opacity(0.35), for: .tabView)
@@ -162,6 +166,37 @@ private struct EventLine: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Tonight's dinner from BigTable, under the events.
+private struct DinnerRow: View {
+    var dinner: WatchSnapshot.Dinner
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Dinner tonight")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            HStack(spacing: 8) {
+                Image(systemName: dinner.symbol)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color(rgb: WatchSnapshot.Dinner.color))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(dinner.title)
+                        .font(.headline)
+                        .lineLimit(2)
+                    if let notEating = dinner.notEatingLabel {
+                        Text(notEating)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+        }
         .accessibilityElement(children: .combine)
     }
 }

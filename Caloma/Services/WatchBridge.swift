@@ -70,6 +70,8 @@ final class WatchBridge: NSObject {
             WidgetCenter.shared.reloadAllTimelines()
         }
         Task { await DrivingLiveActivity.refresh(in: container.mainContext) }
+        // The other Hearth apps on this device see the family too.
+        HearthLink.publishFamily(in: container.mainContext)
 
         guard let session, session.activationState == .activated, session.isPaired, session.isWatchAppInstalled,
               let data = snapshot.encoded(), fingerprint != lastSent else { return }
@@ -160,6 +162,16 @@ final class WatchBridge: NSObject {
         }
         .prefix(10)
         .map { $0 }
+
+        // Tonight's dinner, from BigTable's plan (see `HearthLink`).
+        if let meal = HearthLink.shared.dinnerForSnapshot(on: now) {
+            snapshot.dinner = WatchSnapshot.Dinner(
+                day: today,
+                title: meal.title,
+                symbol: meal.symbol,
+                notEating: meal.notEating?.isEmpty == false ? meal.notEating : nil
+            )
+        }
 
         // The kids' day.
         snapshot.kids = family.kids.map { kid in

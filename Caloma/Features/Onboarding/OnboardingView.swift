@@ -5,7 +5,9 @@ import SwiftUI
 /// First run: Welcome, who's in the family, then a few chores to start with.
 ///
 /// Signing in is optional, after Hearken's App Review rejection: everything works without it,
-/// and Sign in with Apple just fills in your name.
+/// and Sign in with Apple just fills in your name. When another Hearth app on this device was
+/// signed in with Apple (`HearthAccounts.appleID()`), it offers "Continue as <name>" instead,
+/// so nobody signs in twice; Apple only gives the name to the first app that asks.
 struct OnboardingView: View {
     @State private var step = 1
     @State private var draft = FamilyDraft()
@@ -62,6 +64,8 @@ private struct WelcomeStep: View {
     @AppStorage(SettingsKey.appleUserID) private var appleUserID = ""
     @Environment(\.colorScheme) private var colorScheme
     @State private var errorMessage: String?
+    /// Who signed in with Apple in another Hearth app, once Apple says that's still good.
+    @State private var sharedAppleID: HearthSharedAppleID?
 
     var body: some View {
         OnboardingPage(title: "Caloma", subtitle: "Run the house together, and make chores something kids want to do.") { isShort in
@@ -86,6 +90,34 @@ private struct WelcomeStep: View {
             Text(errorMessage ?? "")
         }
         .animation(.smooth, value: parents.count)
+        .animation(.smooth, value: sharedAppleID?.userID)
+        .task { await loadSharedAppleID() }
+    }
+
+    /// The first name to greet them by, when another Hearth app knows it.
+    private var sharedFirstName: String? {
+        guard let fullName = sharedAppleID?.fullName,
+              let first = fullName.split(whereSeparator: \.isWhitespace).first else { return nil }
+        return String(first)
+    }
+
+    /// The Apple sign-in another Hearth app shared, if it has a name and Apple still accepts it
+    /// (it's revoked when they stop using Sign in with Apple for these apps).
+    private func loadSharedAppleID() async {
+        guard !ScreenshotMode.isOn, let shared = HearthAccounts.appleID(), shared.fullName != nil else { return }
+        do {
+            let state = try await ASAuthorizationAppleIDProvider().credentialState(forUserID: shared.userID)
+            if state == .authorized { sharedAppleID = shared }
+        } catch {
+            // Not sure, so ask Apple the usual way.
+        }
+    }
+
+    private func continueAsShared() {
+        guard let shared = sharedAppleID else { return }
+        appleUserID = shared.userID
+        if let name = sharedFirstName { draft.myName = name }
+        next()
     }
 
     /// "Your family is already in iCloud": pick who you are and go straight in.
@@ -127,6 +159,33 @@ private struct WelcomeStep: View {
                         .foregroundStyle(.secondary)
                         .padding(.bottom, 4)
                 }
+                if let name = sharedFirstName {
+                    Button(action: continueAsShared) {
+                        HStack(spacing: 10) {
+                            MemberAvatar(name: name, color: Color(.systemGray), size: 30)
+                            Text("Continue as \(name)")
+                                .font(.headline)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.large)
+                    .accessibilityHint("Uses the Apple sign-in from your other Hearth apps")
+                } else {
+                    signInWithApple
+                }
+
+                Button("Not now", action: next)
+                    .frame(minHeight: 44)
+
+                Text("Optional. Signing in adds your name. Everything works without it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+    }
+
+    private var signInWithApple: some View {
                 SignInWithAppleButton(.continue) { request in
                     request.requestedScopes = [.fullName]
                 } onCompletion: { result in
@@ -134,8 +193,16 @@ private struct WelcomeStep: View {
                     case .success(let authorization):
                         if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
                             appleUserID = credential.user
+                            let fullName = credential.fullName
+                                .map { $0.formatted() }
+                                .flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
+                            // Shared with the other Hearth apps, which won't get the name from Apple.
+                            HearthAccounts.saveAppleID(HearthSharedAppleID(userID: credential.user, fullName: fullName, email: credential.email, updatedBy: .caloma))
                             if let name = credential.fullName?.givenName, !name.isEmpty {
                                 draft.myName = name
+                            } else if let shared = HearthAccounts.appleID(), shared.userID == credential.user,
+                                      let first = shared.fullName?.split(whereSeparator: \.isWhitespace).first {
+                                draft.myName = String(first)
                             }
                         }
                         next()
@@ -148,15 +215,6 @@ private struct WelcomeStep: View {
                 .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                 .frame(height: 52)
                 .clipShape(Capsule())
-
-                Button("Not now", action: next)
-                    .frame(minHeight: 44)
-
-                Text("Optional. Signing in adds your name. Everything works without it.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
     }
 }
 
