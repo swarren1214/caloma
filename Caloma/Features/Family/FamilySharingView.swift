@@ -86,6 +86,14 @@ struct FamilySharingView: View {
                 LabeledContent("iCloud") {
                     statusLabel
                 }
+                // A new row when the status changes, so it never keeps the height of a long
+                // error that's gone.
+                .id(statusKey)
+                if case .failed(let message) = sync.status {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(Brand.late)
+                }
                 if let last = sync.lastSynced {
                     LabeledContent("Last Synced", value: last.formatted(.relative(presentation: .named)))
                 }
@@ -129,6 +137,16 @@ struct FamilySharingView: View {
         AppConfig.cloudSyncEnabled && sync.status != .noAccount
     }
 
+    private var statusKey: String {
+        switch sync.status {
+        case .off: "off"
+        case .noAccount: "noAccount"
+        case .syncing: "syncing"
+        case .upToDate: "upToDate"
+        case .failed: "failed"
+        }
+    }
+
     @ViewBuilder
     private var statusLabel: some View {
         switch sync.status {
@@ -136,7 +154,7 @@ struct FamilySharingView: View {
         case .noAccount: Text("Sign in to iCloud in Settings").foregroundStyle(Brand.waiting)
         case .syncing: HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Syncing") }
         case .upToDate: Label("Up to date", systemImage: "checkmark.icloud").foregroundStyle(.secondary)
-        case .failed(let message): Text(message).foregroundStyle(Brand.late).multilineTextAlignment(.trailing)
+        case .failed: Label("Couldn't sync", systemImage: "exclamationmark.icloud").foregroundStyle(Brand.late)
         }
     }
 
