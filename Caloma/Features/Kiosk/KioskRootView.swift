@@ -198,6 +198,9 @@ struct KioskRootView: View {
             FaceRecognizer.shared.stop()
         }
         .onChange(of: facesOn) { _, _ in startFaces() }
+        .onChange(of: people.filter { !$0.isKid }.map(\.id), initial: true) { _, ids in
+            session.parentIDs = Set(ids)
+        }
         // Face ID shares the front camera; let it have it while a passcode is asked for.
         .onChange(of: session.lockRequest != nil) { _, asking in
             FaceRecognizer.shared.pause(asking)
@@ -262,9 +265,12 @@ extension KioskRootView {
     }
 
     /// A tap always wins over a face. Someone new only takes over a screen a face opened, after
-    /// a steady second and a half, and never while a parent has it unlocked.
+    /// a steady second and a half, and never while a parent has it unlocked with the PIN.
     private func recognized(_ id: UUID, held: TimeInterval) {
         guard !leaving, session.doorbell == nil, session.lockRequest == nil, people.contains(where: { $0.id == id }) else { return }
+        // Remembered even when it doesn't change screens: a tap on their own profile, or a
+        // parent's approvals and home controls, then skip the PIN.
+        if held >= 0.5 { session.faceSeen(id) }
         // A face wakes the screensaver; with "Then Show: Their Screen" it opens theirs too.
         if presence.isScreensaverOn {
             presence.touched()
@@ -273,12 +279,12 @@ extension KioskRootView {
         if let paused = session.facesPausedUntil, paused > .now, session.activeID == nil { return }
         // Someone drawing on the whiteboard or writing keeps the screen.
         if session.isComposing || (session.showsWhiteboard && session.activeID == nil) { return }
-        if session.activeID == id {
-            // Standing there counts as using it.
-            session.touched()
-        } else if session.activeID == nil {
+        // Their own screen: nothing to do. Only touches hold it open; a face never resets the
+        // countdown back to the calendar.
+        if session.activeID == id { return }
+        if session.activeID == nil {
             session.open(id, source: .face)
-        } else if session.source == .face, !session.isUnlocked, held >= 1.5 {
+        } else if session.source == .face, !session.isUnlocked || session.unlockedByFace, held >= 1.5 {
             session.open(id, source: .face)
         }
     }

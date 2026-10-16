@@ -131,7 +131,7 @@ struct RoomEditor: View {
                 }
 
                 Section("Icon") {
-                    IconPicker(quick: SymbolSets.rooms, selection: $symbol, color: accent)
+                    IconPicker(quick: SymbolSets.rooms, selection: $symbol, color: accent, text: name)
                 }
 
                 if room != nil {

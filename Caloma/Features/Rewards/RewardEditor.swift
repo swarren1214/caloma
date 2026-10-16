@@ -45,7 +45,7 @@ struct RewardEditor: View {
                 }
 
                 Section("Icon") {
-                    IconPicker(quick: SymbolSets.rewards, selection: $symbol, color: color)
+                    IconPicker(quick: SymbolSets.rewards, selection: $symbol, color: color, text: name)
                 }
 
                 Section {

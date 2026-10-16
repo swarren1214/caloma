@@ -103,6 +103,18 @@ struct PINPad: View {
     private let keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "delete"]
 
     var body: some View {
+        // Shrinks the keys to fit when the space is short (an iPad on its side, a small
+        // window), rather than cutting off the bottom row.
+        ViewThatFits(in: .vertical) {
+            pad(keySize)
+            pad(keySize * 0.8)
+            pad(keySize * 0.66)
+            pad(min(keySize, 48))
+        }
+        .sensoryFeedback(.error, trigger: shakes)
+    }
+
+    private func pad(_ keySize: CGFloat) -> some View {
         VStack(spacing: keySize * 0.28) {
             Text(title)
                 .font(.headline)
@@ -119,17 +131,24 @@ struct PINPad: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(digits.count) of \(ParentPIN.length) digits entered")
 
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(keySize), spacing: keySize * 0.3), count: 3), spacing: keySize * 0.22) {
-                ForEach(keys, id: \.self) { key in
-                    keyView(key)
+            // One container for all the glass, so the keys render together (and never melt into
+            // each other: they're further apart than its spacing).
+            GlassEffectContainer(spacing: 4) {
+            Grid(horizontalSpacing: keySize * 0.3, verticalSpacing: keySize * 0.22) {
+                ForEach(0..<4, id: \.self) { row in
+                    GridRow {
+                        ForEach(keys[(row * 3)..<(row * 3 + 3)], id: \.self) { key in
+                            keyView(key, keySize: keySize)
+                        }
+                    }
                 }
             }
+            }
         }
-        .sensoryFeedback(.error, trigger: shakes)
     }
 
     @ViewBuilder
-    private func keyView(_ key: String) -> some View {
+    private func keyView(_ key: String, keySize: CGFloat) -> some View {
         if key.isEmpty {
             Color.clear.frame(width: keySize, height: keySize)
         } else if key == "delete" {
@@ -151,7 +170,9 @@ struct PINPad: View {
                 Text(key)
                     .font(.system(size: keySize * 0.42, weight: .regular, design: .rounded))
                     .frame(width: keySize, height: keySize)
-                    .background(Color(.tertiarySystemFill), in: Circle())
+                    .contentShape(Circle())
+                    // Liquid Glass keys that flex and shimmer under a finger, like the Lock Screen's.
+                    .glassEffect(.regular.interactive(), in: Circle())
             }
             .buttonStyle(.plain)
             .foregroundStyle(.primary)

@@ -129,6 +129,9 @@ struct ProfileUnlockSheet: View {
 
     @State private var lockout: String?
     @State private var triedBiometrics = false
+    /// The sheet's height: a short one (an iPad on its side) puts the picture beside the
+    /// greeting so the passcode pad keeps its room.
+    @State private var height: CGFloat = 900
 
     private var color: Color { member.color.color }
 
@@ -136,11 +139,21 @@ struct ProfileUnlockSheet: View {
         NavigationStack {
             VStack(spacing: 18) {
                 Spacer(minLength: 0)
-                MemberAvatar(member, size: 96)
-                    .padding(5)
-                    .overlay(Circle().strokeBorder(color, lineWidth: 5))
-                Text("Hi, \(member.name)")
-                    .font(.title.bold())
+                if height < 820 {
+                    HStack(spacing: 12) {
+                        MemberAvatar(member, size: 48)
+                            .padding(3)
+                            .overlay(Circle().strokeBorder(color, lineWidth: 3))
+                        Text("Hi, \(member.name)")
+                            .font(.title2.bold())
+                    }
+                } else {
+                    MemberAvatar(member, size: 96)
+                        .padding(5)
+                        .overlay(Circle().strokeBorder(color, lineWidth: 5))
+                    Text("Hi, \(member.name)")
+                        .font(.title.bold())
+                }
                 PINPad(title: "Enter your passcode", tint: color) { pin in
                     switch ProfileLock.attempt(pin, for: member.id) {
                     case .accepted:
@@ -166,8 +179,10 @@ struct ProfileUnlockSheet: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(24)
+            .padding(.horizontal, 24)
+            .padding(.vertical, height < 820 ? 8 : 24)
             .frame(maxWidth: .infinity)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)

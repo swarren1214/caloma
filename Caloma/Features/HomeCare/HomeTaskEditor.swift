@@ -40,7 +40,7 @@ struct HomeTaskEditor: View {
                 }
 
                 Section("Icon") {
-                    IconPicker(quick: SymbolSets.homeCare, selection: $symbol, color: color)
+                    IconPicker(quick: SymbolSets.homeCare, selection: $symbol, color: color, text: name)
                 }
 
                 Section {

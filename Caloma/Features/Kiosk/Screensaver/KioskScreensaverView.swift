@@ -145,10 +145,7 @@ struct KioskScreensaverView: View {
             switch style {
             case .corner:
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(date, format: .dateTime.hour().minute())
-                        .font(.system(size: 112, weight: .ultraLight))
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
+                    ScreensaverClock(date: date, size: 112, weight: .ultraLight)
                     Text(date, format: .dateTime.weekday(.wide).month(.wide).day())
                         .font(.system(size: 26, weight: .semibold))
                 }
@@ -354,6 +351,33 @@ private struct CornerCard: View {
     }
 }
 
+/// "10:50" big with a small "AM" beside it, like the Lock Screen, on one line: it shrinks to
+/// fit a narrow column rather than wrapping.
+private struct ScreensaverClock: View {
+    var date: Date
+    var size: CGFloat
+    var weight: Font.Weight
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: size * 0.06) {
+            Text(date, format: .dateTime.hour(.defaultDigits(amPM: .omitted)).minute())
+                .font(.system(size: size, weight: weight))
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            // Empty on a 24-hour clock.
+            let period = date.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).filter { !$0.isNumber && !$0.isWhitespace }
+            if !period.isEmpty {
+                Text(period)
+                    .font(.system(size: size * 0.3, weight: .medium))
+            }
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(date.formatted(date: .omitted, time: .shortened))
+    }
+}
+
 /// A frosted column down the right: the clock and three cards.
 private struct SidePanel: View {
     var date: Date
@@ -362,9 +386,7 @@ private struct SidePanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(date, format: .dateTime.hour().minute())
-                .font(.system(size: 92, weight: .ultraLight))
-                .monospacedDigit()
+            ScreensaverClock(date: date, size: 92, weight: .ultraLight)
             Text(date, format: .dateTime.weekday(.wide).month(.wide).day())
                 .font(.system(size: 22, weight: .semibold))
                 .padding(.top, -10)
@@ -461,9 +483,7 @@ private struct NightClock: View {
         let minute = Calendar.current.component(.minute, from: date)
         let drift = CGSize(width: CGFloat((minute * 37) % 41 - 20), height: CGFloat((minute * 53) % 31 - 15))
         VStack(spacing: 14) {
-            Text(date, format: .dateTime.hour().minute())
-                .font(.system(size: 180, weight: .thin))
-                .monospacedDigit()
+            ScreensaverClock(date: date, size: 180, weight: .thin)
                 .foregroundStyle(Color(hex: 0x8E6A4F))
             Text(date, format: .dateTime.weekday(.wide).month(.wide).day())
                 .font(.system(size: 26, weight: .medium))

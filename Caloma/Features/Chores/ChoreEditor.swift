@@ -56,7 +56,7 @@ struct ChoreEditor: View {
                 }
 
                 Section("Icon") {
-                    IconPicker(quick: SymbolSets.chores, selection: $symbol, color: accent)
+                    IconPicker(quick: SymbolSets.chores, selection: $symbol, color: accent, text: title)
                 }
 
                 Section {

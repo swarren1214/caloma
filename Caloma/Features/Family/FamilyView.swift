@@ -32,6 +32,19 @@ struct FamilyView: View {
 
     var body: some View {
         Form {
+            // iPad only: the wall screen comes first, since it's set up once and opened often.
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                Section {
+                    NavigationLink {
+                        KioskSettingsView()
+                    } label: {
+                        Label("Family Board", systemImage: "rectangle.inset.filled.and.person.filled")
+                    }
+                } footer: {
+                    Text("Turn this iPad into the family's wall screen: the calendar all day, and a tap on a face for chores.")
+                }
+            }
+
             Section {
                 ForEach(members) { member in
                     NavigationLink {
@@ -191,18 +204,6 @@ struct FamilyView: View {
                 Text("Calendar")
             } footer: {
                 Text("Meal times place BigTable's meals on the calendar, and change in BigTable too. Apple Calendar is optional: show your other calendars beside the family's, or add family events to it.")
-            }
-
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                Section {
-                    NavigationLink {
-                        KioskSettingsView()
-                    } label: {
-                        Label("Family Board", systemImage: "rectangle.inset.filled.and.person.filled")
-                    }
-                } footer: {
-                    Text("Turn this iPad into the family's wall screen: the calendar all day, and a tap on a face for chores.")
-                }
             }
 
             Section("Accent Color") {

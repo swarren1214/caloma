@@ -26,6 +26,9 @@ final class KioskSession {
     /// A parent entered the PIN. Approvals and leaving Kiosk Mode are open until the screen
     /// goes back to the calendar or someone else steps up.
     private(set) var isUnlocked = false
+    /// The unlock came from the camera, not the PIN: when the parent steps away and someone
+    /// else's face holds steady, their screen can take over.
+    private(set) var unlockedByFace = false
     /// Goes up each time someone is shown, so screens can replay their hello.
     private(set) var arrival = 0
     /// Someone at the door, while the doorbell card is up.
@@ -49,12 +52,35 @@ final class KioskSession {
     private(set) var facesPausedUntil: Date?
 
     /// How long a face waits before it can open the same person's screen again.
-    static let faceCooldown: TimeInterval = 120
-    /// When each person's face may open their screen again: two minutes after a face opened
-    /// it, and two minutes after it closed, whichever is later. A tap always opens it.
+    static let faceCooldown: TimeInterval = 30
+    /// When each person's face may open their screen again: 30 seconds after a face opened
+    /// it, and 30 seconds after it closed, whichever is later. A tap always opens it.
     @ObservationIgnored private var faceCooldowns: [UUID: Date] = [:]
 
     @ObservationIgnored private var watchdog: Task<Void, Never>?
+
+    /// The parents, set by the Family Board: a parent the camera recognizes skips the PIN.
+    @ObservationIgnored var parentIDs: Set<UUID> = []
+    /// Who the camera last recognized, and when.
+    @ObservationIgnored private var lastSeen: (memberID: UUID, at: Date)?
+    /// How long after a steady match someone still counts as standing in front of the iPad.
+    static let inViewSeconds: TimeInterval = 2.5
+
+    /// Whether the camera recognized this person a moment ago, so a tap on their own screen
+    /// is them and not someone else.
+    func isInView(_ memberID: UUID, now: Date = .now) -> Bool {
+        guard let lastSeen, lastSeen.memberID == memberID else { return false }
+        return now.timeIntervalSince(lastSeen.at) <= Self.inViewSeconds
+    }
+
+    /// A steady face match. A parent recognized on their own screen gets approvals and home
+    /// controls without the PIN; anyone else changes nothing here.
+    func faceSeen(_ memberID: UUID) {
+        lastSeen = (memberID, .now)
+        if activeID == memberID, parentIDs.contains(memberID), !isUnlocked {
+            unlock(byFace: true)
+        }
+    }
 
     /// Family › Kiosk Mode › Back to the Calendar After.
     var idleSeconds: TimeInterval {
@@ -95,10 +121,14 @@ final class KioskSession {
             lastTouch = .now
             return
         }
-        // A face just seen doesn't reopen the same screen for two minutes; a tap still does.
+        // A face just seen doesn't reopen the same screen for 30 seconds; a tap still does.
         if source == .face, isCoolingDown(memberID) { return }
-        guard ProfileLock.isLocked(memberID) else {
+        // The camera sees the person whose screen it is: no passcode, and a parent's screen
+        // opens unlocked. Anyone else tapping it still gets asked.
+        let isThem = source == .face || isInView(memberID)
+        guard ProfileLock.isLocked(memberID), !isThem else {
             show(memberID, source: source)
+            if isThem, parentIDs.contains(memberID) { unlock(byFace: true) }
             return
         }
         guard lockRequest == nil else { return }
@@ -131,7 +161,7 @@ final class KioskSession {
 
     func show(_ memberID: UUID, source: Source) {
         // Someone new on screen never inherits the last person's unlock, and the person a
-        // face had opened starts their two minutes.
+        // face had opened starts their 30 seconds.
         if memberID != activeID {
             isUnlocked = false
             if let activeID, self.source == .face { startCooldown(activeID) }
@@ -145,7 +175,7 @@ final class KioskSession {
     }
 
     func showCalendar() {
-        // The two minutes run from when a face-opened screen closes, too.
+        // The 30 seconds run from when a face-opened screen closes, too.
         if let activeID, source == .face { startCooldown(activeID) }
         activeID = nil
         showsWhiteboard = false
@@ -179,10 +209,13 @@ final class KioskSession {
         lastTouch = .now
     }
 
-    /// Only the PIN pad calls this. Faces never do.
-    func unlock() {
+    /// The PIN pad, or the camera recognizing the parent whose screen is open.
+    func unlock(byFace: Bool = false) {
+        // A PIN unlock stays a PIN unlock if the camera also sees them.
+        if !isUnlocked || !byFace { unlockedByFace = byFace }
         isUnlocked = true
-        lastTouch = .now
+        // The PIN is a touch; the camera isn't, so it doesn't hold the screen open.
+        if !byFace { lastTouch = .now }
     }
 
     func lock() {

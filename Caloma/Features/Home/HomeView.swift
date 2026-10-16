@@ -25,6 +25,7 @@ struct HomeView: View {
             PinnedDevicesCard()
             DinnerTonightCard()
             ComingUpCard()
+            ListsHomeCard()
             if family.needsOKCount > 0 {
                 needsOK(family)
             }

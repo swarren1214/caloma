@@ -214,6 +214,9 @@ enum Family {
         try? context.delete(model: FamilySetting.self)
         try? context.delete(model: Whiteboard.self)
         try? context.delete(model: WallNote.self)
+        try? context.delete(model: FamilyList.self)
+        try? context.delete(model: FamilyListItem.self)
+        try? context.delete(model: FamilyListCheck.self)
         Persistence.save(context)
         Reminders.cancelAll()
         Task {

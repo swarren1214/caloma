@@ -80,6 +80,17 @@ enum DrivingLiveActivity {
             }
             return DrivingAttributes.ContentState.Item(name: item, packed: packed)
         }
-        return (attributes, DrivingAttributes.ContentState(bring: bring))
+        // What's next after this drive, the same day, for the "Then" line.
+        let allEvents = Persistence.fetchAll(FamilyEvent.self, in: context).filter { !$0.isArchived && !$0.isAllDay }
+        let after = CalendarMath.occurrences(of: allEvents.map(\.record), from: day, through: day)
+            .filter { $0.start > occurrence.start && calendar.isDate($0.start, inSameDayAs: occurrence.start) && $0.id != occurrence.id }
+            .min { $0.start < $1.start }
+        var then: DrivingAttributes.ContentState.Then?
+        if let after, let event = allEvents.first(where: { $0.id == after.event.id }) {
+            let going = event.attendeeIDs.isEmpty ? "Everyone" : members.filter { event.attendeeIDs.contains($0.id) }.map(\.name).formatted(.list(type: .and))
+            let driver: String? = event.driverID.flatMap { id in id == me ? "You" : members.first { $0.id == id }?.name }
+            then = .init(title: event.title, who: going, start: after.start, driver: driver)
+        }
+        return (attributes, DrivingAttributes.ContentState(bring: bring, then: then))
     }
 }

@@ -499,8 +499,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "If you turn it on in Family, Caloma shows your other calendars beside the family's and can add family events to Apple Calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done. In Kiosk Mode, the wall iPad can recognize your family; face data never leaves the iPad.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick albums for the Family Board's screensaver. Photos stay on this iPad and are never uploaded.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Caloma uses Face ID so only a parent can leave Kid View.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick albums for the Family Board's screensaver. Photos stay on this iPad and are never uploaded.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -538,8 +538,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "If you turn it on in Family, Caloma shows your other calendars beside the family's and can add family events to Apple Calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done. In Kiosk Mode, the wall iPad can recognize your family; face data never leaves the iPad.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick albums for the Family Board's screensaver. Photos stay on this iPad and are never uploaded.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Caloma uses Face ID so only a parent can leave Kid View.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick albums for the Family Board's screensaver. Photos stay on this iPad and are never uploaded.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

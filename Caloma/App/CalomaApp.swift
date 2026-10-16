@@ -206,6 +206,7 @@ struct AppRoot: View {
                 .environment(\.accent, accent)
         }
         .task {
+            FamilyLists.clearFinished(in: context)
             EventAlerts.reschedule(in: context)
             AppleCalendar.shared.pushFamilyEvents(in: context)
             HearthLink.shared.start()
@@ -213,6 +214,7 @@ struct AppRoot: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await CloudSync.shared.syncNow() }
+            FamilyLists.clearFinished(in: context)
             EventAlerts.reschedule(in: context)
             // "Coming up" and today's chores move on with the clock.
             WatchBridge.shared.setNeedsUpdate()

@@ -386,10 +386,11 @@ private struct DrivingView: View {
     var body: some View {
         let color = Color(rgb: attributes.color)
         if family == .small {
-            // CarPlay and Apple Watch: the essentials, big.
-            VStack(alignment: .leading, spacing: 4) {
-                Label("You're driving", systemImage: "car.fill")
-                    .font(.caption.weight(.bold))
+            // CarPlay and Apple Watch: the essentials, big enough to read at a glance. What's
+            // not packed gets its own line, since it's the thing to turn around for.
+            VStack(alignment: .leading, spacing: 3) {
+                Label("YOU'RE DRIVING", systemImage: "car.fill")
+                    .font(.caption2.weight(.heavy))
                     .foregroundStyle(color)
                 Text("\(attributes.title) · \(attributes.who)")
                     .font(.headline)
@@ -399,11 +400,25 @@ private struct DrivingView: View {
                     Text("·")
                     Text(attributes.start, style: .relative)
                 }
-                .font(.subheadline)
-                PackedLine(state: state)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                if let missing = state.missing.first {
+                    Label(state.missing.count == 1 ? "\(missing.name) · not packed" : "\(state.missing.count) things not packed", systemImage: "exclamationmark.circle.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                } else if !state.bring.isEmpty {
+                    Label("All packed", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.green)
+                } else if let then = state.then {
+                    ThenLine(then: then)
+                }
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // A tap on the card opens directions when there's somewhere to go.
+            .widgetURL(attributes.directionsURL)
         } else {
             HStack(alignment: .top, spacing: 12) {
                 RoundedRectangle(cornerRadius: 3)
@@ -432,6 +447,9 @@ private struct DrivingView: View {
                             }
                         }
                     }
+                    if let then = state.then {
+                        ThenLine(then: then)
+                    }
                     if !attributes.location.isEmpty {
                         HStack {
                             Text(attributes.location)
@@ -446,6 +464,18 @@ private struct DrivingView: View {
             }
             .padding(14)
         }
+    }
+}
+
+/// "Then Soccer · Ella · 4:30 · Dad drives": the next stop of the day.
+private struct ThenLine: View {
+    var then: DrivingAttributes.ContentState.Then
+
+    var body: some View {
+        Text("Then \(then.title) · \(then.who) · \(then.detail)")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
     }
 }
 

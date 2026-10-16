@@ -24,7 +24,7 @@ enum SyncSchema {
     static let types: [any CloudRecord.Type] = [
         Member.self, Room.self, Chore.self, ChoreCompletion.self, Reward.self, Redemption.self,
         PointEntry.self, HomeTask.self, HomeTaskLog.self, FamilyEvent.self, EventPacking.self,
-        FamilySetting.self, Whiteboard.self, WallNote.self, DeviceStyle.self,
+        FamilySetting.self, Whiteboard.self, WallNote.self, DeviceStyle.self, FamilyList.self, FamilyListItem.self, FamilyListCheck.self,
     ]
 
     static func type(named name: String) -> (any CloudRecord.Type)? {

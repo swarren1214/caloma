@@ -18,6 +18,9 @@ struct AdultContextView: View {
     @Query private var rewards: [Reward]
     @Query(filter: #Predicate<FamilyEvent> { !$0.isArchived }) private var events: [FamilyEvent]
     @Query(filter: #Predicate<HomeTask> { !$0.isArchived }, sort: \HomeTask.nextDue) private var homeTasks: [HomeTask]
+    @Query(filter: #Predicate<FamilyList> { !$0.isArchived }) private var lists: [FamilyList]
+    @Query private var listItems: [FamilyListItem]
+    @Query private var listChecks: [FamilyListCheck]
 
     @State private var picking = false
     /// The parent PIN, then every Apple Home control.
@@ -151,9 +154,10 @@ struct AdultContextView: View {
         // Up-for-grabs chores are volunteer jobs, not this parent's: they only show once claimed.
         let items = family.items(for: member).filter { !$0.chore.upForGrabs || $0.memberID == member.id }
         let due = dueHomeCare
-        let left = items.filter { $0.status == .open }.count + due.count
+        let listed = listThings
+        let left = items.filter { $0.status == .open }.count + due.count + listed.count
         return card(title: "Your tasks", symbol: "checklist", tint: color, trailing: left == 0 ? nil : "\(left) left") {
-            if items.isEmpty && due.isEmpty {
+            if items.isEmpty && due.isEmpty && listed.isEmpty {
                 emptyState(symbol: "checkmark.seal.fill", tint: Self.green, title: "All caught up", message: "Nothing on your list today.")
             } else if left == 0 {
                 emptyState(symbol: "checkmark.seal.fill", tint: Self.green, title: "All done", message: "Every task is checked off.")
@@ -163,6 +167,12 @@ struct AdultContextView: View {
                     toggle(item)
                 }
             }
+            // Their part of any list: open things only, so it doesn't grow with every tick.
+            ForEach(listed) { entry in
+                taskRow(title: entry.item.title, detail: ListText.when(entry.list), tag: entry.list.title, tint: color, done: false, late: false) {
+                    withAnimation(.snappy) { FamilyLists.toggle(entry.item, for: member.id, in: context) }
+                }
+            }
             ForEach(due) { task in
                 let late = Calendar.current.startOfDay(for: task.nextDue) < Calendar.current.startOfDay(for: .now)
                 taskRow(title: task.name, detail: dueLabel(task), tag: "Home Care", tint: late ? Brand.late : Brand.waiting, done: false, late: late) {
@@ -170,6 +180,21 @@ struct AdultContextView: View {
                 }
             }
         }
+    }
+
+    /// This parent's things still to do on the lists that are on now.
+    private var listThings: [ListThing] {
+        FamilyLists.active(lists).flatMap { list in
+            FamilyLists.items(of: list, for: member.id, in: listItems)
+                .filter { !FamilyLists.isDone($0, for: member.id, checks: listChecks) }
+                .map { ListThing(list: list, item: $0) }
+        }
+    }
+
+    private struct ListThing: Identifiable {
+        var list: FamilyList
+        var item: FamilyListItem
+        var id: UUID { item.id }
     }
 
     /// Home care that's late or due within three days.

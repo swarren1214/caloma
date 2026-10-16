@@ -397,21 +397,89 @@ struct IconLibraryView: View {
     }
 }
 
-/// The Icon section of an editor: a dozen quick picks (the current icon first when it isn't
-/// one of them), then More Icons for the whole searchable library.
+/// The Icon section of an editor: two full rows of icons, then More Icons for the whole
+/// searchable library. Icons that fit what's typed in the name come first ("Feed the dog" →
+/// a dog and a paw print), then the screen's own quick picks, then the rest of the library to
+/// fill the rows. The current icon always shows.
 struct IconPicker: View {
     var quick: [String]
     @Binding var selection: String
     var color: Color
+    /// The name being typed, to suggest icons from.
+    var text: String = ""
+
+    /// How many fit across, from the grid's width (`SymbolGrid`'s 44 pt cells, 8 pt apart).
+    @State private var columns = 6
 
     var body: some View {
-        let picks = quick.contains(selection) ? Array(quick.prefix(12)) : [selection] + Array(quick.prefix(11))
+        let picks = IconLibrary.picks(for: text, quick: quick, selection: selection, count: columns * 2)
         SymbolGrid(symbols: picks, selection: $selection, color: color)
             .padding(.vertical, 4)
+            .onGeometryChange(for: Int.self) { proxy in
+                max(1, Int((proxy.size.width + 8) / (44 + 8)))
+            } action: { columns = $0 }
+            .animation(.snappy, value: picks)
         NavigationLink {
             IconLibraryView(selection: $selection, color: color)
         } label: {
             Label("More Icons", systemImage: "magnifyingglass")
         }
+    }
+}
+
+extension IconLibrary {
+    /// Each icon's name and search words, split into whole words.
+    private static let wordIndex: [(name: String, words: Set<String>)] = all.map { option in
+        (option.name, Set(option.searchText.split { !$0.isLetter }.map(String.init)))
+    }
+
+    private static let stopWords: Set<String> = [
+        "the", "for", "and", "with", "your", "our", "some", "any", "extra", "spare", "pack", "bring",
+        "get", "new", "big", "small", "kids", "all", "out", "off", "put", "take", "clean", "make", "day",
+    ]
+
+    /// Icons whose search words include a word of `text`, whole words only ("hat" isn't
+    /// "chat"), plurals too. The last word usually names the thing ("water bottle", "feed the
+    /// dog"), so its icons come first.
+    static func suggestions(for text: String) -> [String] {
+        let words = text.lowercased()
+            .split { !$0.isLetter }
+            .map(String.init)
+            .filter { $0.count >= 3 && !stopWords.contains($0) }
+        var seen = Set<String>()
+        var result: [String] = []
+        for word in words.reversed() {
+            for form in forms(of: word) {
+                for entry in wordIndex where entry.words.contains(form) && seen.insert(entry.name).inserted {
+                    result.append(entry.name)
+                }
+            }
+        }
+        return result
+    }
+
+    /// The word, then without a plural ending: "towels" → "towel", "glasses" → "glass",
+    /// "batteries" → "battery".
+    private static func forms(of word: String) -> [String] {
+        var forms = [word]
+        if word.hasSuffix("ies"), word.count > 4 { forms.append(String(word.dropLast(3)) + "y") }
+        if word.hasSuffix("sses") || word.hasSuffix("shes") || word.hasSuffix("ches") || word.hasSuffix("xes") { forms.append(String(word.dropLast(2))) }
+        if word.hasSuffix("s"), !word.hasSuffix("ss"), word.count > 3 { forms.append(String(word.dropLast())) }
+        return forms
+    }
+
+    /// What an icon picker shows: `count` icons, suggestions for the text first, then the quick
+    /// picks, then the library, with the current icon always among them.
+    static func picks(for text: String, quick: [String], selection: String, count: Int) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for name in suggestions(for: text) + quick + all.map(\.name) where result.count < count {
+            if UIImage(systemName: name) != nil, seen.insert(name).inserted { result.append(name) }
+        }
+        if !selection.isEmpty, !result.contains(selection) {
+            if result.count >= count { result.removeLast() }
+            result.insert(selection, at: 0)
+        }
+        return result
     }
 }

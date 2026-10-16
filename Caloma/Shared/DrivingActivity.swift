@@ -20,6 +20,23 @@ nonisolated struct DrivingAttributes: ActivityAttributes, Sendable {
 
     nonisolated struct ContentState: Codable, Hashable, Sendable {
         var bring: [Item]
+        /// What's on after this, the same day: "Then Soccer · Ella, 4:30, Dad drives".
+        var then: Then? = nil
+
+        nonisolated struct Then: Codable, Hashable, Sendable {
+            var title: String
+            var who: String
+            var start: Date
+            /// "You", a parent's name, or nil when nobody's driving.
+            var driver: String?
+
+            /// "4:30 · Dad drives"
+            var detail: String {
+                let time = start.formatted(date: .omitted, time: .shortened)
+                guard let driver else { return time }
+                return driver == "You" ? "\(time) · You drive" : "\(time) · \(driver) drives"
+            }
+        }
 
         nonisolated struct Item: Codable, Hashable, Sendable, Identifiable {
             var name: String

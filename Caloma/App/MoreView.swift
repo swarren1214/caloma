@@ -36,6 +36,10 @@ struct MoreView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.accent) private var accent
     @Query(filter: #Predicate<HomeTask> { !$0.isArchived }) private var homeTasks: [HomeTask]
+    @Query(filter: #Predicate<FamilyList> { !$0.isArchived }) private var lists: [FamilyList]
+    @Query private var listItems: [FamilyListItem]
+    @Query private var listChecks: [FamilyListCheck]
+    @Query(sort: \Member.sortOrder) private var members: [Member]
     /// What's pushed now, so a tab change that's already showing doesn't push it twice.
     @State private var showing: MoreItem?
 
@@ -47,6 +51,12 @@ struct MoreView: View {
                         card(.control, symbol: "lightswitch.on.fill", color: KidColor.teal.color, title: "Control", detail: "Lights, locks, climate and cameras from Apple Home.")
                         card(.homeCare, symbol: "wrench.and.screwdriver.fill", color: Brand.waiting, title: "Home Care", detail: homeCareDetail, badge: dueSoon > 0 ? "\(dueSoon)" : nil)
                         card(.whiteboard, symbol: "applepencil.and.scribble", color: Color(hex: 0x5E5CE6), title: "Whiteboard", detail: "Draw, plan and leave notes for the family.")
+                        NavigationLink {
+                            ListsView()
+                        } label: {
+                            cardLabel(symbol: "checklist", color: accent, title: "Lists", detail: listsDetail, badge: nil)
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -101,6 +111,15 @@ struct MoreView: View {
         }
     }
 
+    /// "Bear Lake Trip, 18 of 31 done", or what lists are for.
+    private var listsDetail: String {
+        let active = FamilyLists.active(lists)
+        guard let first = active.first else { return "Packing lists and one-off lists, with everyone's part on their own screen." }
+        let progress = FamilyLists.progress(of: first, in: listItems, checks: listChecks, members: members.filter { !$0.isArchived })
+        let more = active.count > 1 ? " · \(active.count - 1) more" : ""
+        return "\(first.title), \(progress.done) of \(progress.total) done\(more)"
+    }
+
     /// Home care tasks due in the next week, or late.
     private var dueSoon: Int {
         let soon = Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now
@@ -119,6 +138,12 @@ struct MoreView: View {
         Button {
             router.tab = item.tab
         } label: {
+            cardLabel(symbol: symbol, color: color, title: title, detail: detail, badge: badge)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func cardLabel(symbol: String, color: Color, title: String, detail: String, badge: String?) -> some View {
             HStack(spacing: 14) {
                 Image(systemName: symbol)
                     .font(.system(size: 24, weight: .semibold))
@@ -154,8 +179,6 @@ struct MoreView: View {
             .padding(16)
             .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22, style: .continuous))
             .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
     }
 
     private func shortcut(symbol: String, color: Color, title: String, action: @escaping () -> Void) -> some View {

@@ -322,6 +322,9 @@ struct KidDayView: View {
     @Query private var redemptions: [Redemption]
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @Query(filter: #Predicate<Reward> { $0.isFamilyGoal && !$0.isArchived }) private var goals: [Reward]
+    @Query(filter: #Predicate<FamilyList> { !$0.isArchived }) private var lists: [FamilyList]
+    @Query private var listItems: [FamilyListItem]
+    @Query private var listChecks: [FamilyListCheck]
 
     /// The job celebrating right now, and where its button and the star counter are.
     @State private var celebrating: String?
@@ -332,7 +335,7 @@ struct KidDayView: View {
     @State private var counterBump = 0
     @State private var showParty = false
     @State private var photoFor: BoardItem?
-    /// My Jobs or My Day.
+    /// My Jobs, My Day, or one of their lists.
     @State private var page: KidPage = .jobs
 
     private struct Flight: Identifiable, Equatable {
@@ -353,18 +356,29 @@ struct KidDayView: View {
         let items = family.items(for: kid)
         let mine = items.filter { !$0.chore.upForGrabs || $0.memberID == kid.id }
         let done = mine.filter { $0.status.isDone }.count
+        // Lists with something on this kid's plate get a tab of their own.
+        let myLists = FamilyLists.lists(for: kid.id, lists: lists, items: listItems, checks: listChecks)
+        let showing = KidPage.showing(page, lists: myLists.map { $0.list.id })
         ScrollView {
             VStack(spacing: 18) {
                 if kiosk == nil {
                     KidTopBar(kid: kid, kids: kids, onPick: onPick, onLeave: onLeave)
                 }
                 header(family)
-                KidPageSwitch(page: $page, color: color)
-                if page == .day {
+                KidPageSwitch(
+                    page: $page,
+                    showing: showing,
+                    color: color,
+                    lists: myLists.map { KidListTab(id: $0.list.id, title: $0.list.title, symbol: $0.list.symbol, left: $0.left) }
+                )
+                if showing == .day {
                     KidMyDayView(kid: kid) {
                         withAnimation(.snappy) { page = .jobs }
                     }
                     .transition(.opacity)
+                } else if case .list(let id) = showing, let list = myLists.first(where: { $0.list.id == id })?.list {
+                    KidListPage(list: list, kid: kid, items: listItems)
+                        .transition(.opacity)
                 } else {
                     if kiosk != nil {
                         // On the wall, what's next and what to bring sits beside the track.
@@ -603,42 +617,90 @@ struct KidDayView: View {
     }
 }
 
-/// Avatar running along a track toward the trophy, one stop per job.
-enum KidPage: String, CaseIterable, Identifiable {
-    case jobs = "My Jobs", day = "My Day"
-    var id: String { rawValue }
-}
+/// Kid View's pages: My Jobs, My Day, and a tab for each list with something of theirs on it.
+enum KidPage: Hashable {
+    case jobs, day
+    case list(UUID)
 
-/// Big "My Jobs | My Day" buttons for Kid View.
-struct KidPageSwitch: View {
-    @Binding var page: KidPage
-    var color: Color
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(KidPage.allCases) { option in
-                let on = page == option
-                Button {
-                    withAnimation(.snappy) { page = option }
-                } label: {
-                    Label(option.rawValue, systemImage: option == .jobs ? "checklist" : "calendar")
-                        .font(.system(size: 17, weight: .heavy, design: .rounded))
-                        .frame(maxWidth: .infinity, minHeight: 46)
-                        .foregroundStyle(on ? Color.white : Color.secondary)
-                        .background {
-                            if on { Capsule().fill(color) }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(KidPressStyle())
-                .accessibilityAddTraits(on ? .isSelected : [])
-            }
-        }
-        .padding(4)
-        .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+    /// The page to show: a list that's gone (finished, or nothing of theirs left on it) falls
+    /// back to My Jobs.
+    static func showing(_ page: KidPage, lists: [UUID]) -> KidPage {
+        if case .list(let id) = page, !lists.contains(id) { return .jobs }
+        return page
     }
 }
 
+/// Big "My Jobs | My Day" buttons for Kid View, then a button per list ("Bear Lake Trip 3").
+/// When they don't all fit, the row scrolls.
+struct KidPageSwitch: View {
+    @Binding var page: KidPage
+    var showing: KidPage
+    var color: Color
+    var lists: [KidListTab] = []
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 4) { buttons(stretch: true) }
+                .padding(4)
+                .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+            ScrollView(.horizontal) {
+                HStack(spacing: 4) { buttons(stretch: false) }
+                    .padding(4)
+                    .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    @ViewBuilder
+    private func buttons(stretch: Bool) -> some View {
+        tab(.jobs, title: "My Jobs", symbol: "checklist", badge: nil, stretch: stretch)
+        tab(.day, title: "My Day", symbol: "calendar", badge: nil, stretch: stretch)
+        ForEach(lists) { list in
+            tab(.list(list.id), title: list.title, symbol: list.symbol, badge: list.left, stretch: stretch)
+        }
+    }
+
+    private func tab(_ option: KidPage, title: String, symbol: String, badge: Int?, stretch: Bool) -> some View {
+        let on = showing == option
+        return Button {
+            withAnimation(.snappy) { page = option }
+        } label: {
+            HStack(spacing: 8) {
+                Label(title, systemImage: symbol)
+                    .lineLimit(1)
+                if let badge {
+                    Text(badge == 0 ? "Done" : "\(badge)")
+                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .padding(.horizontal, 8)
+                        .frame(minWidth: 26, minHeight: 26)
+                        .foregroundStyle(on ? color : .white)
+                        .background(on ? Color.white : (badge == 0 ? Brand.done : color), in: Capsule())
+                        .phaseAnimator([1.0, 1.18], trigger: badge) { content, scale in
+                            content.scaleEffect(reduceMotion ? 1 : scale)
+                        }
+                }
+            }
+            .font(.system(size: 17, weight: .heavy, design: .rounded))
+            .padding(.horizontal, 16)
+            .frame(maxWidth: stretch ? .infinity : nil, minHeight: 46)
+            .fixedSize(horizontal: !stretch, vertical: false)
+            .foregroundStyle(on ? Color.white : Color.secondary)
+            .background {
+                if on { Capsule().fill(color) }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(KidPressStyle())
+        .accessibilityAddTraits(on ? .isSelected : [])
+        .accessibilityLabel(badge.map { "\(title), \($0 == 0 ? "all done" : "\($0) left")" } ?? title)
+    }
+}
+
+/// Avatar running along a track toward the trophy, one stop per job.
 private struct ProgressTrack: View {
     var done: Int
     var total: Int
