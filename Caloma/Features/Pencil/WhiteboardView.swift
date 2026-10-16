@@ -357,14 +357,13 @@ struct WhiteboardView: View {
         .clipShape(.rect(cornerRadius: 22))
         .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Color.black.opacity(0.08)))
         .overlay {
-            if !drawing.hasInk {
+            // Gone the moment the Pencil touches down, not when the first stroke ends.
+            if !drawing.hasInk && !inStroke {
                 VStack(spacing: 8) {
                     Image(systemName: "applepencil.and.scribble")
                         .font(.system(size: 40))
                     Text("Draw anything")
                         .font(.title3.weight(.semibold))
-                    Text("Double-tap the Pencil to switch to the eraser.")
-                        .font(.subheadline)
                 }
                 .foregroundStyle(Color.black.opacity(0.25))
                 .allowsHitTesting(false)
