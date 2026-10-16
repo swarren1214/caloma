@@ -22,7 +22,7 @@ nonisolated struct FaceReading: @unchecked Sendable {
 
 /// Finds faces with Vision and turns the clearest one into an embedding.
 nonisolated enum FaceAnalyzer {
-    nonisolated(unsafe) private static let context = CIContext(options: [.cacheIntermediates: false])
+    private static let context = CIContext(options: [.cacheIntermediates: false])
 
     /// Embeddings are only made from faces at least this clear.
     static let minimumQuality = 0.25

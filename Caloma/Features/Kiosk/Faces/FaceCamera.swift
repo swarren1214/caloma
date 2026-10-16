@@ -1,5 +1,6 @@
 import AVFoundation
 import QuartzCore
+import SwiftUI
 import UIKit
 
 /// The iPad's front camera, for faces in Kiosk Mode. Frames arrive on a background queue,

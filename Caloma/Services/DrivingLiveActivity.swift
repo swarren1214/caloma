@@ -14,7 +14,7 @@ import UIKit
 @MainActor
 enum DrivingLiveActivity {
     /// How long before an event the activity can start.
-    static let lead: TimeInterval = 2 * 3600
+    nonisolated static let lead: TimeInterval = 2 * 3600
     private static let log = Logger(subsystem: "com.stephenwarren.caloma", category: "liveActivity")
 
     /// Brings the activity in line with the family: starts it if `allowStart` (the app is open,
