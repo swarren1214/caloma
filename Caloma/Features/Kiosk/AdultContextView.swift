@@ -1,9 +1,10 @@
 import SwiftData
 import SwiftUI
 
-/// A parent's screen on the wall, for the moment they pass by: their tasks, their evening,
-/// what's waiting on their OK (visible to them, actionable only with the PIN), how the kids
-/// are doing, and home care coming due.
+/// A parent's screen on the wall, for the moment they pass by: a hello and the time, their
+/// tasks, their evening, what's waiting on their OK (visible to them, actionable only with the
+/// PIN), how each kid is doing, the home, and dinner or the week ahead. Every card has
+/// something worth seeing even when there's nothing to do.
 struct AdultContextView: View {
     var member: Member
 
@@ -25,33 +26,48 @@ struct AdultContextView: View {
         FamilySnapshot(members: members, chores: chores, completions: completions, points: [])
     }
 
+    private static let green = Color(hex: 0x1E9E6A)
+
     var body: some View {
         let family = family
         let agenda = agenda
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 18) {
                 header(agenda: agenda)
+
                 HStack(alignment: .top, spacing: 16) {
-                    VStack(spacing: 16) {
-                        HStack(alignment: .top, spacing: 16) {
-                            tasksCard(family)
-                            eveningCard(agenda)
-                        }
-                        HStack(alignment: .top, spacing: 16) {
-                            kidsCard(family)
-                            if HomeBridge.shared.statusItems.isEmpty {
-                                homeCareCard
-                            } else {
-                                homeStatusCard
-                            }
-                        }
-                    }
+                    tasksCard(family)
+                    eveningCard(agenda)
                     approvalsCard
-                        .frame(width: 316)
+                        .frame(width: 330)
                 }
+                .fixedSize(horizontal: false, vertical: true)
+
+                kidsCard(family)
+
+                HStack(alignment: .top, spacing: 16) {
+                    if HomeBridge.shared.statusItems.isEmpty {
+                        homeCareCard
+                    } else {
+                        homeStatusCard
+                    }
+                    if let dinner = HearthLink.shared.dinner(on: .now) {
+                        dinnerCard(dinner)
+                    } else {
+                        weekCard
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 26)
-            .padding(.vertical, 22)
+            .padding(.horizontal, 28)
+            .padding(.top, 26)
+            .padding(.bottom, 32)
+        }
+        .scrollIndicators(.hidden)
+        .background {
+            // A soft wash of their color behind the greeting.
+            LinearGradient(colors: [color.opacity(0.16), .clear], startPoint: .top, endPoint: .center)
+                .ignoresSafeArea()
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .sheet(isPresented: $picking) {
@@ -62,38 +78,46 @@ struct AdultContextView: View {
     // MARK: Header
 
     private func header(agenda: [EventOccurrence]) -> some View {
-        HStack(spacing: 18) {
-            MemberAvatar(member, size: 74)
+        HStack(alignment: .center, spacing: 20) {
+            MemberAvatar(member, size: 84)
                 .padding(5)
                 .overlay(Circle().strokeBorder(color, lineWidth: 5))
-            VStack(alignment: .leading, spacing: 2) {
+                .shadow(color: color.opacity(0.35), radius: 16, y: 6)
+            VStack(alignment: .leading, spacing: 4) {
                 Text("\(kioskGreeting()), \(member.name)")
-                    .font(.system(size: 36, weight: .heavy))
+                    .font(.system(size: 40, weight: .heavy))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.6)
                 Text(summary(agenda: agenda))
                     .font(.title3)
                     .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 12)
-            if session.source == .face {
-                HStack(spacing: 10) {
-                    Circle().fill(Color(hex: 0x34C759)).frame(width: 8, height: 8)
-                    Text("Recognized")
-                        .foregroundStyle(.secondary)
-                    Button("Not \(member.name)?") { picking = true }
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 12)
-                        .frame(height: 32)
-                        .foregroundStyle(color)
-                        .background(color.opacity(0.14), in: Capsule())
-                        .buttonStyle(.plain)
+                    .lineLimit(2)
+                if session.source == .face {
+                    HStack(spacing: 8) {
+                        Circle().fill(Color(hex: 0x34C759)).frame(width: 8, height: 8)
+                        Text("Recognized")
+                            .foregroundStyle(.secondary)
+                        Button("Not \(member.name)?") { picking = true }
+                            .fontWeight(.semibold)
+                            .foregroundStyle(color)
+                            .buttonStyle(.plain)
+                    }
+                    .font(.subheadline)
+                    .padding(.top, 2)
                 }
-                .padding(.leading, 14)
-                .padding(.trailing, 6)
-                .frame(height: 44)
-                .background(Color(.secondarySystemGroupedBackground), in: Capsule())
             }
+            Spacer(minLength: 16)
+            TimelineView(.everyMinute) { context in
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(context.date.formatted(date: .omitted, time: .shortened))
+                        .font(.system(size: 54, weight: .thin))
+                        .monospacedDigit()
+                    Text(context.date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -108,7 +132,15 @@ struct AdultContextView: View {
         } else if waiting > 1 {
             parts.append("\(waiting) things are waiting on you.")
         }
-        return parts.isEmpty ? "Nothing pressing right now." : parts.joined(separator: " ")
+        if parts.isEmpty {
+            let kids = members.filter { $0.isKid && !$0.isArchived }
+            let left = kids.reduce(0) { total, kid in
+                let progress = family.progress(for: kid)
+                return total + (progress.total - progress.done)
+            }
+            return left > 0 ? "A calm one. The kids have \(left) jobs to go." : "All quiet. Enjoy it."
+        }
+        return parts.joined(separator: " ")
     }
 
     // MARK: Tasks
@@ -117,17 +149,13 @@ struct AdultContextView: View {
         let items = family.items(for: member)
         let due = dueHomeCare
         let left = items.filter { $0.status == .open }.count + due.count
-        return card {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Your tasks").font(.title3.bold())
-                Text(left == 0 ? "All done" : "\(left) left today")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        return card(title: "Your tasks", symbol: "checklist", tint: color, trailing: left == 0 ? nil : "\(left) left") {
             if items.isEmpty && due.isEmpty {
-                emptyLine("Nothing on your list today.")
+                emptyState(symbol: "checkmark.seal.fill", tint: Self.green, title: "All caught up", message: "Nothing on your list today.")
+            } else if left == 0 {
+                emptyState(symbol: "checkmark.seal.fill", tint: Self.green, title: "All done", message: "Every task is checked off.")
             }
-            ForEach(items) { item in
+            ForEach(left == 0 ? [BoardItem]() : items) { item in
                 taskRow(title: item.chore.title, detail: item.status.isDone ? "Done" : "Chore", tag: "Chore", tint: color, done: item.status.isDone, late: false) {
                     toggle(item)
                 }
@@ -185,7 +213,7 @@ struct AdultContextView: View {
             HStack(spacing: 12) {
                 ZStack {
                     if done {
-                        Circle().fill(Color(hex: 0x1E9E6A))
+                        Circle().fill(Self.green)
                         Image(systemName: "checkmark")
                             .font(.system(size: 13, weight: .heavy))
                             .foregroundStyle(.white)
@@ -239,10 +267,13 @@ struct AdultContextView: View {
 
     private func eveningCard(_ agenda: [EventOccurrence]) -> some View {
         let driving = agenda.first { $0.event.driverID == member.id }
-        return card {
-            Text(eveningTitle).font(.title3.bold())
+        let hour = Calendar.current.component(.hour, from: .now)
+        let free: (symbol: String, tint: Color, title: String) = hour >= 17
+            ? ("moon.stars.fill", Color(hex: 0x5E5CE6), "Your evening is free")
+            : (hour >= 12 ? ("sun.max.fill", Color(hex: 0xF5A623), "Your afternoon is free") : ("sun.horizon.fill", Color(hex: 0xE8650F), "Your day is clear"))
+        return card(title: eveningTitle, symbol: "calendar", tint: Color(hex: 0x0A84FF), trailing: nil) {
             if agenda.isEmpty {
-                emptyLine("Nothing else on the calendar this week.")
+                emptyState(symbol: free.symbol, tint: free.tint, title: free.title, message: "Nothing else on the calendar this week.")
             }
             ForEach(agenda) { occurrence in
                 HStack(alignment: .top, spacing: 12) {
@@ -321,21 +352,9 @@ struct AdultContextView: View {
 
     private var approvalsCard: some View {
         let waiting = pending.count + requests.count
-        return card {
-            HStack {
-                Text("Needs your OK").font(.title3.bold())
-                Spacer()
-                if waiting > 0 {
-                    Text(waiting.formatted())
-                        .font(.subheadline.weight(.heavy))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .frame(minWidth: 26, minHeight: 26)
-                        .background(Color(hex: 0xFF9F0A), in: Capsule())
-                }
-            }
+        return card(title: "Needs your OK", symbol: "hand.raised.fill", tint: Color(hex: 0xFF9F0A), trailing: waiting == 0 ? nil : waiting.formatted()) {
             if waiting == 0 {
-                emptyLine("Nothing waiting. Nice.")
+                emptyState(symbol: "hand.thumbsup.fill", tint: Self.green, title: "Nothing waiting", message: "The kids' finished chores and reward requests show up here.")
             }
             ForEach(pending.prefix(4)) { completion in
                 let kid = members.first { $0.id == completion.memberID }
@@ -364,7 +383,7 @@ struct AdultContextView: View {
             if waiting > 0 {
                 Spacer(minLength: 4)
                 if session.isUnlocked {
-                    Text("Unlocked. Locks again when you walk away.")
+                    Label("Unlocked until you walk away", systemImage: "lock.open.fill")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
@@ -415,7 +434,7 @@ struct AdultContextView: View {
                             .font(.subheadline.weight(.bold))
                             .frame(maxWidth: .infinity, minHeight: 38)
                             .foregroundStyle(.white)
-                            .background(Color(hex: 0x1E9E6A), in: Capsule())
+                            .background(Self.green, in: Capsule())
                     }
                     Button {
                         withAnimation(.snappy) { onNo() }
@@ -435,103 +454,250 @@ struct AdultContextView: View {
         .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 16))
     }
 
-    // MARK: Kids and home care
+    // MARK: Kids
 
     private func kidsCard(_ family: FamilySnapshot) -> some View {
         let kids = members.filter { $0.isKid && !$0.isArchived }
-        return card {
-            Text("The kids today").font(.headline)
-            HStack(spacing: 0) {
-                ForEach(kids) { kid in
-                    let progress = family.progress(for: kid)
-                    let waiting = pending.filter { $0.memberID == kid.id }.count
-                    VStack(spacing: 6) {
-                        ZStack {
-                            Circle().stroke(Color(.tertiarySystemFill), lineWidth: 7)
-                            Circle()
-                                .trim(from: 0, to: progress.total == 0 ? 0 : Double(progress.done) / Double(progress.total))
-                                .stroke(kid.color.color, style: StrokeStyle(lineWidth: 7, lineCap: .round))
-                                .rotationEffect(.degrees(-90))
-                            Text("\(progress.done)/\(progress.total)")
-                                .font(.subheadline.weight(.heavy))
-                                .monospacedDigit()
-                        }
-                        .frame(width: 70, height: 70)
-                        Text(kid.name).font(.subheadline.weight(.semibold))
-                        Text(waiting > 0 ? "\(waiting) waiting on you" : (progress.total > 0 && progress.done == progress.total ? "All done" : " "))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+        let done = kids.reduce(0) { $0 + family.progress(for: $1).done }
+        let total = kids.reduce(0) { $0 + family.progress(for: $1).total }
+        return card(title: "The kids today", symbol: "figure.2.and.child.holdinghands", tint: Color(hex: 0xAF52DE), trailing: total == 0 ? nil : "\(done) of \(total) jobs done") {
+            if kids.isEmpty {
+                emptyState(symbol: "person.3.fill", tint: Color(hex: 0xAF52DE), title: "No kids yet", message: "Add kids in Family to see their day here.")
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 116), spacing: 12)], spacing: 16) {
+                    ForEach(kids) { kid in
+                        kidProgress(kid, family: family)
                     }
-                    .frame(maxWidth: .infinity)
-                    .accessibilityElement(children: .combine)
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    private func kidProgress(_ kid: Member, family: FamilySnapshot) -> some View {
+        let progress = family.progress(for: kid)
+        let fraction = progress.total == 0 ? 0 : Double(progress.done) / Double(progress.total)
+        let waiting = pending.filter { $0.memberID == kid.id }.count
+        let allDone = progress.total > 0 && progress.done == progress.total
+        return VStack(spacing: 8) {
+            ZStack {
+                Circle().stroke(kid.color.color.opacity(0.18), lineWidth: 6)
+                Circle()
+                    .trim(from: 0, to: fraction)
+                    .stroke(kid.color.color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                MemberAvatar(kid, size: 64)
+                if allDone {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .frame(width: 24, height: 24)
+                        .background(Self.green, in: Circle())
+                        .overlay(Circle().strokeBorder(Color(.secondarySystemGroupedBackground), lineWidth: 2.5))
+                        .offset(x: 28, y: 28)
+                } else if waiting > 0 {
+                    Text(waiting.formatted())
+                        .font(.caption.weight(.heavy))
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 24, minHeight: 24)
+                        .background(Color(hex: 0xFF9F0A), in: Circle())
+                        .overlay(Circle().strokeBorder(Color(.secondarySystemGroupedBackground), lineWidth: 2.5))
+                        .offset(x: 28, y: -28)
                 }
             }
-            .padding(.top, 4)
+            .frame(width: 80, height: 80)
+            Text(kid.name)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+            Text(progress.total == 0 ? "No jobs today" : (allDone ? "All done" : "\(progress.done) of \(progress.total)"))
+                .font(.caption)
+                .foregroundStyle(allDone ? Self.green : .secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: Home, dinner, the week
+
+    /// Locks, garage and thermostat from Apple Home; anything open or unlocked in orange.
+    private var homeStatusCard: some View {
+        let items = HomeBridge.shared.statusItems
+        return card(title: "Home", symbol: "house.fill", tint: Color(hex: 0x30B0C7), trailing: nil) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                ForEach(items) { item in
+                    let tint = item.needsAttention ? Brand.waiting : Self.green
+                    HStack(spacing: 10) {
+                        Image(systemName: item.symbol)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(tint)
+                            .frame(width: 34, height: 34)
+                            .background(tint.opacity(0.15), in: Circle())
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(item.name)
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                            Text(item.state)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(item.needsAttention ? Brand.waiting : .secondary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(10)
+                    .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 14))
+                }
+            }
         }
     }
 
     private var homeCareCard: some View {
         let upcoming = Array(homeTasks.prefix(4))
-        return card {
-            Text("Home care").font(.headline)
+        return card(title: "Home care", symbol: "wrench.and.screwdriver.fill", tint: Brand.waiting, trailing: nil) {
             if upcoming.isEmpty {
-                emptyLine("Nothing coming up.")
+                emptyState(symbol: "house.fill", tint: Color(hex: 0x30B0C7), title: "Nothing coming up", message: "Filters, detectors and the rest show here when they're due.")
             }
             ForEach(upcoming) { task in
                 let late = Calendar.current.startOfDay(for: task.nextDue) < Calendar.current.startOfDay(for: .now)
                 HStack(spacing: 10) {
-                    Circle()
-                        .fill(late ? Brand.late : Color(.systemGray3))
-                        .frame(width: 9, height: 9)
+                    Image(systemName: task.symbol)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(late ? Brand.late : Brand.waiting)
+                        .frame(width: 32, height: 32)
+                        .background((late ? Brand.late : Brand.waiting).opacity(0.14), in: Circle())
                     Text(task.name)
+                        .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                     Spacer(minLength: 6)
-                    Text(task.nextDue.formatted(.dateTime.month(.abbreviated).day()))
+                    Text(late ? "Late" : task.nextDue.formatted(.dateTime.month(.abbreviated).day()))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(late ? Brand.late : .secondary)
                 }
-                .font(.subheadline)
             }
         }
     }
 
-    /// Locks, garage and thermostat from Apple Home; anything open or unlocked in orange.
-    private var homeStatusCard: some View {
-        card {
-            Text("Home").font(.headline)
-            ForEach(HomeBridge.shared.statusItems) { item in
-                HStack(spacing: 10) {
-                    Image(systemName: item.symbol)
-                        .font(.subheadline)
-                        .foregroundStyle(item.needsAttention ? Brand.waiting : .secondary)
-                        .frame(width: 22)
-                    Text(item.name)
-                        .lineLimit(1)
-                    Spacer(minLength: 6)
-                    Text(item.state)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(item.needsAttention ? Brand.waiting : .secondary)
+    /// Tonight's dinner from BigTable, with its photo.
+    private func dinnerCard(_ dinner: HearthMealPlan.Meal) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            // The photo fills whatever height the row has; it never sets it.
+            Color.clear
+                .overlay {
+                    if let url = dinner.artworkURL {
+                        AsyncImage(url: url) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            LinearGradient(colors: [Color(hex: 0xE8650F), Color(hex: 0xC2185B)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        }
+                    } else {
+                        LinearGradient(colors: [Color(hex: 0xE8650F), Color(hex: 0xC2185B)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    }
                 }
-                .font(.subheadline)
+                .clipped()
+            LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 4) {
+                Label(dinner.isDineOut ? "EATING OUT TONIGHT" : "DINNER TONIGHT", systemImage: dinner.symbol)
+                    .font(.caption.weight(.heavy))
+                    .tracking(0.5)
+                    .opacity(0.9)
+                Text(dinner.title)
+                    .font(.title2.bold())
+                    .lineLimit(2)
+                if let note = dinner.notEating, !note.isEmpty {
+                    Text("Not eating: " + note.formatted(.list(type: .and)))
+                        .font(.footnote)
+                        .opacity(0.85)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(20)
+        }
+        .frame(minHeight: 200)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipShape(.rect(cornerRadius: 24))
+    }
+
+    /// The family's next few days, when there's no dinner plan.
+    private var weekCard: some View {
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: .now)) ?? .now
+        let end = calendar.date(byAdding: .day, value: 6, to: start) ?? start
+        let coming = Array(CalendarMath.occurrences(of: events.map(\.record), from: start, through: end).sorted(by: CalendarMath.order).prefix(4))
+        return card(title: "Coming up", symbol: "sparkles", tint: Color(hex: 0x5E5CE6), trailing: nil) {
+            if coming.isEmpty {
+                emptyState(symbol: "leaf.fill", tint: Self.green, title: "A quiet week ahead", message: "Nothing on the family calendar for the next few days.")
+            }
+            ForEach(coming) { occurrence in
+                HStack(spacing: 12) {
+                    VStack(spacing: 0) {
+                        Text(occurrence.start.formatted(.dateTime.weekday(.abbreviated)).uppercased())
+                            .font(.system(size: 10, weight: .heavy))
+                        Text(occurrence.start.formatted(.dateTime.day()))
+                            .font(.system(size: 18, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(eventColor(occurrence.event), in: .rect(cornerRadius: 12))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(occurrence.event.title)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                        Text((occurrence.event.isAllDay ? "All day" : occurrence.start.formatted(date: .omitted, time: .shortened)) + " · " + eventDetail(occurrence.event))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
             }
         }
     }
 
     // MARK: Pieces
 
-    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+    /// A card with an icon, a title, an optional count on the right, and its content.
+    private func card<Content: View>(title: String, symbol: String, tint: Color, trailing: String?, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 30, height: 30)
+                    .background(tint.opacity(0.15), in: .rect(cornerRadius: 9))
+                Text(title)
+                    .font(.title3.bold())
+                Spacer(minLength: 6)
+                if let trailing {
+                    Text(trailing)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
             content()
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22))
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 24))
     }
 
-    private func emptyLine(_ text: String) -> some View {
-        Text(text)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .padding(.vertical, 6)
+    /// What a card shows when there's nothing in it: a calm icon and a line or two.
+    private func emptyState(symbol: String, tint: Color, title: String, message: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 64, height: 64)
+                .background(
+                    Circle().fill(LinearGradient(colors: [tint.opacity(0.22), tint.opacity(0.08)], startPoint: .top, endPoint: .bottom))
+                )
+            Text(title)
+                .font(.headline)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 260)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(minHeight: 150)
+        .padding(.vertical, 6)
     }
 }

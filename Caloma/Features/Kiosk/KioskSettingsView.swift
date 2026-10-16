@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Family › Kiosk Mode: turn this iPad into the family's wall screen, and how it behaves.
@@ -10,6 +11,11 @@ struct KioskSettingsView: View {
     @AppStorage(SettingsKey.kioskFaces) private var facesOn = false
     @AppStorage(SettingsKey.kioskDoorbell) private var doorbellOn = true
     @AppStorage(SettingsKey.kioskChime) private var chime = true
+    @AppStorage(SettingsKey.kioskLockBiometrics) private var lockBiometrics = true
+    @Query(sort: \Member.sortOrder) private var members: [Member]
+    @State private var passcodeFor: Member?
+    /// Bumps when a lock changes, so the toggles redraw.
+    @State private var lockRevision = 0
     private let home = HomeBridge.shared
 
     @State private var pinIsSet = ParentPIN.isSet
@@ -30,6 +36,9 @@ struct KioskSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 6)
+            }
+
+            Section {
                 Button {
                     start()
                 } label: {
@@ -39,7 +48,7 @@ struct KioskSettingsView: View {
                 }
                 .buttonStyle(.glassProminent)
                 .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
+                .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 10, trailing: 0))
             }
 
             Section {
@@ -112,6 +121,38 @@ struct KioskSettingsView: View {
             }
 
             Section {
+                ForEach(members.filter { !$0.isArchived }) { person in
+                    let locked = lockRevision >= 0 && ProfileLock.isLocked(person.id)
+                    HStack(spacing: 12) {
+                        MemberAvatar(person, size: 32)
+                        Text(person.name)
+                        Spacer()
+                        if locked {
+                            Button("Change Passcode") { passcodeFor = person }
+                                .buttonStyle(.borderless)
+                                .font(.subheadline)
+                        }
+                        Toggle("Lock \(person.name)'s screen", isOn: Binding(get: { locked }, set: { on in
+                            if on {
+                                passcodeFor = person
+                            } else {
+                                ProfileLock.setLocked(false, for: person.id)
+                                lockRevision += 1
+                            }
+                        }))
+                        .labelsHidden()
+                    }
+                }
+                if let name = ProfileLock.biometryName {
+                    Toggle("Allow \(name)", isOn: $lockBiometrics)
+                }
+            } header: {
+                Text("Profile Locks")
+            } footer: {
+                Text("A locked screen asks for that person's passcode before it opens, whether they tap their picture or their face is recognized. " + (ProfileLock.biometryName.map { "\($0) on this iPad can unlock any locked screen instead." } ?? ""))
+            }
+
+            Section {
                 Button(pinIsSet ? "Change Parent PIN" : "Set Parent PIN") {
                     startsAfterPIN = false
                     settingPIN = true
@@ -148,6 +189,15 @@ struct KioskSettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIAccessibility.guidedAccessStatusDidChangeNotification)) { _ in
             guidedAccess = UIAccessibility.isGuidedAccessEnabled
+        }
+        .sheet(item: $passcodeFor) { person in
+            PINSetupSheet(title: "\(person.name)'s Passcode", prompt: "Choose a 4-digit passcode for \(person.name)'s screen on the wall.", save: { pin in
+                ProfileLock.setPasscode(pin, for: person.id)
+                ProfileLock.setLocked(true, for: person.id)
+            }) {
+                lockRevision += 1
+            }
+            .tint(accent)
         }
         .sheet(isPresented: $settingPIN) {
             PINSetupSheet {

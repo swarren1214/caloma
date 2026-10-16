@@ -24,6 +24,18 @@ struct CalendarWideView: View {
                 header
                 if mode == .week {
                     WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, showHomeCare: filter.showHomeCare, showMeals: filter.showMeals, onNew: onNew, onOpen: onOpen, onMove: onMove)
+                        // Swipe left for next week, right for last week. Mostly sideways
+                        // only, so scrolling through the hours still works.
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 30)
+                                .onEnded { value in
+                                    let dx = value.translation.width
+                                    let dy = value.translation.height
+                                    guard abs(dx) > 80, abs(dx) > abs(dy) * 1.5 else { return }
+                                    move(by: dx < 0 ? 1 : -1)
+                                }
+                        )
+                        .sensoryFeedback(.selection, trigger: CalendarMath.dayKey(CalendarMath.week(containing: day).first ?? day))
                 } else {
                     HStack(alignment: .top, spacing: 16) {
                         MonthGrid(day: $day, data: data, visible: visible, cellHeight: 64, onNew: { date in onNew(NewEventRequest(day: date)) }, onDrop: { ref, date in onMove(EventMove(ref: ref, toDay: date)) })

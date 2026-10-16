@@ -108,12 +108,29 @@ struct KioskRootView: View {
             FaceRecognizer.shared.stop()
         }
         .onChange(of: facesOn) { _, _ in startFaces() }
+        // Face ID shares the front camera; let it have it while a passcode is asked for.
+        .onChange(of: session.lockRequest != nil) { _, asking in
+            FaceRecognizer.shared.pause(asking)
+        }
         .onChange(of: session.doorbell != nil) { _, ringing in
             // Look less often while the doorbell is up; it won't switch screens anyway.
             FaceRecognizer.shared.setSlow(ringing)
         }
         .onChange(of: keepAwake) { _, on in
             UIApplication.shared.isIdleTimerDisabled = on
+        }
+        // A locked profile: their passcode (or Face ID) before their screen opens.
+        .sheet(item: Binding(get: { session.lockRequest }, set: { if $0 == nil { session.cancelUnlock() } })) { request in
+            if let person = people.first(where: { $0.id == request.memberID }) {
+                ProfileUnlockSheet(member: person) {
+                    withAnimation(.smooth(duration: 0.45)) { session.finishUnlock(request.id) }
+                } onCancel: {
+                    session.cancelUnlock()
+                }
+                .presentationDetents([.large])
+            } else {
+                Color.clear.onAppear { session.cancelUnlock() }
+            }
         }
         .sheet(isPresented: $leaving) {
             LeaveKioskSheet {
@@ -144,15 +161,15 @@ extension KioskRootView {
     /// A tap always wins over a face. Someone new only takes over a screen a face opened, after
     /// a steady second and a half, and never while a parent has it unlocked.
     private func recognized(_ id: UUID, held: TimeInterval) {
-        guard !leaving, session.doorbell == nil, people.contains(where: { $0.id == id }) else { return }
+        guard !leaving, session.doorbell == nil, session.lockRequest == nil, people.contains(where: { $0.id == id }) else { return }
         if let paused = session.facesPausedUntil, paused > .now, session.activeID == nil { return }
         if session.activeID == id {
             // Standing there counts as using it.
             session.touched()
         } else if session.activeID == nil {
-            session.show(id, source: .face)
+            session.open(id, source: .face)
         } else if session.source == .face, !session.isUnlocked, held >= 1.5 {
-            session.show(id, source: .face)
+            session.open(id, source: .face)
         }
     }
 }
@@ -226,7 +243,7 @@ struct KioskRail: View {
                             recognized: session.activeID == person.id && session.source == .face,
                             jobsLeft: left
                         ) {
-                            session.show(person.id, source: .tap)
+                            session.open(person.id, source: .tap)
                         }
                     }
                 }

@@ -197,6 +197,7 @@ enum Family {
             defaults.removeObject(forKey: key)
         }
         ParentPIN.clear()
+        ProfileLock.clearAll(defaults: defaults)
         FaceStore.shared.eraseAll()
         try? context.delete(model: Member.self)
         try? context.delete(model: Chore.self)

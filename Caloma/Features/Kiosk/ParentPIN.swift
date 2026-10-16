@@ -210,6 +210,9 @@ struct ParentPINPad: View {
 
 /// Choose a new PIN: type it, then type it again.
 struct PINSetupSheet: View {
+    var title = "Parent PIN"
+    var prompt = "Choose a 4-digit PIN for Kiosk Mode."
+    var save: (String) -> Void = { ParentPIN.set($0) }
     var onDone: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -220,7 +223,7 @@ struct PINSetupSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 18) {
-                Text(first == nil ? "Choose a 4-digit PIN for Kiosk Mode." : "Type it again to be sure.")
+                Text(first == nil ? prompt : "Type it again to be sure.")
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 if mismatch {
@@ -228,14 +231,14 @@ struct PINSetupSheet: View {
                         .font(.footnote)
                         .foregroundStyle(Brand.late)
                 }
-                PINPad(title: first == nil ? "New PIN" : "Confirm PIN", tint: accent) { pin in
+                PINPad(title: first == nil ? "New" : "Confirm", tint: accent) { pin in
                     if let first {
                         guard pin == first else {
                             self.first = nil
                             mismatch = true
                             return false
                         }
-                        ParentPIN.set(pin)
+                        save(pin)
                         onDone()
                         dismiss()
                         return true
@@ -248,7 +251,7 @@ struct PINSetupSheet: View {
                 Spacer()
             }
             .padding(24)
-            .navigationTitle("Parent PIN")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

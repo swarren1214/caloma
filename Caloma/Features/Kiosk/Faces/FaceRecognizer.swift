@@ -158,6 +158,12 @@ final class FaceRecognizer {
         scores = []
     }
 
+    /// Stops looking for a moment (Face ID needs the camera), then carries on.
+    func pause(_ paused: Bool) {
+        guard mode == .recognize else { return }
+        if paused { camera.stop() } else { camera.start() }
+    }
+
     /// Lower the frame rate at night or while a doorbell card is up.
     func setSlow(_ slow: Bool) {
         guard mode == .recognize else { return }

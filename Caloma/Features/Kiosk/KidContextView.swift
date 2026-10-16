@@ -24,7 +24,7 @@ struct KidContextView: View {
             KidDayView(
                 kid: kid,
                 kids: kids,
-                onPick: { session.show($0.id, source: .tap) },
+                onPick: { session.open($0.id, source: .tap) },
                 onLeave: {},
                 kiosk: KioskKidOptions(onNotMe: { picking = true })
             )
@@ -192,9 +192,16 @@ struct WhoIsHerePicker: View {
                 ForEach(people) { person in
                     Button {
                         // A face in view: remember this look as theirs, so it's right next time.
-                        FaceRecognizer.shared.learn(person.id)
-                        session.show(person.id, source: .picker)
+                        // A locked profile only learns it once their passcode is right.
+                        let look = FaceRecognizer.shared.recentEmbedding()
+                        let locked = ProfileLock.isLocked(person.id)
+                        if !locked { FaceRecognizer.shared.learn(person.id) }
                         dismiss()
+                        // Let this sheet go first, in case their profile asks for a passcode.
+                        Task {
+                            try? await Task.sleep(for: .milliseconds(400))
+                            session.open(person.id, source: .picker, look: locked ? look : nil)
+                        }
                     } label: {
                         VStack(spacing: 8) {
                             MemberAvatar(person, size: 84)

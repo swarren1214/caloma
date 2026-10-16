@@ -26,6 +26,19 @@ final class KioskSession {
     private(set) var doorbell: DoorbellEvent?
     /// The last ring, so it can be opened again for a while after it closes.
     private(set) var lastDoorbell: DoorbellEvent?
+    /// A locked profile waiting for its passcode before it opens.
+    struct LockRequest: Identifiable, Equatable {
+        let id = UUID()
+        let memberID: UUID
+        let source: Source
+        /// From "Who's here?": the face in view, learned only once the passcode is right.
+        var look: [Float]?
+    }
+
+    private(set) var lockRequest: LockRequest?
+    /// Someone who just cancelled their passcode; their face won't ask again for a moment.
+    @ObservationIgnored private var declined: (memberID: UUID, until: Date)?
+
     /// After someone taps back to the calendar, faces wait a moment before opening anyone.
     private(set) var facesPausedUntil: Date?
 
@@ -35,6 +48,42 @@ final class KioskSession {
     var idleSeconds: TimeInterval {
         let seconds = UserDefaults.standard.integer(forKey: SettingsKey.kioskIdleSeconds)
         return TimeInterval(seconds > 0 ? seconds : 30)
+    }
+
+    /// A tap, a pick or a face asking for someone's screen. Locked profiles ask for their
+    /// passcode first; everyone else opens straight away.
+    func open(_ memberID: UUID, source: Source, look: [Float]? = nil) {
+        if memberID == activeID {
+            lastTouch = .now
+            return
+        }
+        guard ProfileLock.isLocked(memberID) else {
+            show(memberID, source: source)
+            return
+        }
+        guard lockRequest == nil else { return }
+        if source == .face, let declined, declined.memberID == memberID, declined.until > .now { return }
+        lockRequest = LockRequest(memberID: memberID, source: source, look: look)
+        lastTouch = .now
+    }
+
+    /// The passcode (or Face ID) for this request was right.
+    func finishUnlock(_ requestID: UUID) {
+        guard let request = lockRequest, request.id == requestID else { return }
+        lockRequest = nil
+        if let look = request.look {
+            FaceStore.shared.learn(look, for: request.memberID)
+        }
+        show(request.memberID, source: request.source)
+    }
+
+    /// Cancelled: and a face standing there doesn't ask again straight away.
+    func cancelUnlock() {
+        if let request = lockRequest {
+            declined = (request.memberID, .now.addingTimeInterval(20))
+        }
+        lockRequest = nil
+        facesPausedUntil = .now.addingTimeInterval(15)
     }
 
     func show(_ memberID: UUID, source: Source) {
@@ -49,6 +98,7 @@ final class KioskSession {
     func showCalendar() {
         activeID = nil
         isUnlocked = false
+        lockRequest = nil
     }
 
     /// The calendar button or the countdown ring: back to the calendar, and don't let the
@@ -105,7 +155,7 @@ final class KioskSession {
     }
 
     private func tick() {
-        guard activeID != nil || isUnlocked else { return }
+        guard activeID != nil || isUnlocked || lockRequest != nil else { return }
         if Date.now.timeIntervalSince(lastTouch) >= idleSeconds {
             showCalendar()
         }

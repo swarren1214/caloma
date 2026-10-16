@@ -55,6 +55,10 @@ nonisolated enum SettingsKey {
     static let kioskMotionCameras = "kiosk.motionCameras"
     /// Play a chime on the wall when the doorbell rings (on unless turned off).
     static let kioskChime = "kiosk.chime"
+    /// People whose screens ask for their passcode before opening in Kiosk Mode.
+    static let kioskLockedProfiles = "kiosk.lockedProfiles"
+    /// Face ID or Touch ID can unlock a locked profile (on unless turned off).
+    static let kioskLockBiometrics = "kiosk.lockBiometrics"
     /// Which Apple Home the wall iPad watches, when there's more than one.
     static let kioskHomeID = "kiosk.homeID"
 }
