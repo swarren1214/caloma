@@ -44,15 +44,23 @@ struct PencilCanvas: UIViewRepresentable {
         canvas.delegate = context.coordinator
         canvas.addInteraction(UIPencilInteraction(delegate: context.coordinator))
         context.coordinator.lastTool = tool
+        context.coordinator.lastSynced = drawing
         return canvas
     }
 
     func updateUIView(_ canvas: PKCanvasView, context: Context) {
-        context.coordinator.parent = self
-        if canvas.drawing != drawing {
-            context.coordinator.isApplying = true
-            canvas.drawing = drawing
-            context.coordinator.isApplying = false
+        let coordinator = context.coordinator
+        coordinator.parent = self
+        // The canvas owns the ink. Only push a drawing in when SwiftUI changed it on purpose
+        // (another board, Clear, Undo, a sync) — never because the view redrew with a copy from
+        // before the stroke that just finished, which would wipe that stroke.
+        if drawing != coordinator.lastSynced {
+            coordinator.lastSynced = drawing
+            if canvas.drawing != drawing {
+                coordinator.isApplying = true
+                canvas.drawing = drawing
+                coordinator.isApplying = false
+            }
         }
         if context.coordinator.lastTool != tool {
             canvas.tool = tool.pkTool
@@ -63,6 +71,8 @@ struct PencilCanvas: UIViewRepresentable {
     final class Coordinator: NSObject, PKCanvasViewDelegate, UIPencilInteractionDelegate {
         var parent: PencilCanvas
         var lastTool: PencilTool?
+        /// The drawing last passed between the canvas and SwiftUI.
+        var lastSynced = PKDrawing()
         /// Set while SwiftUI pushes a drawing in, so it isn't echoed straight back.
         var isApplying = false
 
@@ -71,8 +81,10 @@ struct PencilCanvas: UIViewRepresentable {
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-            guard !isApplying, parent.drawing != canvasView.drawing else { return }
-            parent.drawing = canvasView.drawing
+            guard !isApplying else { return }
+            let drawing = canvasView.drawing
+            lastSynced = drawing
+            if parent.drawing != drawing { parent.drawing = drawing }
         }
 
         func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
