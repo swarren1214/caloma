@@ -16,11 +16,18 @@
 	<key>CKSharingSupported</key>
 	<true/>
 	<key>NSHomeKitUsageDescription</key>
-	<string>In Kiosk Mode, Caloma shows your doorbell camera and whether the doors are locked on the family's wall iPad.</string>
+	<string>On the Family Board, Caloma shows your doorbell camera and whether the doors are locked on the family's wall iPad.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>In Kiosk Mode, Talk lets you speak to whoever is at the door through the doorbell.</string>
+	<string>On the Family Board, Talk lets you speak to whoever is at the door through the doorbell.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>bigtable</string>
+		<string>suffice</string>
+		<string>sated</string>
+		<string>hearken</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

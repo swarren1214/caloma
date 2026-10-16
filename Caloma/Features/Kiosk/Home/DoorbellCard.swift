@@ -144,7 +144,9 @@ struct DoorbellCard: View {
                 .frame(width: 40, height: 40)
                 .background(rose, in: Circle())
             VStack(alignment: .leading, spacing: 1) {
-                Text(event.name).font(.headline)
+                Text(event.name)
+                    .font(.headline)
+                    .lineLimit(1)
                 Text(subtitle)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -163,6 +165,8 @@ struct DoorbellCard: View {
                 } label: {
                     Label(unlockNote ?? "Unlock", systemImage: "lock.open.fill")
                         .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .fixedSize()
                         .padding(.horizontal, 16)
                         .frame(height: 44)
                         .background(Color(.tertiarySystemFill), in: Capsule())
@@ -176,8 +180,11 @@ struct DoorbellCard: View {
                     if !talking { deadline = .now.addingTimeInterval(DoorbellCard.autoClose) }
                 }
             } label: {
-                Label(talking ? "Done" : "Talk", systemImage: "mic.fill")
+                Label(talking ? "Done" : "Talk", systemImage: talking ? "mic.slash.fill" : "mic.fill")
                     .font(.headline)
+                    // The buttons keep their size; the name and subtitle give way instead.
+                    .lineLimit(1)
+                    .fixedSize()
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .frame(height: 44)

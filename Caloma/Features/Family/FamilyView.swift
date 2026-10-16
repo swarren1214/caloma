@@ -198,7 +198,7 @@ struct FamilyView: View {
                     NavigationLink {
                         KioskSettingsView()
                     } label: {
-                        Label("Kiosk Mode", systemImage: "rectangle.inset.filled.and.person.filled")
+                        Label("Family Board", systemImage: "rectangle.inset.filled.and.person.filled")
                     }
                 } footer: {
                     Text("Turn this iPad into the family's wall screen: the calendar all day, and a tap on a face for chores.")
@@ -232,6 +232,14 @@ struct FamilyView: View {
                     }
                 }
                 .padding(.vertical, 4)
+            }
+
+            Section {
+                NavigationLink {
+                    HearthAppsView(current: .caloma)
+                } label: {
+                    HearthAppsRowLabel(current: .caloma)
+                }
             }
 
             AccountSection()

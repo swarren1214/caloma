@@ -43,6 +43,8 @@ nonisolated enum SettingsKey {
     static let kioskOpen = "kiosk.open"
     /// Seconds without a touch before Kiosk Mode goes back to the calendar.
     static let kioskIdleSeconds = "kiosk.idleSeconds"
+    /// The old 30-second default has been moved to 20 on this device (done once).
+    static let kioskIdleMovedTo20 = "kiosk.idleMovedTo20"
     /// The family down the left side of Kiosk Mode.
     static let kioskShowsFamily = "kiosk.showsFamily"
     /// Keep the wall iPad's screen on in Kiosk Mode.

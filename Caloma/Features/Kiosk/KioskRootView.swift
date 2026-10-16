@@ -112,7 +112,7 @@ struct KioskRootView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(8)
-                .accessibilityLabel("Leave Kiosk Mode")
+                .accessibilityLabel("Leave the Family Board")
             }
         }
         // Someone at the door: the card slides in over everything.
@@ -348,14 +348,14 @@ struct KioskRail: View {
                 VStack(spacing: 3) {
                     Image(systemName: "lock.fill")
                         .font(.system(size: 13))
-                    Text("Kiosk")
+                    Text("Leave")
                         .font(.caption2.weight(.semibold))
                 }
                 .foregroundStyle(.secondary)
                 .frame(width: 56, height: 44)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Leave Kiosk Mode")
+            .accessibilityLabel("Leave the Family Board")
         }
         .padding(.vertical, 22)
         .frame(width: 112)
@@ -495,9 +495,9 @@ struct LeaveKioskSheet: View {
             VStack(spacing: 22) {
                 Spacer(minLength: 0)
                 if ParentPIN.isSet {
-                    ParentPINPad(title: "Enter the parent PIN to leave Kiosk Mode", tint: accent, onUnlock: onLeave)
+                    ParentPINPad(title: "Enter the parent PIN to leave the Family Board", tint: accent, onUnlock: onLeave)
                 } else {
-                    Text("Leave Kiosk Mode?")
+                    Text("Leave the Family Board?")
                         .font(.title2.bold())
                 }
                 Button(ParentPIN.isSet ? "Use Face ID or Passcode Instead" : "Leave with Face ID or Passcode") {
@@ -531,7 +531,7 @@ struct LeaveKioskSheet: View {
         authenticating = true
         Task {
             defer { authenticating = false }
-            let ok = (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Leave Kiosk Mode")) ?? false
+            let ok = (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Leave the Family Board")) ?? false
             if ok { onLeave() }
         }
     }

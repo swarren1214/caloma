@@ -148,7 +148,8 @@ struct AdultContextView: View {
     // MARK: Tasks
 
     private func tasksCard(_ family: FamilySnapshot) -> some View {
-        let items = family.items(for: member)
+        // Up-for-grabs chores are volunteer jobs, not this parent's: they only show once claimed.
+        let items = family.items(for: member).filter { !$0.chore.upForGrabs || $0.memberID == member.id }
         let due = dueHomeCare
         let left = items.filter { $0.status == .open }.count + due.count
         return card(title: "Your tasks", symbol: "checklist", tint: color, trailing: left == 0 ? nil : "\(left) left") {
@@ -403,7 +404,7 @@ struct AdultContextView: View {
                     .frame(maxWidth: .infinity)
                     .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 18))
                 } else {
-                    Text("Set a parent PIN in Family › Kiosk Mode to approve from the wall.")
+                    Text("Set a parent PIN in Family › Family Board to approve from the wall.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -569,7 +570,7 @@ struct AdultContextView: View {
                             ContentUnavailableView(
                                 "Set a Parent PIN First",
                                 systemImage: "key.fill",
-                                description: Text("Every home control, unlocking doors included, takes the parent PIN on the wall. Set one in Family › Kiosk Mode.")
+                                description: Text("Every home control, unlocking doors included, takes the parent PIN on the wall. Set one in Family › Family Board.")
                             )
                         }
                     }

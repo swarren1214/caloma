@@ -5,7 +5,7 @@ import SwiftUI
 struct KioskSettingsView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.accent) private var accent
-    @AppStorage(SettingsKey.kioskIdleSeconds) private var idleSeconds = 30
+    @AppStorage(SettingsKey.kioskIdleSeconds) private var idleSeconds = KioskSession.defaultIdleSeconds
     @AppStorage(SettingsKey.kioskShowsFamily) private var showsFamily = true
     @AppStorage(SettingsKey.kioskKeepAwake) private var keepAwake = true
     @AppStorage(SettingsKey.kioskFaces) private var facesOn = false
@@ -26,7 +26,12 @@ struct KioskSettingsView: View {
     @State private var startsAfterPIN = false
     @State private var guidedAccess = false
 
-    private let idleChoices = [15, 30, 60, 120]
+    private let idleChoices = [15, 20, 30, 60, 120]
+
+    init() {
+        // Before the picker reads it: the old 30-second default becomes 20.
+        KioskSession.moveIdleTimeToTwentySeconds()
+    }
 
     var body: some View {
         Form {
@@ -45,7 +50,7 @@ struct KioskSettingsView: View {
                 Button {
                     start()
                 } label: {
-                    Text("Start Kiosk Mode")
+                    Text("Start the Family Board")
                         .font(.headline)
                         .frame(maxWidth: .infinity, minHeight: 50)
                 }
@@ -83,7 +88,7 @@ struct KioskSettingsView: View {
                 Text("On the Wall")
             } footer: {
                 if dims || matchLight {
-                    Text("Uses the front camera to notice movement and light; nothing is recorded. The camera light stays on while Kiosk Mode is showing.")
+                    Text("Uses the front camera to notice movement and light; nothing is recorded. The camera light stays on while the Family Board is showing.")
                 }
             }
 
@@ -180,28 +185,16 @@ struct KioskSettingsView: View {
             } header: {
                 Text("Parent PIN")
             } footer: {
-                Text("The PIN unlocks approvals on the wall and leaving Kiosk Mode, so kids can't OK their own chores. It's kept on this iPad only.")
+                Text("The PIN unlocks approvals on the wall and leaving the Family Board, so kids can't OK their own chores. It's kept on this iPad only.")
             }
 
             Section {
-                LabeledContent("Guided Access") {
-                    Text(guidedAccess ? "On" : "Not on yet")
-                        .foregroundStyle(guidedAccess ? Color(hex: 0x1E9E6A) : Brand.waiting)
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    step(1, "Settings › Accessibility › Guided Access: turn it on, set a passcode, and turn on Accessibility Shortcut.")
-                    step(2, "Same screen: Display Auto-Lock › Never.")
-                    step(3, "Start Kiosk Mode here, then triple-click the top button and tap Start.")
-                    step(4, "To leave: triple-click again and enter the Guided Access passcode.")
-                }
-                .padding(.vertical, 4)
+                GuidedAccessGuide(isRunning: guidedAccess)
             } header: {
                 Text("Lock This iPad to Caloma")
-            } footer: {
-                Text("iPadOS keeps the Home swipe, Control Center, Notification Center and Siri for itself. Guided Access turns them all off while Caloma is open.")
             }
         }
-        .navigationTitle("Kiosk Mode")
+        .navigationTitle("Family Board")
         .onAppear {
             guidedAccess = UIAccessibility.isGuidedAccessEnabled
             pinIsSet = ParentPIN.isSet
@@ -260,18 +253,6 @@ struct KioskSettingsView: View {
             Text(detail)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-        }
-    }
-
-    private func step(_ number: Int, _ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(number.formatted())
-                .font(.footnote.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(width: 22, height: 22)
-                .background(accent, in: Circle())
-            Text(text)
-                .font(.subheadline)
         }
     }
 }

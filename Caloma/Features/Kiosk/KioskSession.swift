@@ -48,12 +48,44 @@ final class KioskSession {
     /// After someone taps back to the calendar, faces wait a moment before opening anyone.
     private(set) var facesPausedUntil: Date?
 
+    /// How long a face waits before it can open the same person's screen again.
+    static let faceCooldown: TimeInterval = 120
+    /// When each person's face may open their screen again: two minutes after a face opened
+    /// it, and two minutes after it closed, whichever is later. A tap always opens it.
+    @ObservationIgnored private var faceCooldowns: [UUID: Date] = [:]
+
     @ObservationIgnored private var watchdog: Task<Void, Never>?
 
     /// Family › Kiosk Mode › Back to the Calendar After.
     var idleSeconds: TimeInterval {
+        Self.moveIdleTimeToTwentySeconds()
         let seconds = UserDefaults.standard.integer(forKey: SettingsKey.kioskIdleSeconds)
-        return TimeInterval(seconds > 0 ? seconds : 30)
+        return TimeInterval(seconds > 0 ? seconds : Self.defaultIdleSeconds)
+    }
+
+    /// Back to the calendar after 20 seconds unless the family picks otherwise.
+    static let defaultIdleSeconds = 20
+    /// How long the whiteboard stays up with nobody drawing or touching it.
+    static let whiteboardIdleSeconds: TimeInterval = 60
+
+    /// Once: a wall that was on the old 30-second default moves to 20. Any other choice stays.
+    static func moveIdleTimeToTwentySeconds() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: SettingsKey.kioskIdleMovedTo20) else { return }
+        defaults.set(true, forKey: SettingsKey.kioskIdleMovedTo20)
+        if defaults.integer(forKey: SettingsKey.kioskIdleSeconds) == 30 {
+            defaults.set(defaultIdleSeconds, forKey: SettingsKey.kioskIdleSeconds)
+        }
+    }
+
+    /// Whether a face is still waiting out its cooldown before reopening this person.
+    func isCoolingDown(_ memberID: UUID, now: Date = .now) -> Bool {
+        (faceCooldowns[memberID] ?? .distantPast) > now
+    }
+
+    private func startCooldown(_ memberID: UUID) {
+        let until = Date.now.addingTimeInterval(Self.faceCooldown)
+        faceCooldowns[memberID] = max(faceCooldowns[memberID] ?? .distantPast, until)
     }
 
     /// A tap, a pick or a face asking for someone's screen. Locked profiles ask for their
@@ -63,6 +95,8 @@ final class KioskSession {
             lastTouch = .now
             return
         }
+        // A face just seen doesn't reopen the same screen for two minutes; a tap still does.
+        if source == .face, isCoolingDown(memberID) { return }
         guard ProfileLock.isLocked(memberID) else {
             show(memberID, source: source)
             return
@@ -93,16 +127,23 @@ final class KioskSession {
     }
 
     func show(_ memberID: UUID, source: Source) {
-        // Someone new on screen never inherits the last person's unlock.
-        if memberID != activeID { isUnlocked = false }
+        // Someone new on screen never inherits the last person's unlock, and the person a
+        // face had opened starts their two minutes.
+        if memberID != activeID {
+            isUnlocked = false
+            if let activeID, self.source == .face { startCooldown(activeID) }
+        }
         activeID = memberID
         showsWhiteboard = false
         self.source = source
         arrival += 1
         lastTouch = .now
+        if source == .face { startCooldown(memberID) }
     }
 
     func showCalendar() {
+        // The two minutes run from when a face-opened screen closes, too.
+        if let activeID, source == .face { startCooldown(activeID) }
         activeID = nil
         showsWhiteboard = false
         isUnlocked = false
@@ -111,6 +152,7 @@ final class KioskSession {
 
     /// The rail's Whiteboard switch. Faces don't open anyone while someone's drawing.
     func showWhiteboard() {
+        if let activeID, source == .face { startCooldown(activeID) }
         activeID = nil
         showsWhiteboard = true
         isUnlocked = false
@@ -178,9 +220,9 @@ final class KioskSession {
 
     private func tick() {
         guard activeID != nil || isUnlocked || lockRequest != nil || showsWhiteboard || isComposing else { return }
-        // Drawing takes longer than a glance: the whiteboard waits at least two minutes.
+        // The whiteboard waits a minute after the last stroke or touch, whatever the idle time.
         // Writing an event or a reply gets three.
-        var wait = showsWhiteboard && activeID == nil ? max(idleSeconds, 120) : idleSeconds
+        var wait = showsWhiteboard && activeID == nil ? Self.whiteboardIdleSeconds : idleSeconds
         if isComposing { wait = max(wait, 180) }
         if Date.now.timeIntervalSince(lastTouch) >= wait {
             showCalendar()

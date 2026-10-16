@@ -20,7 +20,7 @@ struct FacesSettingsView: View {
                     if on { facesOn = true } else if store.isEmpty { facesOn = false } else { confirmsOff = true }
                 }))
             } footer: {
-                Text("When someone walks up to the wall, Caloma says hi and opens their screen. The camera is only on while Kiosk Mode is showing.")
+                Text("When someone walks up to the wall, Caloma says hi and opens their screen. The camera is only on while the Family Board is showing.")
             }
 
             if facesOn {
@@ -61,7 +61,7 @@ struct FacesSettingsView: View {
 
             Section {
                 promise("lock.iphone", "On this iPad only", "Face data stays in this iPad's protected storage. It isn't synced, uploaded, backed up or shared, and photos are never kept.")
-                promise("key.slash", "Convenience, not a key", "Approvals, doors, the garage and leaving Kiosk Mode always need the parent PIN.")
+                promise("key.slash", "Convenience, not a key", "Approvals, doors, the garage and leaving the Family Board always need the parent PIN.")
                 promise("trash", "Easy to remove", "Turn off Recognize Faces, or redo someone, and what was learned is erased.")
             }
         }

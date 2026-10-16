@@ -211,7 +211,7 @@ struct ParentPINPad: View {
 /// Choose a new PIN: type it, then type it again.
 struct PINSetupSheet: View {
     var title = "Parent PIN"
-    var prompt = "Choose a 4-digit PIN for Kiosk Mode."
+    var prompt = "Choose a 4-digit PIN for the Family Board."
     var save: (String) -> Void = { ParentPIN.set($0) }
     var onDone: () -> Void
 

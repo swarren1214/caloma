@@ -478,3 +478,69 @@ enum FilterTasks {
         if made { try? context.save() }
     }
 }
+
+// MARK: - Not responding
+
+/// Devices Apple Home lists but that aren't answering (unplugged, out of range, or left over
+/// from a hub that's gone). Collapsed at the bottom so the sections above only hold devices
+/// that work; each moves back to its own section as soon as it answers again.
+struct NotRespondingSection: View {
+    var controls: [HomeControl]
+    var onEdit: (HomeControl) -> Void
+
+    @Environment(\.styleBook) private var book
+    @Environment(\.accent) private var accent
+    @State private var expanded = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(controls) { control in
+                    let look = DeviceLook(control: control, style: book.style(serviceID: control.id.uuidString, matchKey: control.matchKey), accent: accent)
+                    Button {
+                        onEdit(control)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: look.symbol(false))
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 34, height: 34)
+                                .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 9, style: .continuous))
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(control.name)
+                                    .foregroundStyle(.primary)
+                                Text(control.roomName.isEmpty ? control.kind.label : "\(control.roomName) · \(control.kind.label)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text("No Response")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Brand.late)
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.bold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .font(.subheadline)
+                        .padding(.vertical, 8)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Text("These are in Apple Home but aren't answering. Check their power or hub, or remove ones you no longer have in the Home app. Each one moves back to its section when it answers again.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+            }
+        } label: {
+            Label("Not Responding (\(controls.count))", systemImage: "exclamationmark.circle")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .controlCard()
+    }
+}

@@ -139,6 +139,8 @@ private struct ScreenshotStage: ViewModifier {
             router.tab = .homeCare
         case .hometask:
             router.tab = .homeCare
+            // On iPhone, More pushes Home Care first.
+            try? await Task.sleep(for: .milliseconds(300))
             homeCarePath.append(ScreenshotRoute.homeTask(ScreenshotMode.demoHomeTaskID))
         case .kidview, .kidday, .kidstore:
             // Kid View shows the demo kid (see KidModeView); My Day and the store open from there.

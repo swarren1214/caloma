@@ -104,18 +104,22 @@ struct ControlView: View {
         let visible = home.allControls.filter { !(book.style(serviceID: $0.id.uuidString, matchKey: $0.matchKey)?.hidden ?? false) }
         let rooms = home.roomControls
         let inRoom: Set<UUID>? = room == Self.everything ? nil : Set(rooms.first { $0.id == room }?.controls.map(\.id) ?? [])
-        let shown = visible.filter { inRoom?.contains($0.id) ?? true }
-        let alarming = visible.filter { home.isAlarming($0) }
-        let hasMainValve = visible.contains { $0.kind == .valve && home.valveType($0) == 0 }
+        // Devices Apple Home has but that aren't answering wait at the bottom, under Not
+        // Responding, instead of showing controls that can't do anything.
+        let working = visible.filter(\.reachable)
+        let offline = visible.filter { !$0.reachable && (inRoom?.contains($0.id) ?? true) }
+        let shown = working.filter { inRoom?.contains($0.id) ?? true }
+        let alarming = working.filter { home.isAlarming($0) }
+        let hasMainValve = working.contains { $0.kind == .valve && home.valveType($0) == 0 }
 
         ForEach(alarming) { control in
             AlarmBanner(control: control, canShutOffWater: hasMainValve)
         }
 
         StatusStrip(
-            climate: visible.first { $0.kind == .thermostat },
-            lights: visible.filter { $0.kind == .light },
-            securables: visible.filter { $0.kind == .lock || $0.kind == .garage || $0.kind == .securitySystem },
+            climate: working.first { $0.kind == .thermostat },
+            lights: working.filter { $0.kind == .light },
+            securables: working.filter { $0.kind == .lock || $0.kind == .garage || $0.kind == .securitySystem },
             onAllOff: allOff
         )
 
@@ -225,8 +229,12 @@ struct ControlView: View {
             }
         }
 
+        if !offline.isEmpty {
+            NotRespondingSection(controls: offline) { sheet = .edit($0) }
+        }
+
         if room == Self.everything {
-            let buttons = visible.filter { $0.section == .buttons }
+            let buttons = working.filter { $0.section == .buttons }
             if !buttons.isEmpty || !home.batteries.isEmpty {
                 BatteriesSection(buttons: buttons)
             }

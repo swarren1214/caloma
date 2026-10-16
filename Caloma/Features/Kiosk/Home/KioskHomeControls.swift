@@ -25,7 +25,8 @@ struct KioskHomeControls: View {
 
     var body: some View {
         let book = StyleBook(styles)
-        let all = bridge.roomControls.flatMap(\.controls).filter { !(book.style(serviceID: $0.id.uuidString, matchKey: $0.matchKey)?.hidden ?? false) }
+        // Only devices that answer: the full sheet lists the rest under Not Responding.
+        let all = bridge.roomControls.flatMap(\.controls).filter { $0.reachable && !(book.style(serviceID: $0.id.uuidString, matchKey: $0.matchKey)?.hidden ?? false) }
         let secure = all.filter { $0.kind == .lock } + all.filter { $0.kind == .garage } + all.filter { $0.kind == .securitySystem }
         let thermostat = all.first { $0.kind == .thermostat }
         VStack(spacing: 10) {
@@ -138,7 +139,7 @@ struct KioskHomeControls: View {
                     ContentUnavailableView(
                         "Set a Parent PIN First",
                         systemImage: "key.fill",
-                        description: Text("Unlocking doors, opening the garage and turning off the alarm from the wall take the parent PIN. Set one in Family › Kiosk Mode.")
+                        description: Text("Unlocking doors, opening the garage and turning off the alarm from the wall take the parent PIN. Set one in Family › Family Board.")
                     )
                 }
             }
