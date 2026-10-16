@@ -214,7 +214,7 @@ struct KioskRootView: View {
         .sheet(item: Binding(get: { session.lockRequest }, set: { if $0 == nil { session.cancelUnlock() } })) { request in
             if let person = people.first(where: { $0.id == request.memberID }) {
                 ProfileUnlockSheet(member: person) {
-                    withAnimation(.smooth(duration: 0.45)) { session.finishUnlock(request.id) }
+                    withAnimation(.smooth(duration: 0.45)) { session.finishUnlock(request.id, isParent: !person.isKid) }
                 } onCancel: {
                     session.cancelUnlock()
                 }

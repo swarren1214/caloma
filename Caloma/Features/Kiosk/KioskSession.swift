@@ -108,13 +108,16 @@ final class KioskSession {
     }
 
     /// The passcode (or Face ID) for this request was right.
-    func finishUnlock(_ requestID: UUID) {
+    /// A parent who just gave their own passcode is unlocked for the visit too: approvals and
+    /// home controls don't ask again for the parent PIN.
+    func finishUnlock(_ requestID: UUID, isParent: Bool = false) {
         guard let request = lockRequest, request.id == requestID else { return }
         lockRequest = nil
         if let look = request.look {
             FaceStore.shared.learn(look, for: request.memberID)
         }
         show(request.memberID, source: request.source)
+        if isParent { unlock() }
     }
 
     /// Cancelled: and a face standing there doesn't ask again straight away.
