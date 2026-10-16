@@ -46,7 +46,7 @@ final class HomeBridge: NSObject {
     private(set) var authorized: Bool?
     private(set) var homeNames: [HomeName] = []
     /// Goes up when any value Caloma shows changes, so views redraw.
-    private(set) var revision = 0
+    var revision = 0
 
     /// Set by Kiosk Mode while it's showing.
     @ObservationIgnored var onDoorbell: ((DoorbellEvent) -> Void)?
@@ -194,6 +194,12 @@ final class HomeBridge: NSObject {
             HMCharacteristicTypeInputEvent, HMCharacteristicTypeMotionDetected,
             HMCharacteristicTypeCurrentLockMechanismState, HMCharacteristicTypeCurrentDoorState,
             HMCharacteristicTypeCurrentTemperature, HMCharacteristicTypeCurrentHeatingCooling,
+            // The Control tab's tiles.
+            HMCharacteristicTypePowerState, HMCharacteristicTypeBrightness, HMCharacteristicTypeActive,
+            HMCharacteristicTypeTargetTemperature, HMCharacteristicTypeTargetHeatingCooling,
+            HMCharacteristicTypeCurrentPosition, HMCharacteristicTypeTargetPosition,
+            HMCharacteristicTypeTargetLockMechanismState, HMCharacteristicTypeTargetDoorState,
+            HMCharacteristicTypeCurrentRelativeHumidity, HMCharacteristicTypeContactState,
         ]
         for accessory in home.accessories {
             accessory.delegate = self
@@ -261,6 +267,10 @@ extension HomeBridge: HMHomeManagerDelegate, HMAccessoryDelegate {
         Task { @MainActor in
             self.authorized = status.contains(.authorized)
         }
+    }
+
+    nonisolated func accessoryDidUpdateReachability(_ accessory: HMAccessory) {
+        Task { @MainActor in self.revision += 1 }
     }
 
     nonisolated func accessory(_ accessory: HMAccessory, service: HMService, didUpdateValueFor characteristic: HMCharacteristic) {
