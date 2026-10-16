@@ -289,11 +289,13 @@ private struct KidColumn: View {
 }
 
 /// One chore on the board: the check (a parent's tap approves), the name, how often, a tag
-/// when it's waiting or wants a photo, and the points. Tapping the name edits the chore.
+/// when it's waiting or wants a photo, and the points. Tapping the name edits the chore;
+/// a long press opens the complete / edit / delete menu.
 struct ChoreRow: View {
     var item: BoardItem
     var color: Color
-    var onEdit: (UUID) -> Void
+    /// Nil where the editor can't open: tapping the name does nothing and the menu has no Edit.
+    var onEdit: ((UUID) -> Void)?
     var onToggle: () -> Void
 
     @Query private var rooms: [Room]
@@ -315,7 +317,7 @@ struct ChoreRow: View {
             .sensoryFeedback(.success, trigger: item.status == .approved)
 
             Button {
-                onEdit(item.chore.id)
+                onEdit?(item.chore.id)
             } label: {
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -351,11 +353,31 @@ struct ChoreRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Edit chore")
+            .accessibilityHint(onEdit == nil ? "" : "Edit chore")
         }
         .padding(.leading, 6)
         .padding(.trailing, 14)
         .frame(minHeight: 60)
+        .choreActions(title: item.chore.title, choreID: item.chore.id, onEdit: onEdit) {
+            Button(completeTitle, systemImage: completeSymbol, action: onToggle)
+        }
+    }
+
+    /// The menu's first action follows the check: complete, approve, or take it back.
+    private var completeTitle: String {
+        switch item.status {
+        case .open: "Mark Complete"
+        case .pending: "Approve"
+        case .approved: "Mark Not Done"
+        }
+    }
+
+    private var completeSymbol: String {
+        switch item.status {
+        case .open: "checkmark.circle"
+        case .pending: "checkmark.seal"
+        case .approved: "arrow.uturn.backward.circle"
+        }
     }
 
     private var checkLabel: String {
@@ -376,7 +398,6 @@ private struct UpForGrabsRow: View {
     @Environment(\.accent) private var accent
 
     var body: some View {
-        let eligible = item.chore.assigneeIDs.isEmpty ? family.kids : family.members.filter { item.chore.assigneeIDs.contains($0.id) }
         HStack(spacing: 12) {
             Menu {
                 Section("Who did it?") {
@@ -411,6 +432,20 @@ private struct UpForGrabsRow: View {
         .padding(.leading, 6)
         .padding(.trailing, 14)
         .frame(minHeight: 64)
+        .choreActions(title: item.chore.title, choreID: item.chore.id, onEdit: onEdit) {
+            // Up for grabs: completing it means saying who did it.
+            Menu("Mark Complete", systemImage: "checkmark.circle") {
+                Section("Who did it?") {
+                    ForEach(eligible) { kid in
+                        Button(kid.name) { onDone(kid) }
+                    }
+                }
+            }
+        }
+    }
+
+    private var eligible: [Member] {
+        item.chore.assigneeIDs.isEmpty ? family.kids : family.members.filter { item.chore.assigneeIDs.contains($0.id) }
     }
 }
 

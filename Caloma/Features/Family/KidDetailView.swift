@@ -67,7 +67,7 @@ struct KidDetailView: View {
                     Card { Text("Nothing on the board today.").foregroundStyle(.secondary) }
                 } else {
                     CardList(items: items, inset: 56) { item in
-                        ChoreRow(item: item, color: kid.color.color, onEdit: { _ in }) {
+                        ChoreRow(item: item, color: kid.color.color, onEdit: nil) {
                             toggle(item, kid)
                         }
                     }

@@ -18,6 +18,7 @@ enum Persistence {
         FamilySetting.self,
         Whiteboard.self,
         WallNote.self,
+        DeviceStyle.self,
     ])
 
     private static let log = Logger(subsystem: "com.stephenwarren.caloma", category: "persistence")

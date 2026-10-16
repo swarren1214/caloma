@@ -190,17 +190,11 @@ final class HomeBridge: NSObject {
     /// Asks every accessory Caloma cares about to report changes, and reads where they are now.
     private func subscribe() {
         guard let home else { return }
-        let watched: Set<String> = [
+        // Doorbells and camera motion, plus everything the Control tab's tiles and alerts show.
+        let watched: Set<String> = Self.shownCharacteristics.union([
             HMCharacteristicTypeInputEvent, HMCharacteristicTypeMotionDetected,
-            HMCharacteristicTypeCurrentLockMechanismState, HMCharacteristicTypeCurrentDoorState,
-            HMCharacteristicTypeCurrentTemperature, HMCharacteristicTypeCurrentHeatingCooling,
-            // The Control tab's tiles.
-            HMCharacteristicTypePowerState, HMCharacteristicTypeBrightness, HMCharacteristicTypeActive,
-            HMCharacteristicTypeTargetTemperature, HMCharacteristicTypeTargetHeatingCooling,
-            HMCharacteristicTypeCurrentPosition, HMCharacteristicTypeTargetPosition,
             HMCharacteristicTypeTargetLockMechanismState, HMCharacteristicTypeTargetDoorState,
-            HMCharacteristicTypeCurrentRelativeHumidity, HMCharacteristicTypeContactState,
-        ]
+        ])
         for accessory in home.accessories {
             accessory.delegate = self
             for service in accessory.services {

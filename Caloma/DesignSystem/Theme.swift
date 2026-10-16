@@ -68,6 +68,9 @@ nonisolated enum SettingsKey {
     static let kioskMatchLight = "kiosk.matchLight"
     /// Which Apple Home the wall iPad watches, when there's more than one.
     static let kioskHomeID = "kiosk.homeID"
+    /// The Apple Home scene Control last ran (its action set's ID), for the glow behind the
+    /// screen. Cleared when someone changes a device by hand.
+    static let controlScene = "control.scene"
 }
 
 /// Caloma's colors, from the Tend designs on the Claude Design canvas.

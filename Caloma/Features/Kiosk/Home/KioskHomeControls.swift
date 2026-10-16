@@ -1,12 +1,15 @@
+import SwiftData
 import SwiftUI
 
-/// The Home card on a parent's wall screen: locks, garage doors and the thermostat from Apple
-/// Home, all of them working. Locking up and closing the garage are one tap. Unlocking a door or
-/// opening the garage takes the parent PIN (once per visit, like approvals), because a face on the
+/// The Home card on a parent's wall screen: locks, garage doors, the alarm and the thermostat from Apple
+/// Home, all of them working. Locking up and closing the garage are one tap. Unlocking a door,
+/// opening the garage or disarming the alarm takes the parent PIN (once per visit), because a face on the
 /// wall is never proof enough to open the house. The thermostat steps a degree at a time and
 /// sends the new setting once the taps stop.
 struct KioskHomeControls: View {
     @Environment(KioskSession.self) private var session
+    /// Devices the family hid in Control stay off the wall too.
+    @Query private var styles: [DeviceStyle]
 
     /// Writes in flight, by control.
     @State private var busy: Set<UUID> = []
@@ -21,8 +24,9 @@ struct KioskHomeControls: View {
     private var bridge: HomeBridge { .shared }
 
     var body: some View {
-        let all = bridge.roomControls.flatMap(\.controls)
-        let secure = all.filter { $0.kind == .lock } + all.filter { $0.kind == .garage }
+        let book = StyleBook(styles)
+        let all = bridge.roomControls.flatMap(\.controls).filter { !(book.style(serviceID: $0.id.uuidString, matchKey: $0.matchKey)?.hidden ?? false) }
+        let secure = all.filter { $0.kind == .lock } + all.filter { $0.kind == .garage } + all.filter { $0.kind == .securitySystem }
         let thermostat = all.first { $0.kind == .thermostat }
         VStack(spacing: 10) {
             if !secure.isEmpty {
@@ -45,11 +49,13 @@ struct KioskHomeControls: View {
     // MARK: Locks and garage doors
 
     private func secureTile(_ control: HomeControl) -> some View {
-        let secured = bridge.isOn(control)  // locked, or closed
+        // Locked, closed, or an alarm that's armed or going off (so it reads "Disarm").
+        let secured = control.kind == .securitySystem ? (bridge.securityState(control) ?? 3) != 3 : bridge.isOn(control)
         let state = control.reachable ? bridge.state(control) : "Not responding"
         let tint = secured ? Self.green : Brand.waiting
         let isLock = control.kind == .lock
-        let action = isLock ? (secured ? "Unlock" : "Lock") : (secured ? "Open" : "Close")
+        let isAlarm = control.kind == .securitySystem
+        let action = isAlarm ? (secured ? "Disarm" : "Arm") : (isLock ? (secured ? "Unlock" : "Lock") : (secured ? "Open" : "Close"))
         let needsPIN = secured && !session.isUnlocked
         let working = busy.contains(control.id)
         return Button {
@@ -66,7 +72,7 @@ struct KioskHomeControls: View {
                             .controlSize(.small)
                             .tint(tint)
                     } else {
-                        Image(systemName: isLock ? (secured ? "lock.fill" : "lock.open.fill") : (secured ? "door.garage.closed" : "door.garage.open"))
+                        Image(systemName: isAlarm ? (secured ? "shield.lefthalf.filled" : "shield") : (isLock ? (secured ? "lock.fill" : "lock.open.fill") : (secured ? "door.garage.closed" : "door.garage.open")))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(tint)
                             .contentTransition(.symbolEffect(.replace))
@@ -119,7 +125,7 @@ struct KioskHomeControls: View {
     }
 
     private func pinSheet(_ control: HomeControl) -> some View {
-        let verb = control.kind == .lock ? "unlock" : "open"
+        let verb = control.kind == .securitySystem ? "disarm" : (control.kind == .lock ? "unlock" : "open")
         return NavigationStack {
             VStack(spacing: 16) {
                 if ParentPIN.isSet {
@@ -132,7 +138,7 @@ struct KioskHomeControls: View {
                     ContentUnavailableView(
                         "Set a Parent PIN First",
                         systemImage: "key.fill",
-                        description: Text("Unlocking doors and opening the garage from the wall takes the parent PIN. Set one in Family › Kiosk Mode.")
+                        description: Text("Unlocking doors, opening the garage and turning off the alarm from the wall take the parent PIN. Set one in Family › Kiosk Mode.")
                     )
                 }
             }

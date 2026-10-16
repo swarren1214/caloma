@@ -24,7 +24,7 @@ enum SyncSchema {
     static let types: [any CloudRecord.Type] = [
         Member.self, Room.self, Chore.self, ChoreCompletion.self, Reward.self, Redemption.self,
         PointEntry.self, HomeTask.self, HomeTaskLog.self, FamilyEvent.self, EventPacking.self,
-        FamilySetting.self, Whiteboard.self, WallNote.self,
+        FamilySetting.self, Whiteboard.self, WallNote.self, DeviceStyle.self,
     ]
 
     static func type(named name: String) -> (any CloudRecord.Type)? {
@@ -286,6 +286,7 @@ extension HomeTask: CloudRecord {
         record["location"] = location
         record["details"] = details
         record["notes"] = notes
+        record["sourceKey"] = sourceKey
         record["isArchived"] = isArchived
         record["createdAt"] = createdAt
     }
@@ -301,6 +302,7 @@ extension HomeTask: CloudRecord {
         location = record.string("location") ?? location
         details = record.string("details") ?? details
         notes = record.string("notes") ?? notes
+        sourceKey = record.string("sourceKey") ?? sourceKey
         isArchived = record.bool("isArchived") ?? isArchived
         createdAt = record.date("createdAt") ?? createdAt
     }
@@ -496,5 +498,40 @@ extension WallNote: CloudRecord {
         createdAt = record.date("createdAt") ?? createdAt
         expiresAt = record.date("expiresAt")
         replyToID = record.uuid("replyToID")
+    }
+}
+
+extension DeviceStyle: CloudRecord {
+    static let recordType = "DeviceStyle"
+    static func blank() -> DeviceStyle { DeviceStyle(homeID: "", serviceID: "", matchKey: "") }
+
+    func write(to record: CKRecord) {
+        record["homeID"] = homeID
+        record["serviceID"] = serviceID
+        record["matchKey"] = matchKey
+        record["symbol"] = symbol
+        record["colorHex"] = colorHex
+        record["tileStyleRaw"] = tileStyleRaw
+        record.setAsset(photoData, for: "photo")
+        record["hidden"] = hidden
+        record["kidsAllowed"] = kidsAllowed
+        record["pinnedToHome"] = pinnedToHome
+        record["sortOrder"] = sortOrder
+        record["updatedAt"] = updatedAt
+    }
+
+    func read(from record: CKRecord) {
+        homeID = record.string("homeID") ?? homeID
+        serviceID = record.string("serviceID") ?? serviceID
+        matchKey = record.string("matchKey") ?? matchKey
+        symbol = record.string("symbol") ?? symbol
+        colorHex = record.string("colorHex") ?? colorHex
+        tileStyleRaw = record.string("tileStyleRaw") ?? tileStyleRaw
+        photoData = record.asset("photo")
+        hidden = record.bool("hidden") ?? hidden
+        kidsAllowed = record.bool("kidsAllowed") ?? kidsAllowed
+        pinnedToHome = record.bool("pinnedToHome") ?? pinnedToHome
+        sortOrder = record.int("sortOrder") ?? sortOrder
+        updatedAt = record.date("updatedAt") ?? updatedAt
     }
 }

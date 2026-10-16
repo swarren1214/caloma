@@ -22,6 +22,7 @@ struct HomeView: View {
         let family = family
         CalomaScreen(title: "Home") {
             kidsToday(family)
+            PinnedDevicesCard()
             DinnerTonightCard()
             ComingUpCard()
             if family.needsOKCount > 0 {

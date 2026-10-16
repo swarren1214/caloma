@@ -421,6 +421,9 @@ final class HomeTask {
     /// "16×25×1 MERV 11"
     var details: String = ""
     var notes: String = ""
+    /// Set when Caloma made the task itself ("filter:<service ID>" for a filter Apple Home
+    /// says is wearing out), so it's never made twice.
+    var sourceKey: String = ""
     var isArchived: Bool = false
     var createdAt: Date = Date.now
 

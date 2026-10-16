@@ -401,6 +401,7 @@ struct KidDayView: View {
                     }
                     .buttonStyle(KidPressStyle())
                 }
+                KidHomeStrip(color: color)
                 Text(mine.contains { $0.chore.requiresApproval } ? "\(words.title) show up after Mom or Dad says OK." : " ")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
