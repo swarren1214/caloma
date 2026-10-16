@@ -115,6 +115,25 @@ struct KioskRootView: View {
                 .accessibilityLabel("Leave the Family Board")
             }
         }
+        // No one around: the screensaver, over everything but the doorbell.
+        .overlay {
+            if presence.isScreensaverOn {
+                KioskScreensaverView { presence.touched() }
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.8), value: presence.isScreensaverOn)
+        .onChange(of: presence.isScreensaverOn) { _, on in
+            guard on else { return }
+            // Underneath, the wall goes back to the calendar, and nothing is left open on top.
+            session.showCalendar()
+            leaving = false
+            drawingBack = nil
+        }
+        // Look less often while the screen is dark or the doorbell is up.
+        .onChange(of: presence.isDimmed) { _, dimmed in
+            FaceRecognizer.shared.setSlow(dimmed || session.doorbell != nil)
+        }
         // Someone at the door: the card slides in over everything.
         .overlay {
             if let event = session.doorbell {
@@ -157,15 +176,23 @@ struct KioskRootView: View {
             HomeBridge.shared.onDoorbell = { event in
                 // A ring always shows; motion never covers a card that's already up.
                 if event.byMotion && session.doorbell != nil { return }
+                // It wakes the screensaver and the dimmed screen.
+                presence.touched()
                 withAnimation(.spring(duration: 0.45, bounce: 0.2)) { session.ring(event) }
             }
             startFaces()
             WallNoteQueue.sweep(wallNotes, in: context)
+            // Waking to the calendar: decided right as the screensaver ends, so a face that
+            // woke it waits a moment before opening anyone's screen.
+            presence.onScreensaverEnd = {
+                if ScreensaverPrefs.wakeTo == .calendar { session.showCalendarByTap() }
+            }
         }
         .onDisappear {
             session.stop()
             UIApplication.shared.isIdleTimerDisabled = false
             HomeBridge.shared.onDoorbell = nil
+            presence.onScreensaverEnd = nil
             presence.stop()
             FaceRecognizer.shared.onRecognized = nil
             FaceRecognizer.shared.stop()
@@ -178,7 +205,7 @@ struct KioskRootView: View {
         }
         .onChange(of: session.doorbell != nil) { _, ringing in
             // Look less often while the doorbell is up; it won't switch screens anyway.
-            FaceRecognizer.shared.setSlow(ringing)
+            FaceRecognizer.shared.setSlow(ringing || presence.isDimmed)
         }
         .onChange(of: keepAwake) { _, on in
             UIApplication.shared.isIdleTimerDisabled = on
@@ -238,6 +265,11 @@ extension KioskRootView {
     /// a steady second and a half, and never while a parent has it unlocked.
     private func recognized(_ id: UUID, held: TimeInterval) {
         guard !leaving, session.doorbell == nil, session.lockRequest == nil, people.contains(where: { $0.id == id }) else { return }
+        // A face wakes the screensaver; with "Then Show: Their Screen" it opens theirs too.
+        if presence.isScreensaverOn {
+            presence.touched()
+            if ScreensaverPrefs.wakeTo == .calendar { return }
+        }
         if let paused = session.facesPausedUntil, paused > .now, session.activeID == nil { return }
         // Someone drawing on the whiteboard or writing keeps the screen.
         if session.isComposing || (session.showsWhiteboard && session.activeID == nil) { return }

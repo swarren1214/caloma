@@ -12,6 +12,8 @@ struct KioskSettingsView: View {
     @AppStorage(SettingsKey.kioskDims) private var dims = true
     @AppStorage(SettingsKey.kioskDimMinutes) private var dimMinutes = 5
     @AppStorage(SettingsKey.kioskMatchLight) private var matchLight = true
+    @AppStorage(SettingsKey.kioskScreensaver) private var screensaverOn = true
+    @AppStorage(SettingsKey.kioskScreensaverMinutes) private var screensaverMinutes = 5
     @AppStorage(SettingsKey.kioskDoorbell) private var doorbellOn = true
     @AppStorage(SettingsKey.kioskChime) private var chime = true
     @AppStorage(SettingsKey.kioskLockBiometrics) private var lockBiometrics = true
@@ -75,7 +77,7 @@ struct KioskSettingsView: View {
                     settingLabel("Dim When No One's Around", "Fades right down, and wakes when the camera sees someone move")
                 }
                 if dims {
-                    Picker("Dim After", selection: $dimMinutes) {
+                    Picker(screensaverOn ? "Dim After the Screensaver Starts" : "Dim After", selection: $dimMinutes) {
                         ForEach([2, 5, 10, 15], id: \.self) { minutes in
                             Text("\(minutes) minutes").tag(minutes)
                         }
@@ -90,6 +92,20 @@ struct KioskSettingsView: View {
                 if dims || matchLight {
                     Text("Uses the front camera to notice movement and light; nothing is recorded. The camera light stays on while the Family Board is showing.")
                 }
+            }
+
+            Section {
+                NavigationLink {
+                    ScreensaverSettingsView()
+                } label: {
+                    LabeledContent {
+                        Text(screensaverOn ? "After \(screensaverMinutes) min" : "Off")
+                    } label: {
+                        Label("Screensaver", systemImage: "photo.on.rectangle.angled")
+                    }
+                }
+            } footer: {
+                Text("Family photos and cards that take turns when no one's around. A tap or someone walking up wakes it.")
             }
 
             Section {

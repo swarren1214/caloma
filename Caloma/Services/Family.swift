@@ -193,12 +193,13 @@ enum Family {
     static func eraseAll(in context: ModelContext, defaults: UserDefaults = .standard) {
         CloudSync.shared.pauseForErase()
         // Back to onboarding first, so no open screen draws a record that's being deleted.
-        for key in [SettingsKey.onboarded, SettingsKey.seeded, SettingsKey.currentMember, SettingsKey.kidViewOpen, SettingsKey.kidViewMember, SettingsKey.kioskOpen, SettingsKey.kioskFaces] {
+        for key in [SettingsKey.onboarded, SettingsKey.seeded, SettingsKey.currentMember, SettingsKey.kidViewOpen, SettingsKey.kidViewMember, SettingsKey.kioskOpen, SettingsKey.kioskFaces, SettingsKey.kioskScreensaverPhotos, SettingsKey.kioskScreensaverAlbums] {
             defaults.removeObject(forKey: key)
         }
         ParentPIN.clear()
         ProfileLock.clearAll(defaults: defaults)
         FaceStore.shared.eraseAll()
+        ScreensaverLibrary.eraseAll()
         try? context.delete(model: Member.self)
         try? context.delete(model: Chore.self)
         try? context.delete(model: ChoreCompletion.self)

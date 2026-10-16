@@ -10,10 +10,18 @@ final class KioskPresence {
     static let shared = KioskPresence()
 
     private(set) var isDimmed = false
+    /// The screensaver is showing.
+    private(set) var isScreensaverOn = false
+    /// Called the moment the screensaver ends, before anything else reacts, so the wall can
+    /// decide where it wakes to.
+    @ObservationIgnored var onScreensaverEnd: (() -> Void)?
     private(set) var cameraDenied = false
 
     @ObservationIgnored private var running = false
     @ObservationIgnored private var lastActivity = Date.now
+    /// The last touch alone; with "Wake When Someone Walks Up" off, only touches hold off the
+    /// screensaver.
+    @ObservationIgnored private var lastTouch = Date.now
     @ObservationIgnored private var lastAdjust = Date.distantPast
     /// The room's brightness, smoothed (APEX stops from the camera).
     @ObservationIgnored private var roomLight: Double?
@@ -31,6 +39,9 @@ final class KioskPresence {
         return TimeInterval((minutes > 0 ? minutes : 5) * 60)
     }
 
+    private var screensaverOn: Bool { ScreensaverPrefs.isOn }
+    private var screensaverAfter: TimeInterval { TimeInterval(ScreensaverPrefs.startMinutes * 60) }
+
     private var screen: UIScreen? {
         UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen }.first
     }
@@ -42,8 +53,10 @@ final class KioskPresence {
         running = true
         original = screen?.brightness
         lastActivity = .now
+        lastTouch = .now
         isDimmed = false
-        if dims || matchesLight {
+        isScreensaverOn = false
+        if dims || matchesLight || (screensaverOn && ScreensaverPrefs.wakesOnWalkUp) {
             if await FaceCamera.requestAccess() {
                 guard running else { return }
                 camera.onPresence = { motion, brightness in
@@ -72,6 +85,7 @@ final class KioskPresence {
         camera.onPresence = nil
         camera.stop("presence")
         isDimmed = false
+        isScreensaverOn = false
         if let original { screen?.brightness = original }
         original = nil
     }
@@ -87,7 +101,8 @@ final class KioskPresence {
     /// A touch anywhere on the screen.
     func touched() {
         lastActivity = .now
-        if isDimmed { wake() }
+        lastTouch = .now
+        if isDimmed || isScreensaverOn { wake(endingScreensaver: true) }
     }
 
     private func saw(motion: Bool, brightness: Double?) {
@@ -98,7 +113,10 @@ final class KioskPresence {
         }
         if motion {
             lastActivity = .now
-            if isDimmed { wake() }
+            // Movement ends the screensaver only when it's set to; otherwise it just brightens a
+            // dimmed screen and the screensaver keeps going.
+            let ends = isScreensaverOn && ScreensaverPrefs.wakesOnWalkUp
+            if isDimmed || ends { wake(endingScreensaver: ends) }
         }
         // While awake, follow the room's light about once a minute.
         if !isDimmed, matchesLight, Date.now.timeIntervalSince(lastAdjust) > 60 {
@@ -108,13 +126,27 @@ final class KioskPresence {
     }
 
     private func tick() {
-        guard running, dims, !isDimmed, Date.now.timeIntervalSince(lastActivity) >= dimAfter else { return }
+        guard running else { return }
+        let now = Date.now
+        // The screensaver first, then (if dimming is on) the dim, that much later again.
+        if screensaverOn, !isScreensaverOn {
+            let quietSince = ScreensaverPrefs.wakesOnWalkUp ? lastActivity : lastTouch
+            if now.timeIntervalSince(quietSince) >= screensaverAfter {
+                isScreensaverOn = true
+            }
+        }
+        let dimAt = screensaverOn ? screensaverAfter + dimAfter : dimAfter
+        guard dims, !isDimmed, now.timeIntervalSince(lastActivity) >= dimAt else { return }
         isDimmed = true
         fadeTo(0, over: 2.5)
     }
 
-    private func wake() {
+    private func wake(endingScreensaver: Bool) {
         isDimmed = false
+        if endingScreensaver && isScreensaverOn {
+            isScreensaverOn = false
+            onScreensaverEnd?()
+        }
         lastAdjust = .now
         fadeTo(target, over: 0.6)
     }

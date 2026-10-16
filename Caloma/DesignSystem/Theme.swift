@@ -70,6 +70,33 @@ nonisolated enum SettingsKey {
     static let kioskMatchLight = "kiosk.matchLight"
     /// Which Apple Home the wall iPad watches, when there's more than one.
     static let kioskHomeID = "kiosk.homeID"
+    /// The Family Board's screensaver (on unless turned off).
+    static let kioskScreensaver = "kiosk.screensaver"
+    /// Minutes with no one around before the screensaver starts.
+    static let kioskScreensaverMinutes = "kiosk.screensaver.minutes"
+    /// Seconds each photo shows.
+    static let kioskScreensaverPhotoSeconds = "kiosk.screensaver.photoSeconds"
+    static let kioskScreensaverShuffle = "kiosk.screensaver.shuffle"
+    /// A slow zoom across each photo.
+    static let kioskScreensaverZoom = "kiosk.screensaver.zoom"
+    /// "corner" or "panel".
+    static let kioskScreensaverStyle = "kiosk.screensaver.style"
+    /// Someone walking up wakes it (on unless turned off).
+    static let kioskScreensaverWakeOnMotion = "kiosk.screensaver.wakeOnMotion"
+    /// "person" (their screen, when recognized) or "calendar".
+    static let kioskScreensaverWakeTo = "kiosk.screensaver.wakeTo"
+    /// Just a dim clock from 10 PM to 6 AM (on unless turned off).
+    static let kioskScreensaverNight = "kiosk.screensaver.night"
+    /// The cards, in order: "upNext,dinner,-countdown" (a minus is off).
+    static let kioskScreensaverWidgets = "kiosk.screensaver.widgets"
+    /// Caloma wallpapers to show, comma-separated asset names.
+    static let kioskScreensaverWallpapers = "kiosk.screensaver.wallpapers"
+    /// Photos albums to show, comma-separated local identifiers.
+    static let kioskScreensaverAlbums = "kiosk.screensaver.albums"
+    /// Photos picked one by one: Caloma's own copies, comma-separated file names.
+    static let kioskScreensaverPhotos = "kiosk.screensaver.photos"
+    /// Leave screenshots out of album photos (on unless turned off).
+    static let kioskScreensaverSkipScreenshots = "kiosk.screensaver.skipScreenshots"
     /// The Apple Home scene Control last ran (its action set's ID), for the glow behind the
     /// screen. Cleared when someone changes a device by hand.
     static let controlScene = "control.scene"
