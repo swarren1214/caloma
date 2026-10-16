@@ -310,6 +310,8 @@ struct KidDayView: View {
     var kids: [Member]
     var onPick: (Member) -> Void
     var onLeave: () -> Void
+    /// On the wall in Kiosk Mode: no kid row or Parent button, and a "Not Ella?" button.
+    var kiosk: KioskKidOptions? = nil
 
     @Environment(\.modelContext) private var context
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -353,7 +355,9 @@ struct KidDayView: View {
         let done = mine.filter { $0.status.isDone }.count
         ScrollView {
             VStack(spacing: 18) {
-                KidTopBar(kid: kid, kids: kids, onPick: onPick, onLeave: onLeave)
+                if kiosk == nil {
+                    KidTopBar(kid: kid, kids: kids, onPick: onPick, onLeave: onLeave)
+                }
                 header(family)
                 KidPageSwitch(page: $page, color: color)
                 if page == .day {
@@ -362,7 +366,16 @@ struct KidDayView: View {
                     }
                     .transition(.opacity)
                 } else {
-                    ProgressTrack(done: done, total: mine.count, kid: kid)
+                    if kiosk != nil {
+                        // On the wall, what's next and what to bring sits beside the track.
+                        HStack(spacing: 14) {
+                            KioskUpNext(kid: kid)
+                            ProgressTrack(done: done, total: mine.count, kid: kid)
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        ProgressTrack(done: done, total: mine.count, kid: kid)
+                    }
                     if items.isEmpty {
                         nothingToday
                     } else {
@@ -463,6 +476,10 @@ struct KidDayView: View {
                         .shadow(color: color.opacity(0.35), radius: 10, y: 6)
                 }
                 .buttonStyle(KidPressStyle())
+            }
+
+            if let kiosk {
+                KioskNotMeButton(name: kid.name, color: color, action: kiosk.onNotMe)
             }
         }
     }

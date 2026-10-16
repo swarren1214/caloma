@@ -10,6 +10,8 @@ struct EventDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(\.accent) private var accent
+    /// On the Kiosk Mode wall: look, don't change.
+    @Environment(\.calendarReadOnly) private var readOnly
     @Query private var events: [FamilyEvent]
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @Query private var packings: [EventPacking]
@@ -31,7 +33,7 @@ struct EventDetailView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Done", systemImage: "xmark") { dismiss() }
             }
-            if event != nil {
+            if event != nil && !readOnly {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Edit") { editing = true }
                 }
@@ -144,17 +146,19 @@ struct EventDetailView: View {
                 }
             }
 
-            Section {
-                if event.repeatRule != .never {
-                    Button("Skip \(day.formatted(.dateTime.weekday(.wide).month().day()))") {
-                        Family.skip(event, on: day, in: context)
-                        dismiss()
+            if !readOnly {
+                Section {
+                    if event.repeatRule != .never {
+                        Button("Skip \(day.formatted(.dateTime.weekday(.wide).month().day()))") {
+                            Family.skip(event, on: day, in: context)
+                            dismiss()
+                        }
                     }
-                }
-                Button("Delete Event", role: .destructive) { confirmsDelete = true }
-            } footer: {
-                if event.repeatRule != .never {
-                    Text("Skipping takes this one day off the calendar and leaves the rest.")
+                    Button("Delete Event", role: .destructive) { confirmsDelete = true }
+                } footer: {
+                    if event.repeatRule != .never {
+                        Text("Skipping takes this one day off the calendar and leaves the rest.")
+                    }
                 }
             }
         }

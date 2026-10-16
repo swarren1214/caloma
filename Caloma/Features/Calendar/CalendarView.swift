@@ -14,6 +14,8 @@ struct CalendarView: View {
     @Query private var completions: [ChoreCompletion]
     @Query(filter: #Predicate<HomeTask> { !$0.isArchived }) private var homeTasks: [HomeTask]
     @Bindable private var filter = CalendarFilter.shared
+    /// Kiosk Mode's wall calendar: no new events or drags.
+    @Environment(\.calendarReadOnly) private var readOnly
 
     @State private var day = Calendar.current.startOfDay(for: .now)
     @State private var mode: Mode = .week
@@ -53,7 +55,7 @@ struct CalendarView: View {
         let data = data
         Group {
             if sizeClass == .regular {
-                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { creating = $0 }, onOpen: { open = $0 }, onMove: move)
+                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { if !readOnly { creating = $0 } }, onOpen: { open = $0 }, onMove: { if !readOnly { move($0) } })
             } else {
                 compact(data)
             }
@@ -64,7 +66,7 @@ struct CalendarView: View {
         .toolbarVisibility(sizeClass == .regular ? .hidden : .automatic, for: .navigationBar)
         .toolbar {
             // On iPad these are in the calendar's own header, as in the design.
-            if sizeClass != .regular {
+            if sizeClass != .regular && !readOnly {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button("Today") {
                         withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
@@ -94,7 +96,7 @@ struct CalendarView: View {
         }
         .sensoryFeedback(.success, trigger: moved)
         .onChange(of: router.pendingNewEvent, initial: true) { _, pending in
-            guard pending else { return }
+            guard pending, !readOnly else { return }
             router.pendingNewEvent = false
             creating = NewEventRequest(day: day)
         }
@@ -111,9 +113,9 @@ struct CalendarView: View {
             .pickerStyle(.segmented)
 
             if mode == .week {
-                WeekStrip(day: $day, data: data, visible: visible, onNew: { date in creating = NewEventRequest(day: date) }, onDrop: { ref, date in move(EventMove(ref: ref, toDay: date)) })
+                WeekStrip(day: $day, data: data, visible: visible, onNew: readOnly ? nil : { date in creating = NewEventRequest(day: date) }, onDrop: readOnly ? nil : { ref, date in move(EventMove(ref: ref, toDay: date)) })
             } else {
-                MonthGrid(day: $day, data: data, visible: visible, onNew: { date in creating = NewEventRequest(day: date) }, onDrop: { ref, date in move(EventMove(ref: ref, toDay: date)) })
+                MonthGrid(day: $day, data: data, visible: visible, onNew: readOnly ? nil : { date in creating = NewEventRequest(day: date) }, onDrop: readOnly ? nil : { ref, date in move(EventMove(ref: ref, toDay: date)) })
             }
 
             if data.members.count > 1 {
@@ -159,7 +161,7 @@ struct CalendarView: View {
                     chores: filter.showChores ? data.chores(on: day, for: person) : [],
                     homeTasks: filter.showHomeCare && person == nil ? data.homeTasksDue(on: day) : [],
                     onOpen: { open = $0 },
-                    onNew: { creating = NewEventRequest(day: day) }
+                    onNew: { if !readOnly { creating = NewEventRequest(day: day) } }
                 )
             }
         }

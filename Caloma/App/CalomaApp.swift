@@ -43,11 +43,11 @@ struct CalomaCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Chore") { router.sheet = .newChore }
+            Button("New Chore") { if !router.kioskOpen { router.sheet = .newChore } }
                 .keyboardShortcut("n")
-            Button("New Reward") { router.sheet = .newReward }
+            Button("New Reward") { if !router.kioskOpen { router.sheet = .newReward } }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
-            Button("New Event") { router.newEvent() }
+            Button("New Event") { if !router.kioskOpen { router.newEvent() } }
                 .keyboardShortcut("e")
         }
         CommandMenu("Go") {
@@ -57,7 +57,7 @@ struct CalomaCommands: Commands {
             Button("Rewards") { router.tab = .rewards }.keyboardShortcut("4")
             Button("Home Care") { router.tab = .homeCare }.keyboardShortcut("5")
             Divider()
-            Button("Needs Your OK") { router.sheet = .approvals }.keyboardShortcut("o")
+            Button("Needs Your OK") { if !router.kioskOpen { router.sheet = .approvals } }.keyboardShortcut("o")
             Button("Kid View") { router.openKidView() }.keyboardShortcut("k")
         }
     }
@@ -89,8 +89,32 @@ final class AppRouter {
         }
     }
 
+    /// Kiosk Mode covers the whole app on a wall iPad. Remembered, so the iPad opens back into
+    /// it after a restart.
+    var kioskOpen: Bool = ScreenshotMode.isOn ? false : UserDefaults.standard.bool(forKey: SettingsKey.kioskOpen) {
+        didSet {
+            guard !ScreenshotMode.isOn else { return }
+            UserDefaults.standard.set(kioskOpen, forKey: SettingsKey.kioskOpen)
+        }
+    }
+
+    /// Starts Kiosk Mode, closing Family settings first if they're open.
+    func openKiosk() {
+        kidViewOpen = false
+        guard sheet != nil else {
+            kioskOpen = true
+            return
+        }
+        sheet = nil
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            kioskOpen = true
+        }
+    }
+
     /// Opens Kid View on a kid, or on the last kid it showed.
     func openKidView(for memberID: UUID? = nil) {
+        guard !kioskOpen else { return }
         if let memberID {
             UserDefaults.standard.set(memberID.uuidString, forKey: SettingsKey.kidViewMember)
         }
@@ -112,8 +136,8 @@ final class AppRouter {
                 UIApplication.shared.open(maps)
             }
         case "approvals":
-            // A kid's device in Kid View shouldn't open the parents' approvals.
-            guard !kidViewOpen else { return }
+            // A kid's device in Kid View, or the wall iPad, shouldn't open the parents' approvals.
+            guard !kidViewOpen && !kioskOpen else { return }
             sheet = .approvals
         default: tab = .home
         }
@@ -121,6 +145,7 @@ final class AppRouter {
 
     /// Opens Kid View on "Who's doing chores?", so the kids pick.
     func openKidViewPicker() {
+        guard !kioskOpen else { return }
         UserDefaults.standard.removeObject(forKey: SettingsKey.kidViewMember)
         kidViewOpen = true
     }
@@ -148,6 +173,11 @@ struct AppRoot: View {
         Group {
             if onboarded {
                 RootTabView()
+                    // The wall iPad: the family calendar and everyone's screens, nothing else.
+                    .fullScreenCover(isPresented: Binding(get: { router.kioskOpen }, set: { router.kioskOpen = $0 })) {
+                        KioskRootView()
+                            .environment(\.accent, accent)
+                    }
             } else {
                 OnboardingView()
             }

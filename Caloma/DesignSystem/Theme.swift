@@ -39,6 +39,14 @@ nonisolated enum SettingsKey {
     static let homeReminders = "homeCare.reminders"
     /// Notify parents when a chore or reward needs their OK (on unless turned off).
     static let approvalAlerts = "approvals.alerts"
+    /// Kiosk Mode was on when the app last closed, so the wall iPad opens back into it.
+    static let kioskOpen = "kiosk.open"
+    /// Seconds without a touch before Kiosk Mode goes back to the calendar.
+    static let kioskIdleSeconds = "kiosk.idleSeconds"
+    /// The family down the left side of Kiosk Mode.
+    static let kioskShowsFamily = "kiosk.showsFamily"
+    /// Keep the wall iPad's screen on in Kiosk Mode.
+    static let kioskKeepAwake = "kiosk.keepAwake"
 }
 
 /// Caloma's colors, from the Tend designs on the Claude Design canvas.
