@@ -21,11 +21,25 @@ enum PencilTool: Equatable {
 /// and on the wall as it does in a note. With the iPad's "Only Draw with Apple Pencil" setting
 /// on, fingers scroll and tap instead of drawing. A double-tap (or squeeze) on the Pencil calls
 /// `onPencilTap`, usually to switch between pen and eraser.
-struct PencilCanvas: UIViewRepresentable {
+struct PencilCanvas: View {
     @Binding var drawing: PKDrawing
     var tool: PencilTool
     var onPencilTap: (() -> Void)?
     /// When the person starts or stops touching it, to pause things like the idle timer.
+    var onDrawingChange: ((Bool) -> Void)? = nil
+
+    var body: some View {
+        PencilCanvasView(drawing: $drawing, tool: tool, onPencilTap: onPencilTap, onDrawingChange: onDrawingChange)
+            // PencilKit redraws finished strokes for the trait it's in. In dark mode it would
+            // turn black ink white on this white paper, so the canvas is always light.
+            .environment(\.colorScheme, .light)
+    }
+}
+
+private struct PencilCanvasView: UIViewRepresentable {
+    @Binding var drawing: PKDrawing
+    var tool: PencilTool
+    var onPencilTap: (() -> Void)?
     var onDrawingChange: ((Bool) -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -69,14 +83,14 @@ struct PencilCanvas: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject, PKCanvasViewDelegate, UIPencilInteractionDelegate {
-        var parent: PencilCanvas
+        var parent: PencilCanvasView
         var lastTool: PencilTool?
         /// The drawing last passed between the canvas and SwiftUI.
         var lastSynced = PKDrawing()
         /// Set while SwiftUI pushes a drawing in, so it isn't echoed straight back.
         var isApplying = false
 
-        init(_ parent: PencilCanvas) {
+        init(_ parent: PencilCanvasView) {
             self.parent = parent
         }
 

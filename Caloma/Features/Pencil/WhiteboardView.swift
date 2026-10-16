@@ -23,6 +23,9 @@ struct WhiteboardView: View {
     @State private var drawing = PKDrawing()
     /// What's stored for the current board; the drawing differs from it until it's saved.
     @State private var savedDrawing = PKDrawing()
+    /// The board's updatedAt when this iPad last loaded or saved it; anything newer came from
+    /// another device.
+    @State private var syncedAt: Date?
     @State private var saveToken = 0
     @State private var ink: Color = WhiteboardView.black
     @State private var erasing = false
@@ -345,7 +348,8 @@ struct WhiteboardView: View {
             onPencilTap: { erasing.toggle() },
             onDrawingChange: { drawingNow in
                 inStroke = drawingNow
-                session?.touched()
+                // Drawing counts as using the wall, so it doesn't idle back to the calendar.
+                if drawingNow { session?.touched() }
             }
         )
         .background {
@@ -463,9 +467,9 @@ struct WhiteboardView: View {
     /// The board changed on another iPad. With nothing unsaved here it simply shows; with
     /// strokes drawn here since the last save, those go on top of the new drawing.
     private func mergeRemote() {
-        guard !inStroke, let board else { return }
+        guard !inStroke, let board, board.updatedAt != syncedAt else { return }
+        syncedAt = board.updatedAt
         let remote = PKDrawing(savedData: board.drawing)
-        guard remote.dataRepresentation() != savedDrawing.dataRepresentation() else { return }
         if drawing == savedDrawing {
             load(remote)
         } else if drawing.strokes.count >= savedDrawing.strokes.count {
@@ -495,6 +499,7 @@ struct WhiteboardView: View {
 
     /// Shows a drawing without counting it as a change.
     private func load(_ saved: PKDrawing) {
+        syncedAt = board?.updatedAt
         savedDrawing = saved
         drawing = saved
     }
@@ -503,6 +508,7 @@ struct WhiteboardView: View {
         guard drawing != savedDrawing, let board else { return }
         board.drawing = drawing.dataRepresentation()
         board.updatedAt = .now
+        syncedAt = board.updatedAt
         savedDrawing = drawing
         Persistence.save(context)
     }
