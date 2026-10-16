@@ -264,8 +264,9 @@ struct WhiteboardView: View {
     private var inkPalette: some View {
         HStack(spacing: 8) {
             inkDot(Self.black, label: "Black")
-            ForEach(people) { person in
-                inkDot(person.color.color, label: person.name)
+            // One dot per color: people who share a color share a dot.
+            ForEach(inkColors, id: \.0) { _, color, names in
+                inkDot(color, label: names)
             }
             Divider().frame(height: 26)
             Button {
@@ -299,6 +300,23 @@ struct WhiteboardView: View {
             }
         }
         .fixedSize()
+    }
+
+    /// The family's colors in rail order, each once, with who uses it ("Stephen, Kristen and
+    /// Malachi").
+    private var inkColors: [(String, Color, String)] {
+        var seen: [String] = []
+        var names: [String: [String]] = [:]
+        var colors: [String: Color] = [:]
+        for person in people {
+            let key = person.colorRaw
+            if names[key] == nil {
+                seen.append(key)
+                colors[key] = person.color.color
+            }
+            names[key, default: []].append(person.name)
+        }
+        return seen.map { ($0, colors[$0] ?? Self.black, (names[$0] ?? []).formatted(.list(type: .and))) }
     }
 
     private func inkDot(_ color: Color, label: String) -> some View {
