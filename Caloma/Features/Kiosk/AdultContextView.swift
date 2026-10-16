@@ -39,7 +39,11 @@ struct AdultContextView: View {
                         }
                         HStack(alignment: .top, spacing: 16) {
                             kidsCard(family)
-                            homeCareCard
+                            if HomeBridge.shared.statusItems.isEmpty {
+                                homeCareCard
+                            } else {
+                                homeStatusCard
+                            }
                         }
                     }
                     approvalsCard
@@ -485,6 +489,28 @@ struct AdultContextView: View {
                     Text(task.nextDue.formatted(.dateTime.month(.abbreviated).day()))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(late ? Brand.late : .secondary)
+                }
+                .font(.subheadline)
+            }
+        }
+    }
+
+    /// Locks, garage and thermostat from Apple Home; anything open or unlocked in orange.
+    private var homeStatusCard: some View {
+        card {
+            Text("Home").font(.headline)
+            ForEach(HomeBridge.shared.statusItems) { item in
+                HStack(spacing: 10) {
+                    Image(systemName: item.symbol)
+                        .font(.subheadline)
+                        .foregroundStyle(item.needsAttention ? Brand.waiting : .secondary)
+                        .frame(width: 22)
+                    Text(item.name)
+                        .lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text(item.state)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(item.needsAttention ? Brand.waiting : .secondary)
                 }
                 .font(.subheadline)
             }

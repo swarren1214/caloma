@@ -47,6 +47,16 @@ nonisolated enum SettingsKey {
     static let kioskShowsFamily = "kiosk.showsFamily"
     /// Keep the wall iPad's screen on in Kiosk Mode.
     static let kioskKeepAwake = "kiosk.keepAwake"
+    /// Recognize faces in Kiosk Mode (off until a parent turns it on).
+    static let kioskFaces = "kiosk.faces"
+    /// Show the doorbell card on the wall (on unless turned off).
+    static let kioskDoorbell = "kiosk.doorbell"
+    /// Also show it when the doorbell sees someone, not just when it's rung.
+    static let kioskDoorbellMotion = "kiosk.doorbellMotion"
+    /// Play a chime on the wall when the doorbell rings (on unless turned off).
+    static let kioskChime = "kiosk.chime"
+    /// Which Apple Home the wall iPad watches, when there's more than one.
+    static let kioskHomeID = "kiosk.homeID"
 }
 
 /// Caloma's colors, from the Tend designs on the Claude Design canvas.

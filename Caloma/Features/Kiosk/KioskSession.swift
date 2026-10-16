@@ -22,6 +22,12 @@ final class KioskSession {
     private(set) var isUnlocked = false
     /// Goes up each time someone is shown, so screens can replay their hello.
     private(set) var arrival = 0
+    /// Someone at the door, while the doorbell card is up.
+    private(set) var doorbell: DoorbellEvent?
+    /// The last ring, so it can be opened again for a while after it closes.
+    private(set) var lastDoorbell: DoorbellEvent?
+    /// After someone taps back to the calendar, faces wait a moment before opening anyone.
+    private(set) var facesPausedUntil: Date?
 
     @ObservationIgnored private var watchdog: Task<Void, Never>?
 
@@ -45,6 +51,13 @@ final class KioskSession {
         isUnlocked = false
     }
 
+    /// The calendar button or the countdown ring: back to the calendar, and don't let the
+    /// face that's still standing there pop their screen straight back open.
+    func showCalendarByTap() {
+        showCalendar()
+        facesPausedUntil = .now.addingTimeInterval(15)
+    }
+
     func touched() {
         lastTouch = .now
     }
@@ -57,6 +70,21 @@ final class KioskSession {
 
     func lock() {
         isUnlocked = false
+    }
+
+    func ring(_ event: DoorbellEvent) {
+        doorbell = event
+        lastDoorbell = event
+        lastTouch = .now
+    }
+
+    func closeDoorbell() {
+        doorbell = nil
+    }
+
+    func reopenDoorbell() {
+        doorbell = lastDoorbell
+        lastTouch = .now
     }
 
     func start() {

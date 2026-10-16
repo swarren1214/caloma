@@ -7,6 +7,11 @@ struct KioskSettingsView: View {
     @AppStorage(SettingsKey.kioskIdleSeconds) private var idleSeconds = 30
     @AppStorage(SettingsKey.kioskShowsFamily) private var showsFamily = true
     @AppStorage(SettingsKey.kioskKeepAwake) private var keepAwake = true
+    @AppStorage(SettingsKey.kioskFaces) private var facesOn = false
+    @AppStorage(SettingsKey.kioskDoorbell) private var doorbellOn = true
+    @AppStorage(SettingsKey.kioskDoorbellMotion) private var doorbellMotion = false
+    @AppStorage(SettingsKey.kioskChime) private var chime = true
+    private let home = HomeBridge.shared
 
     @State private var pinIsSet = ParentPIN.isSet
     @State private var settingPIN = false
@@ -55,6 +60,43 @@ struct KioskSettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    FacesSettingsView()
+                } label: {
+                    LabeledContent {
+                        Text(facesOn ? "On" : "Off")
+                    } label: {
+                        Label("Faces", systemImage: "faceid")
+                    }
+                }
+            } footer: {
+                Text("The wall says hi and opens someone's screen when they walk up. Set up on this iPad only.")
+            }
+
+            Section {
+                Toggle(isOn: $doorbellOn) {
+                    settingLabel("Show the Doorbell", "Live video on the wall when someone rings")
+                }
+                Toggle(isOn: $doorbellMotion) {
+                    settingLabel("When Someone's at the Door", "Also show it when the doorbell sees a person")
+                }
+                .disabled(!doorbellOn)
+                Toggle("Chime on the Wall", isOn: $chime)
+                    .disabled(!doorbellOn)
+                if home.homeNames.count > 1 {
+                    Picker("Home", selection: Binding(get: { home.home?.uniqueIdentifier ?? home.homeNames[0].id }, set: { home.chooseHome($0) })) {
+                        ForEach(home.homeNames) { entry in
+                            Text(entry.name).tag(entry.id)
+                        }
+                    }
+                }
+            } header: {
+                Text("Doorbell")
+            } footer: {
+                Text(doorbellFooter)
+            }
+
+            Section {
                 Button(pinIsSet ? "Change Parent PIN" : "Set Parent PIN") {
                     startsAfterPIN = false
                     settingPIN = true
@@ -87,6 +129,7 @@ struct KioskSettingsView: View {
         .onAppear {
             guidedAccess = UIAccessibility.isGuidedAccessEnabled
             pinIsSet = ParentPIN.isSet
+            home.start()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIAccessibility.guidedAccessStatusDidChangeNotification)) { _ in
             guidedAccess = UIAccessibility.isGuidedAccessEnabled
@@ -103,6 +146,17 @@ struct KioskSettingsView: View {
             }
             .tint(accent)
         }
+    }
+
+    private var doorbellFooter: String {
+        if home.authorized == false {
+            return "Caloma can't see your home yet. Allow it in Settings › Privacy & Security › HomeKit."
+        }
+        let names = home.doorbellNames
+        if names.isEmpty {
+            return "No Apple Home doorbell found. Doorbells that work with Apple Home show here; Ring and Nest need their own apps."
+        }
+        return "Watching \(names.formatted(.list(type: .and))). Unlocking a door from the wall takes the parent PIN."
     }
 
     /// Kiosk Mode needs a PIN first, so there's always a way back out.

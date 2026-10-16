@@ -11,6 +11,7 @@ struct KioskRootView: View {
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @AppStorage(SettingsKey.kioskShowsFamily) private var showsFamily = true
     @AppStorage(SettingsKey.kioskKeepAwake) private var keepAwake = true
+    @AppStorage(SettingsKey.kioskFaces) private var facesOn = false
 
     @State private var session = KioskSession()
     @State private var leaving = false
@@ -65,16 +66,49 @@ struct KioskRootView: View {
                 .accessibilityLabel("Leave Kiosk Mode")
             }
         }
+        // Someone at the door: the card slides in over everything.
+        .overlay {
+            if let event = session.doorbell {
+                DoorbellCard(event: event) {
+                    withAnimation(.smooth) { session.closeDoorbell() }
+                }
+                .id(event.id)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if session.doorbell == nil, let last = session.lastDoorbell {
+                RecentDoorbellPill(event: last) {
+                    withAnimation(.spring(duration: 0.45, bounce: 0.2)) { session.reopenDoorbell() }
+                }
+                .padding(24)
+                .transition(.opacity)
+            }
+        }
+        .animation(.spring(duration: 0.45, bounce: 0.2), value: session.doorbell)
         .background(TouchObserver { session.touched() })
         .environment(session)
         .persistentSystemOverlays(.hidden)
         .onAppear {
             session.start()
             UIApplication.shared.isIdleTimerDisabled = keepAwake
+            HomeBridge.shared.start()
+            HomeBridge.shared.onDoorbell = { event in
+                withAnimation(.spring(duration: 0.45, bounce: 0.2)) { session.ring(event) }
+            }
+            startFaces()
         }
         .onDisappear {
             session.stop()
             UIApplication.shared.isIdleTimerDisabled = false
+            HomeBridge.shared.onDoorbell = nil
+            FaceRecognizer.shared.onRecognized = nil
+            FaceRecognizer.shared.stop()
+        }
+        .onChange(of: facesOn) { _, _ in startFaces() }
+        .onChange(of: session.doorbell != nil) { _, ringing in
+            // Look less often while the doorbell is up; it won't switch screens anyway.
+            FaceRecognizer.shared.setSlow(ringing)
         }
         .onChange(of: keepAwake) { _, on in
             UIApplication.shared.isIdleTimerDisabled = on
@@ -88,6 +122,67 @@ struct KioskRootView: View {
                 }
             }
             .presentationDetents([.large])
+        }
+    }
+}
+
+extension KioskRootView {
+    /// Faces on: watch the camera and let a steady match open that person's screen.
+    private func startFaces() {
+        let recognizer = FaceRecognizer.shared
+        guard facesOn, !FaceStore.shared.isEmpty else {
+            recognizer.onRecognized = nil
+            recognizer.stop()
+            return
+        }
+        recognizer.onRecognized = { id, held in recognized(id, held: held) }
+        Task { await recognizer.start(.recognize) }
+    }
+
+    /// A tap always wins over a face. Someone new only takes over a screen a face opened, after
+    /// a steady second and a half, and never while a parent has it unlocked.
+    private func recognized(_ id: UUID, held: TimeInterval) {
+        guard !leaving, session.doorbell == nil, people.contains(where: { $0.id == id }) else { return }
+        if let paused = session.facesPausedUntil, paused > .now, session.activeID == nil { return }
+        if session.activeID == id {
+            // Standing there counts as using it.
+            session.touched()
+        } else if session.activeID == nil {
+            session.show(id, source: .face)
+        } else if session.source == .face, !session.isUnlocked, held >= 1.5 {
+            session.show(id, source: .face)
+        }
+    }
+}
+
+/// "Front Door · 2 min ago" after the doorbell card closes, to open it again. Gone after ten
+/// minutes.
+private struct RecentDoorbellPill: View {
+    var event: DoorbellEvent
+    var action: () -> Void
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let minutes = Int(context.date.timeIntervalSince(event.at) / 60)
+            if minutes < 10 {
+                Button(action: action) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Brand.defaultAccent, in: Circle())
+                        Text("\(event.name) · \(minutes < 1 ? "just now" : "\(minutes) min ago")")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .padding(.leading, 6)
+                    .padding(.trailing, 14)
+                    .frame(height: 40)
+                    .background(.regularMaterial, in: Capsule())
+                    .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }
@@ -107,7 +202,7 @@ struct KioskRail: View {
         let family = FamilySnapshot(members: people, chores: chores, completions: completions, points: [])
         VStack(spacing: 14) {
             Button {
-                session.showCalendar()
+                session.showCalendarByTap()
             } label: {
                 Image(systemName: "calendar")
                     .font(.system(size: 24, weight: .semibold))
@@ -139,7 +234,7 @@ struct KioskRail: View {
 
             if session.activeID != nil {
                 IdleRing(color: active?.color.color ?? accent) {
-                    session.showCalendar()
+                    session.showCalendarByTap()
                 }
                 .transition(.opacity)
             }

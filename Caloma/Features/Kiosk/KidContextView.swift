@@ -191,6 +191,8 @@ struct WhoIsHerePicker: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 18)], spacing: 18) {
                 ForEach(people) { person in
                     Button {
+                        // A face in view: remember this look as theirs, so it's right next time.
+                        FaceRecognizer.shared.learn(person.id)
                         session.show(person.id, source: .picker)
                         dismiss()
                     } label: {
