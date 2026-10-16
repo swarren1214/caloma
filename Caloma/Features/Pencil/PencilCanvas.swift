@@ -17,6 +17,14 @@ enum PencilTool: Equatable {
     }
 }
 
+/// Apple's own tool palette (pens, markers, widths, colors, eraser, lasso, ruler, undo) for a
+/// canvas. It remembers the last tools used, and handles Pencil double-tap and squeeze the way
+/// the person has set them up.
+struct PencilToolPicker: Equatable {
+    /// Hidden while a sheet or alert is up, so it doesn't sit over it.
+    var isVisible = true
+}
+
 /// A PencilKit drawing surface. Always drawn on light paper, so ink looks the same in dark mode
 /// and on the wall as it does in a note. With the iPad's "Only Draw with Apple Pencil" setting
 /// on, fingers scroll and tap instead of drawing. A double-tap (or squeeze) on the Pencil calls
@@ -27,9 +35,11 @@ struct PencilCanvas: View {
     var onPencilTap: (() -> Void)?
     /// When the person starts or stops touching it, to pause things like the idle timer.
     var onDrawingChange: ((Bool) -> Void)? = nil
+    /// With Apple's tool palette, `tool` and `onPencilTap` are ignored: the palette picks.
+    var toolPicker: PencilToolPicker? = nil
 
     var body: some View {
-        PencilCanvasView(drawing: $drawing, tool: tool, onPencilTap: onPencilTap, onDrawingChange: onDrawingChange)
+        PencilCanvasView(drawing: $drawing, tool: tool, onPencilTap: onPencilTap, onDrawingChange: onDrawingChange, toolPicker: toolPicker)
             // PencilKit redraws finished strokes for the trait it's in. In dark mode it would
             // turn black ink white on this white paper, so the canvas is always light.
             .environment(\.colorScheme, .light)
@@ -41,11 +51,12 @@ private struct PencilCanvasView: UIViewRepresentable {
     var tool: PencilTool
     var onPencilTap: (() -> Void)?
     var onDrawingChange: ((Bool) -> Void)?
+    var toolPicker: PencilToolPicker?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    func makeUIView(context: Context) -> PKCanvasView {
-        let canvas = PKCanvasView()
+    func makeUIView(context: Context) -> ResponderCanvasView {
+        let canvas = ResponderCanvasView()
         canvas.backgroundColor = .clear
         canvas.isOpaque = false
         canvas.overrideUserInterfaceStyle = .light
@@ -54,15 +65,25 @@ private struct PencilCanvasView: UIViewRepresentable {
         canvas.showsVerticalScrollIndicator = false
         canvas.showsHorizontalScrollIndicator = false
         canvas.drawing = drawing
-        canvas.tool = tool.pkTool
         canvas.delegate = context.coordinator
-        canvas.addInteraction(UIPencilInteraction(delegate: context.coordinator))
-        context.coordinator.lastTool = tool
+        if toolPicker != nil {
+            let picker = PKToolPicker()
+            // Colors as they'll look on the light paper.
+            picker.colorUserInterfaceStyle = .light
+            picker.stateAutosaveName = "caloma.whiteboard"
+            picker.addObserver(canvas)
+            context.coordinator.picker = picker
+            canvas.wantsToolPicker = true
+        } else {
+            canvas.tool = tool.pkTool
+            canvas.addInteraction(UIPencilInteraction(delegate: context.coordinator))
+            context.coordinator.lastTool = tool
+        }
         context.coordinator.lastSynced = drawing
         return canvas
     }
 
-    func updateUIView(_ canvas: PKCanvasView, context: Context) {
+    func updateUIView(_ canvas: ResponderCanvasView, context: Context) {
         let coordinator = context.coordinator
         coordinator.parent = self
         // The canvas owns the ink. Only push a drawing in when SwiftUI changed it on purpose
@@ -76,15 +97,31 @@ private struct PencilCanvasView: UIViewRepresentable {
                 coordinator.isApplying = false
             }
         }
-        if context.coordinator.lastTool != tool {
+        if let picker = coordinator.picker {
+            let visible = toolPicker?.isVisible ?? false
+            canvas.wantsToolPicker = visible
+            picker.setVisible(visible, forFirstResponder: canvas)
+            if visible, canvas.window != nil, !canvas.isFirstResponder {
+                canvas.becomeFirstResponder()
+            }
+        } else if coordinator.lastTool != tool {
             canvas.tool = tool.pkTool
-            context.coordinator.lastTool = tool
+            coordinator.lastTool = tool
         }
+    }
+
+    static func dismantleUIView(_ canvas: ResponderCanvasView, coordinator: Coordinator) {
+        if let picker = coordinator.picker {
+            picker.setVisible(false, forFirstResponder: canvas)
+            picker.removeObserver(canvas)
+        }
+        canvas.resignFirstResponder()
     }
 
     final class Coordinator: NSObject, PKCanvasViewDelegate, UIPencilInteractionDelegate {
         var parent: PencilCanvasView
         var lastTool: PencilTool?
+        var picker: PKToolPicker?
         /// The drawing last passed between the canvas and SwiftUI.
         var lastSynced = PKDrawing()
         /// Set while SwiftUI pushes a drawing in, so it isn't echoed straight back.
@@ -120,6 +157,21 @@ private struct PencilCanvasView: UIViewRepresentable {
             let action = UIPencilInteraction.preferredSqueezeAction
             guard squeeze.phase == .ended, action == .switchEraser || action == .switchPrevious else { return }
             parent.onPencilTap?()
+        }
+    }
+}
+
+/// A canvas that takes first responder when it reaches the window, which Apple's tool palette
+/// needs to show.
+private final class ResponderCanvasView: PKCanvasView {
+    var wantsToolPicker = false
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard wantsToolPicker, window != nil else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.wantsToolPicker, self.window != nil else { return }
+            self.becomeFirstResponder()
         }
     }
 }

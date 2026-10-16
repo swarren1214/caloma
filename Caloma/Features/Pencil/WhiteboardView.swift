@@ -13,6 +13,7 @@ struct WhiteboardView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.accent) private var accent
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(AppRouter.self) private var router
     @Environment(KioskSession.self) private var session: KioskSession?
     @Query(sort: \Whiteboard.sortOrder) private var boards: [Whiteboard]
     @Query(sort: \Member.sortOrder) private var members: [Member]
@@ -27,8 +28,6 @@ struct WhiteboardView: View {
     /// another device.
     @State private var syncedAt: Date?
     @State private var saveToken = 0
-    @State private var ink: Color = WhiteboardView.black
-    @State private var erasing = false
     /// What was there before Clear, for a few seconds of Undo.
     @State private var cleared: PKDrawing?
     @State private var clearCount = 0
@@ -168,35 +167,14 @@ struct WhiteboardView: View {
         }
     }
 
-    // MARK: Header: boards, ink, tools, send
+    // MARK: Header: boards, Clear, send. Pens, widths, colors, the eraser, the ruler and
+    // undo are Apple's own tool palette, which floats over the paper.
 
     private var header: some View {
-        Group {
-            if sizeClass == .compact {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 10) {
-                        boardPicker
-                        sendButton(short: true)
-                    }
-                    ScrollView(.horizontal) { inkPalette }
-                        .scrollIndicators(.hidden)
-                }
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) {
-                        boardPicker
-                        inkPalette
-                        sendButton(short: false)
-                    }
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 10) {
-                            boardPicker
-                            sendButton(short: false)
-                        }
-                        inkPalette
-                    }
-                }
-            }
+        HStack(spacing: 12) {
+            boardPicker
+            clearButton
+            sendButton(short: sizeClass == .compact)
         }
     }
 
@@ -263,80 +241,28 @@ struct WhiteboardView: View {
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
-    /// Black and everyone's color, the eraser, and Clear (Undo for a moment after).
-    private var inkPalette: some View {
-        HStack(spacing: 8) {
-            inkDot(Self.black, label: "Black")
-            // One dot per color: people who share a color share a dot.
-            ForEach(inkColors, id: \.0) { _, color, names in
-                inkDot(color, label: names)
+    /// Clear, then Undo for a few seconds after.
+    @ViewBuilder
+    private var clearButton: some View {
+        if let cleared {
+            Button("Undo") {
+                drawing = cleared
+                withAnimation { self.cleared = nil }
             }
-            Divider().frame(height: 26)
-            Button {
-                erasing.toggle()
-            } label: {
-                Image(systemName: "eraser.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 38, height: 38)
-                    .foregroundStyle(erasing ? .white : .primary)
-                    .background(erasing ? Color.primary.opacity(0.75) : Color(.tertiarySystemFill), in: Circle())
+            .font(.subheadline.weight(.semibold))
+            .transition(.opacity)
+            .fixedSize()
+        } else {
+            Button("Clear") {
+                guard drawing.hasInk else { return }
+                withAnimation { cleared = drawing }
+                clearCount += 1
+                drawing = PKDrawing()
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Eraser")
-            .accessibilityAddTraits(erasing ? .isSelected : [])
-            if let cleared {
-                Button("Undo") {
-                    drawing = cleared
-                    withAnimation { self.cleared = nil }
-                }
-                .font(.subheadline.weight(.semibold))
-                .transition(.opacity)
-            } else {
-                Button("Clear") {
-                    guard drawing.hasInk else { return }
-                    withAnimation { cleared = drawing }
-                    clearCount += 1
-                    drawing = PKDrawing()
-                }
-                .font(.subheadline.weight(.semibold))
-                .disabled(!drawing.hasInk)
-            }
+            .font(.subheadline.weight(.semibold))
+            .disabled(!drawing.hasInk)
+            .fixedSize()
         }
-        .fixedSize()
-    }
-
-    /// The family's colors in rail order, each once, with who uses it ("Stephen, Kristen and
-    /// Malachi").
-    private var inkColors: [(String, Color, String)] {
-        var seen: [String] = []
-        var names: [String: [String]] = [:]
-        var colors: [String: Color] = [:]
-        for person in people {
-            let key = person.colorRaw
-            if names[key] == nil {
-                seen.append(key)
-                colors[key] = person.color.color
-            }
-            names[key, default: []].append(person.name)
-        }
-        return seen.map { ($0, colors[$0] ?? Self.black, (names[$0] ?? []).formatted(.list(type: .and))) }
-    }
-
-    private func inkDot(_ color: Color, label: String) -> some View {
-        let on = !erasing && ink == color
-        return Button {
-            ink = color
-            erasing = false
-        } label: {
-            Circle()
-                .fill(color)
-                .frame(width: 26, height: 26)
-                .padding(4)
-                .overlay(Circle().strokeBorder(on ? color : .clear, lineWidth: 2.5))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(label) ink")
-        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     // MARK: The paper
@@ -344,13 +270,14 @@ struct WhiteboardView: View {
     private var paper: some View {
         PencilCanvas(
             drawing: $drawing,
-            tool: erasing ? .eraser : .pen(ink, width: 5),
-            onPencilTap: { erasing.toggle() },
+            tool: .pen(Self.black, width: 5),
+            onPencilTap: nil,
             onDrawingChange: { drawingNow in
                 inStroke = drawingNow
                 // Drawing counts as using the wall, so it doesn't idle back to the calendar.
                 if drawingNow { session?.touched() }
-            }
+            },
+            toolPicker: PencilToolPicker(isVisible: (kiosk || router.tab == .whiteboard) && renaming == nil && deleting == nil && erasingNote == nil && !sending && pendingNote == nil)
         )
         .background {
             ZStack {
