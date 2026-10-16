@@ -210,7 +210,7 @@ final class HomeBridge: NSObject {
                     if characteristic.characteristicType != HMCharacteristicTypeInputEvent,
                        characteristic.properties.contains(HMCharacteristicPropertyReadable) {
                         characteristic.readValue { [weak self] _ in
-                            Task { @MainActor in self?.revision += 1 }
+                            Task { @MainActor [weak self] in self?.revision += 1 }
                         }
                     }
                 }

@@ -25,14 +25,14 @@ struct ReviewApprovalsIntent: AppIntent {
         if let completion = completions.first, redemptions.first.map({ completion.completedAt <= $0.requestedAt }) ?? true {
             let kid = Family.member(completion.memberID, in: context)?.name ?? "A kid"
             let chore = Family.chore(completion.choreID, in: context)?.title ?? "a chore"
-            try await requestConfirmation(result: .result(dialog: "\(kid) finished \(chore), for \(words.count(completion.points)). Approve it?"))
+            try await requestConfirmation(dialog: "\(kid) finished \(chore), for \(words.count(completion.points)). Approve it?")
             Family.approve(completion, in: context)
             return .result(dialog: "Approved. \(words.count(completion.points)) to \(kid).\(more)")
         }
         guard let redemption = redemptions.first else { return .result(dialog: "Nothing needs your OK right now.") }
         let kid = Family.member(redemption.memberID, in: context)?.name ?? "A kid"
         let reward = Family.reward(redemption.rewardID, in: context)?.name ?? "a reward"
-        try await requestConfirmation(result: .result(dialog: "\(kid) wants \(reward), for \(words.count(redemption.cost)). Approve it?"))
+        try await requestConfirmation(dialog: "\(kid) wants \(reward), for \(words.count(redemption.cost)). Approve it?")
         Family.approve(redemption, in: context)
         return .result(dialog: "Approved. \(kid) gets \(reward).\(more)")
     }

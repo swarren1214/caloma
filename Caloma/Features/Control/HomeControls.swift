@@ -199,13 +199,13 @@ extension HomeBridge {
     }
 
     /// Celsius in, the person's own unit out: "70°" in the US.
-    static func temperatureText(_ celsius: Double) -> String {
+    nonisolated static func temperatureText(_ celsius: Double) -> String {
         Measurement(value: celsius, unit: UnitTemperature.celsius)
             .formatted(.measurement(width: .narrow, usage: .weather, numberFormatStyle: .number.precision(.fractionLength(0))))
     }
 
     /// One step on the thermostat: 1° in Fahrenheit, half a degree in Celsius.
-    static var temperatureStep: Double {
+    nonisolated static var temperatureStep: Double {
         Locale.current.measurementSystem == .us ? 5.0 / 9.0 : 0.5
     }
 
