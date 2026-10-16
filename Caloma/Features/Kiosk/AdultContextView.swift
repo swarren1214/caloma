@@ -392,7 +392,7 @@ struct AdultContextView: View {
                         .frame(maxWidth: .infinity)
                 } else if ParentPIN.isSet {
                     VStack(spacing: 8) {
-                        ParentPINPad(title: "Enter your PIN to approve", tint: color, keySize: 52) {
+                        ParentPINPad(title: "Enter your PIN to approve", tint: color, keySize: 64) {
                             withAnimation(.snappy) { session.unlock() }
                         }
                         Text("Your face shows these. It never approves them.")

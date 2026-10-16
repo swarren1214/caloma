@@ -93,7 +93,8 @@ nonisolated enum ParentPIN {
 struct PINPad: View {
     var title: String
     var tint: Color
-    var keySize: CGFloat = 64
+    /// Big enough to hit without looking twice, on the wall or in a hand.
+    var keySize: CGFloat = 84
     var onComplete: (String) -> Bool
 
     @State private var digits = ""
@@ -118,7 +119,7 @@ struct PINPad: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(digits.count) of \(ParentPIN.length) digits entered")
 
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(keySize), spacing: keySize * 0.22), count: 3), spacing: keySize * 0.18) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(keySize), spacing: keySize * 0.3), count: 3), spacing: keySize * 0.22) {
                 ForEach(keys, id: \.self) { key in
                     keyView(key)
                 }
@@ -148,7 +149,7 @@ struct PINPad: View {
                 type(key)
             } label: {
                 Text(key)
-                    .font(.system(size: keySize * 0.4, weight: .regular, design: .rounded))
+                    .font(.system(size: keySize * 0.42, weight: .regular, design: .rounded))
                     .frame(width: keySize, height: keySize)
                     .background(Color(.tertiarySystemFill), in: Circle())
             }
@@ -177,7 +178,8 @@ struct PINPad: View {
 struct ParentPINPad: View {
     var title: String
     var tint: Color
-    var keySize: CGFloat = 64
+    /// Big enough to hit without looking twice, on the wall or in a hand.
+    var keySize: CGFloat = 84
     var onUnlock: () -> Void
 
     @State private var lockout: String?
