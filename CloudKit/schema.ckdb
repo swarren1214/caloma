@@ -216,6 +216,8 @@ DEFINE SCHEMA
         "skippedDaysRaw" STRING,
         "isArchived" INT64,
         "createdAt" TIMESTAMP,
+        "handwriting" ASSET,
+        "inkMemberID" STRING,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",
         GRANT READ TO "_world"
@@ -247,6 +249,44 @@ DEFINE SCHEMA
         "key" STRING,
         "value" STRING,
         "updatedAt" TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Whiteboard (
+        "___createTime" TIMESTAMP,
+        "___createdBy" REFERENCE,
+        "___etag" STRING,
+        "___modTime" TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID" REFERENCE QUERYABLE,
+        "name" STRING,
+        "drawing" ASSET,
+        "sortOrder" INT64,
+        "updatedAt" TIMESTAMP,
+        "createdAt" TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE WallNote (
+        "___createTime" TIMESTAMP,
+        "___createdBy" REFERENCE,
+        "___etag" STRING,
+        "___modTime" TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID" REFERENCE QUERYABLE,
+        "drawing" ASSET,
+        "fromMemberID" STRING,
+        "audienceIDsRaw" STRING,
+        "keepRaw" STRING,
+        "pinnedToWall" INT64,
+        "seenByRaw" STRING,
+        "createdAt" TIMESTAMP,
+        "expiresAt" TIMESTAMP,
+        "replyToID" STRING,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",
         GRANT READ TO "_world"

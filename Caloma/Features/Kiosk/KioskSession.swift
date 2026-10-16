@@ -12,8 +12,14 @@ final class KioskSession {
         case tap, picker, face
     }
 
-    /// The family member on screen, or nil for the calendar.
+    /// The family member on screen, or nil for the calendar (or the whiteboard).
     private(set) var activeID: UUID?
+    /// The rail's switch is on Whiteboard rather than Calendar.
+    private(set) var showsWhiteboard = false
+    /// Someone is writing an event or drawing back: faces don't swap screens underneath them.
+    private(set) var isComposing = false
+    /// Goes up each time the wall goes back to the calendar on its own, so open sheets close.
+    private(set) var idleResets = 0
     private(set) var source: Source = .tap
     /// When the screen was last touched.
     private(set) var lastTouch: Date = .now
@@ -90,6 +96,7 @@ final class KioskSession {
         // Someone new on screen never inherits the last person's unlock.
         if memberID != activeID { isUnlocked = false }
         activeID = memberID
+        showsWhiteboard = false
         self.source = source
         arrival += 1
         lastTouch = .now
@@ -97,8 +104,18 @@ final class KioskSession {
 
     func showCalendar() {
         activeID = nil
+        showsWhiteboard = false
         isUnlocked = false
         lockRequest = nil
+    }
+
+    /// The rail's Whiteboard switch. Faces don't open anyone while someone's drawing.
+    func showWhiteboard() {
+        activeID = nil
+        showsWhiteboard = true
+        isUnlocked = false
+        lockRequest = nil
+        lastTouch = .now
     }
 
     /// The calendar button or the countdown ring: back to the calendar, and don't let the
@@ -109,6 +126,11 @@ final class KioskSession {
     }
 
     func touched() {
+        lastTouch = .now
+    }
+
+    func setComposing(_ composing: Bool) {
+        isComposing = composing
         lastTouch = .now
     }
 
@@ -155,9 +177,14 @@ final class KioskSession {
     }
 
     private func tick() {
-        guard activeID != nil || isUnlocked || lockRequest != nil else { return }
-        if Date.now.timeIntervalSince(lastTouch) >= idleSeconds {
+        guard activeID != nil || isUnlocked || lockRequest != nil || showsWhiteboard || isComposing else { return }
+        // Drawing takes longer than a glance: the whiteboard waits at least two minutes.
+        // Writing an event or a reply gets three.
+        var wait = showsWhiteboard && activeID == nil ? max(idleSeconds, 120) : idleSeconds
+        if isComposing { wait = max(wait, 180) }
+        if Date.now.timeIntervalSince(lastTouch) >= wait {
             showCalendar()
+            idleResets += 1
         }
     }
 }

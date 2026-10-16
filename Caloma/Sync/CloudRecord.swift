@@ -24,7 +24,7 @@ enum SyncSchema {
     static let types: [any CloudRecord.Type] = [
         Member.self, Room.self, Chore.self, ChoreCompletion.self, Reward.self, Redemption.self,
         PointEntry.self, HomeTask.self, HomeTaskLog.self, FamilyEvent.self, EventPacking.self,
-        FamilySetting.self,
+        FamilySetting.self, Whiteboard.self, WallNote.self,
     ]
 
     static func type(named name: String) -> (any CloudRecord.Type)? {
@@ -354,9 +354,13 @@ extension FamilyEvent: CloudRecord {
         record["skippedDaysRaw"] = skippedDaysRaw
         record["isArchived"] = isArchived
         record["createdAt"] = createdAt
+        record.setAsset(handwriting, for: "handwriting")
+        record.setUUID(inkMemberID, for: "inkMemberID")
     }
 
     func read(from record: CKRecord) {
+        handwriting = record.asset("handwriting")
+        inkMemberID = record.uuid("inkMemberID")
         title = record.string("title") ?? title
         symbol = record.string("symbol") ?? symbol
         location = record.string("location") ?? location
@@ -439,5 +443,58 @@ extension FamilySetting: CloudRecord {
         key = record.string("key") ?? key
         value = record.string("value") ?? value
         updatedAt = record.date("updatedAt") ?? updatedAt
+    }
+}
+
+// MARK: - Apple Pencil
+
+extension Whiteboard: CloudRecord {
+    static let recordType = "Whiteboard"
+    static func blank() -> Whiteboard { Whiteboard(name: "") }
+
+    func write(to record: CKRecord) {
+        record["name"] = name
+        // A cleared board goes up as no drawing at all.
+        record.setAsset(drawing.isEmpty ? nil : drawing, for: "drawing")
+        record["sortOrder"] = sortOrder
+        record["updatedAt"] = updatedAt
+        record["createdAt"] = createdAt
+    }
+
+    func read(from record: CKRecord) {
+        name = record.string("name") ?? name
+        drawing = record.asset("drawing") ?? Data()
+        sortOrder = record.int("sortOrder") ?? sortOrder
+        updatedAt = record.date("updatedAt") ?? updatedAt
+        createdAt = record.date("createdAt") ?? createdAt
+    }
+}
+
+extension WallNote: CloudRecord {
+    static let recordType = "WallNote"
+    static func blank() -> WallNote { WallNote(drawing: Data(), from: nil, audience: [], keep: .once) }
+
+    func write(to record: CKRecord) {
+        record.setAsset(drawing, for: "drawing")
+        record.setUUID(fromMemberID, for: "fromMemberID")
+        record["audienceIDsRaw"] = audienceIDsRaw
+        record["keepRaw"] = keepRaw
+        record["pinnedToWall"] = pinnedToWall
+        record["seenByRaw"] = seenByRaw
+        record["createdAt"] = createdAt
+        record.setObject(expiresAt.map { $0 as NSDate }, forKey: "expiresAt")
+        record.setUUID(replyToID, for: "replyToID")
+    }
+
+    func read(from record: CKRecord) {
+        drawing = record.asset("drawing") ?? drawing
+        fromMemberID = record.uuid("fromMemberID")
+        audienceIDsRaw = record.string("audienceIDsRaw") ?? audienceIDsRaw
+        keepRaw = record.string("keepRaw") ?? keepRaw
+        pinnedToWall = record.bool("pinnedToWall") ?? pinnedToWall
+        seenByRaw = record.string("seenByRaw") ?? seenByRaw
+        createdAt = record.date("createdAt") ?? createdAt
+        expiresAt = record.date("expiresAt")
+        replyToID = record.uuid("replyToID")
     }
 }

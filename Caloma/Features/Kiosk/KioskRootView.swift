@@ -16,6 +16,11 @@ struct KioskRootView: View {
     @State private var session = KioskSession()
     private let presence = KioskPresence.shared
     @State private var leaving = false
+    @Environment(\.modelContext) private var context
+    @Query private var wallNotes: [WallNote]
+    /// Repeating notes already dismissed on this visit.
+    @State private var dismissedNotes: Set<UUID> = []
+    @State private var drawingBack: DrawBackRequest?
 
     private var people: [Member] { members.filter { !$0.isArchived } }
     private var active: Member? {
@@ -40,6 +45,9 @@ struct KioskRootView: View {
                     }
                     .id(active.id)
                     .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+                } else if session.showsWhiteboard {
+                    WhiteboardView(kiosk: true)
+                        .transition(.opacity)
                 } else {
                     NavigationStack {
                         CalendarView()
@@ -51,6 +59,46 @@ struct KioskRootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .animation(.smooth(duration: 0.45), value: session.activeID)
+        .animation(.smooth(duration: 0.35), value: session.showsWhiteboard)
+        // A note drawn for whoever just walked up drops in over their screen.
+        .overlay {
+            if let active, session.lockRequest == nil, session.doorbell == nil {
+                let waiting = WallNoteQueue.pending(for: active.id, in: wallNotes).filter { !dismissedNotes.contains($0.id) }
+                if let note = waiting.first {
+                    let sender = people.first { $0.id == note.fromMemberID }
+                    let drawBack: (() -> Void)? = sender != nil && sender?.id != active.id ? {
+                        if let sender { drawingBack = DrawBackRequest(note: note, fromID: active.id, toID: sender.id) }
+                    } : nil
+                    WallNoteCard(
+                        note: note,
+                        viewer: active,
+                        sender: sender,
+                        position: (1, waiting.count),
+                        onGotIt: { gotIt(note, by: active) },
+                        onDrawBack: drawBack
+                    )
+                    .id(note.id)
+                    .transition(.opacity)
+                }
+            }
+        }
+        .onChange(of: session.arrival) { _, _ in dismissedNotes = [] }
+        // Who's replying to whom is fixed when Draw Back is tapped, whatever the wall does next.
+        .sheet(item: $drawingBack) { request in
+            if let writer = people.first(where: { $0.id == request.fromID }), let sender = people.first(where: { $0.id == request.toID }) {
+                DrawBackSheet(from: writer, to: sender) { drawing in
+                    let reply = WallNote(drawing: drawing.dataRepresentation(), from: writer.id, audience: [sender.id], keep: .once, replyTo: request.note.id)
+                    context.insert(reply)
+                    drawingBack = nil
+                    gotIt(request.note, by: writer)
+                }
+                .onAppear { session.setComposing(true) }
+                .onDisappear { session.setComposing(false) }
+                .onChange(of: session.idleResets) { _, _ in drawingBack = nil }
+            } else {
+                Color.clear.onAppear { drawingBack = nil }
+            }
+        }
         // With the family rail turned off there's still a way out.
         .overlay(alignment: .bottomLeading) {
             if !showsFamily {
@@ -112,6 +160,7 @@ struct KioskRootView: View {
                 withAnimation(.spring(duration: 0.45, bounce: 0.2)) { session.ring(event) }
             }
             startFaces()
+            WallNoteQueue.sweep(wallNotes, in: context)
         }
         .onDisappear {
             session.stop()
@@ -161,6 +210,18 @@ struct KioskRootView: View {
 }
 
 extension KioskRootView {
+    /// Got It: a Once note is done for them; Today and Until Erased notes rest until their next
+    /// visit.
+    private func gotIt(_ note: WallNote, by person: Member) {
+        withAnimation(.smooth) {
+            if note.keep == .once, !note.seenBy.contains(person.id) {
+                note.seenBy.append(person.id)
+            }
+            dismissedNotes.insert(note.id)
+        }
+        Persistence.save(context)
+    }
+
     /// Faces on: watch the camera and let a steady match open that person's screen.
     private func startFaces() {
         let recognizer = FaceRecognizer.shared
@@ -178,6 +239,8 @@ extension KioskRootView {
     private func recognized(_ id: UUID, held: TimeInterval) {
         guard !leaving, session.doorbell == nil, session.lockRequest == nil, people.contains(where: { $0.id == id }) else { return }
         if let paused = session.facesPausedUntil, paused > .now, session.activeID == nil { return }
+        // Someone drawing on the whiteboard or writing keeps the screen.
+        if session.isComposing || (session.showsWhiteboard && session.activeID == nil) { return }
         if session.activeID == id {
             // Standing there counts as using it.
             session.touched()
@@ -187,6 +250,14 @@ extension KioskRootView {
             session.open(id, source: .face)
         }
     }
+}
+
+/// Draw Back: the note, who's answering and who it goes to.
+struct DrawBackRequest: Identifiable {
+    let id = UUID()
+    let note: WallNote
+    let fromID: UUID
+    let toID: UUID
 }
 
 /// "Front Door · 2 min ago" after the doorbell card closes, to open it again. Gone after ten
@@ -235,17 +306,17 @@ struct KioskRail: View {
     var body: some View {
         let family = FamilySnapshot(members: people, chores: chores, completions: completions, points: [])
         VStack(spacing: 14) {
-            Button {
-                session.showCalendarByTap()
-            } label: {
-                Image(systemName: "calendar")
-                    .font(.system(size: 24, weight: .semibold))
-                    .frame(width: 56, height: 56)
-                    .background(session.activeID == nil ? accent.opacity(0.16) : Color(.tertiarySystemFill), in: .rect(cornerRadius: 18))
-                    .foregroundStyle(session.activeID == nil ? accent : .primary)
+            // Calendar or Whiteboard: two labeled halves of one switch, the one showing filled.
+            VStack(spacing: 4) {
+                railMode("Calendar", symbol: "calendar", isOn: session.activeID == nil && !session.showsWhiteboard) {
+                    session.showCalendarByTap()
+                }
+                railMode("Board", symbol: "applepencil.and.scribble", isOn: session.activeID == nil && session.showsWhiteboard) {
+                    session.showWhiteboard()
+                }
             }
-            .buttonStyle(KidPressStyle())
-            .accessibilityLabel("Family calendar")
+            .padding(4)
+            .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 20))
 
             ScrollView {
                 VStack(spacing: 14) {
@@ -293,6 +364,23 @@ struct KioskRail: View {
     }
 
     private var active: Member? { people.first { $0.id == session.activeID } }
+
+    private func railMode(_ title: String, symbol: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: symbol)
+                    .font(.system(size: 20, weight: .semibold))
+                Text(title)
+                    .font(.caption2.weight(.bold))
+            }
+            .frame(width: 72, height: 56)
+            .foregroundStyle(isOn ? .white : .primary)
+            .background(isOn ? accent : Color.clear, in: .rect(cornerRadius: 16))
+        }
+        .buttonStyle(KidPressStyle())
+        .accessibilityLabel(title == "Board" ? "Whiteboard" : "Family calendar")
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
 }
 
 /// One person on the rail: photo or initial in their color ring, their name, a red badge with

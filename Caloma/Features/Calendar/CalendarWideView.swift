@@ -12,6 +12,10 @@ struct CalendarWideView: View {
     var onNew: (NewEventRequest) -> Void
     var onOpen: (OccurrenceRef) -> Void
     var onMove: (EventMove) -> Void
+    /// "Write an Event" with the Apple Pencil, for this day. Also on the Kiosk Mode wall.
+    var onWrite: ((Date) -> Void)?
+    /// Typed New Event; off on the Kiosk Mode wall.
+    var canCreate = true
 
     @Environment(\.accent) private var accent
     private let apple = AppleCalendar.shared
@@ -119,20 +123,48 @@ struct CalendarWideView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(accent)
                 filterMenu
-                Button {
-                    onNew(NewEventRequest(day: day))
-                } label: {
-                    Label("New Event", systemImage: "plus")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.leading, 12)
-                        .padding(.trailing, 16)
-                        .frame(height: 40)
-                        .foregroundStyle(.white)
-                        .glassEffect(.regular.tint(accent).interactive(), in: Capsule())
+                if let onWrite {
+                    Button {
+                        onWrite(writeDay)
+                    } label: {
+                        Label("Write", systemImage: "applepencil.and.scribble")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.leading, 12)
+                            .padding(.trailing, 16)
+                            .frame(height: 40)
+                            .foregroundStyle(canCreate ? accent : .white)
+                            .glassEffect(canCreate ? Glass.regular.interactive() : Glass.regular.tint(accent).interactive(), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Write an Event")
                 }
-                .buttonStyle(.plain)
+                if canCreate {
+                    Button {
+                        onNew(NewEventRequest(day: day))
+                    } label: {
+                        Label("New Event", systemImage: "plus")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.leading, 12)
+                            .padding(.trailing, 16)
+                            .frame(height: 40)
+                            .foregroundStyle(.white)
+                            .glassEffect(.regular.tint(accent).interactive(), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
+    }
+
+    /// Today when today is in view, otherwise the first day showing.
+    private var writeDay: Date {
+        let calendar = Calendar.current
+        if mode == .week {
+            let week = CalendarMath.week(containing: day)
+            if week.contains(where: { calendar.isDateInToday($0) }) { return calendar.startOfDay(for: .now) }
+            return week.first ?? day
+        }
+        return day
     }
 
     /// The sidebar's filters, for when the sidebar is closed.

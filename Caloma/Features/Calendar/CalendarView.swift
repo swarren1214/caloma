@@ -23,6 +23,8 @@ struct CalendarView: View {
     @State private var person: UUID?
     @State private var open: OccurrenceRef?
     @State private var creating: NewEventRequest?
+    /// "Write an Event" with the Apple Pencil.
+    @State private var writing: NewEventRequest?
     /// A repeating event that was dragged, waiting on "Only this one" or "All of them".
     @State private var pendingMove: EventMove?
 
@@ -55,7 +57,7 @@ struct CalendarView: View {
         let data = data
         Group {
             if sizeClass == .regular {
-                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { if !readOnly { creating = $0 } }, onOpen: { open = $0 }, onMove: { if !readOnly { move($0) } })
+                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { if !readOnly { creating = $0 } }, onOpen: { open = $0 }, onMove: { if !readOnly { move($0) } }, onWrite: { writing = NewEventRequest(day: $0) }, canCreate: !readOnly)
             } else {
                 compact(data)
             }
@@ -81,6 +83,9 @@ struct CalendarView: View {
         }
         .sheet(item: $creating) { request in
             EventEditor(event: nil, day: request.day, startAt: request.start, allDay: request.allDay)
+        }
+        .sheet(item: $writing) { request in
+            WriteEventSheet(day: request.day, onTheWall: readOnly)
         }
         .sheet(item: $open) { ref in
             NavigationStack {

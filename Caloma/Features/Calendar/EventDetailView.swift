@@ -68,6 +68,10 @@ struct EventDetailView: View {
                     }
                 }
                 .padding(.vertical, 4)
+                if let handwriting = event.handwriting {
+                    EventHandwriting(data: handwriting)
+                        .listRowSeparator(.hidden)
+                }
             }
 
             Section {

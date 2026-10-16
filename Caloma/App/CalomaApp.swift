@@ -57,6 +57,7 @@ struct CalomaCommands: Commands {
             Button("Rewards") { router.tab = .rewards }.keyboardShortcut("4")
             Button("Control") { router.tab = .control }.keyboardShortcut("5")
             Button("Home Care") { router.tab = .homeCare }.keyboardShortcut("6")
+            Button("Whiteboard") { router.tab = .whiteboard }.keyboardShortcut("7")
             Divider()
             Button("Needs Your OK") { if !router.kioskOpen { router.sheet = .approvals } }.keyboardShortcut("o")
             Button("Kid View") { router.openKidView() }.keyboardShortcut("k")
@@ -131,6 +132,7 @@ final class AppRouter {
         case "rewards": tab = .rewards
         case "homecare": tab = .homeCare
         case "control": tab = .control
+        case "whiteboard": tab = .whiteboard
         case "directions":
             // From the "You're driving" Live Activity: hand the address to Maps.
             let to = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "to" }?.value

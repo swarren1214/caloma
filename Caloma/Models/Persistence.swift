@@ -16,6 +16,8 @@ enum Persistence {
         FamilyEvent.self,
         EventPacking.self,
         FamilySetting.self,
+        Whiteboard.self,
+        WallNote.self,
     ])
 
     private static let log = Logger(subsystem: "com.stephenwarren.caloma", category: "persistence")

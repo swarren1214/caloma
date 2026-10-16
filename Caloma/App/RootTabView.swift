@@ -1,11 +1,12 @@
 import SwiftUI
 
 enum AppTab: Hashable {
-    case home, chores, calendar, rewards, control, homeCare
+    case home, chores, calendar, rewards, control, homeCare, whiteboard
 }
 
-/// The system Liquid Glass tab bar: Home, Chores, Calendar, Rewards, Control and Home Care. On iPad
-/// it's a bar at the top that opens into a sidebar; on iPhone, Home Care sits under More.
+/// The system Liquid Glass tab bar: Home, Chores, Calendar, Rewards, Control, Home Care and
+/// Whiteboard. On iPad it's a bar at the top that opens into a sidebar; on iPhone, Home Care and
+/// Whiteboard sit under More.
 struct RootTabView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -50,6 +51,12 @@ struct RootTabView: View {
                 NavigationStack(path: $homeCarePath) { HomeCareView().screenshotDestinations() }
             } label: {
                 tabLabel("Home Care", "wrench.and.screwdriver")
+            }
+
+            Tab(value: AppTab.whiteboard) {
+                NavigationStack { WhiteboardView() }
+            } label: {
+                tabLabel("Whiteboard", "applepencil.and.scribble")
             }
         }
         .tabViewStyle(.sidebarAdaptable)

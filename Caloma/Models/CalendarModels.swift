@@ -38,6 +38,11 @@ final class FamilyEvent {
     var skippedDaysRaw: String = ""
     var isArchived: Bool = false
     var createdAt: Date = Date.now
+    /// Written with the Apple Pencil: the handwritten title, as PencilKit data. The typed
+    /// `title` is what Caloma read from it, for search, widgets and notifications.
+    @Attribute(.externalStorage) var handwriting: Data?
+    /// Whose ink color it was written in.
+    var inkMemberID: UUID?
 
     init(title: String, start: Date, end: Date, isAllDay: Bool = false, attendeeIDs: [UUID] = []) {
         self.title = title

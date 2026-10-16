@@ -211,6 +211,8 @@ enum Family {
         try? context.delete(model: EventPacking.self)
         try? context.delete(model: Room.self)
         try? context.delete(model: FamilySetting.self)
+        try? context.delete(model: Whiteboard.self)
+        try? context.delete(model: WallNote.self)
         Persistence.save(context)
         Reminders.cancelAll()
         Task {
