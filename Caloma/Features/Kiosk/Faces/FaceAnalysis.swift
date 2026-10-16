@@ -45,18 +45,18 @@ nonisolated enum FaceAnalyzer {
         reading.yaw = (face.yaw?.doubleValue ?? 0) * 180 / .pi
         reading.pitch = (face.pitch?.doubleValue ?? 0) * 180 / .pi
         reading.quality = quality
-        if quality >= minimumQuality, let crop = crop(buffer, around: face.boundingBox) {
+        if quality >= minimumQuality, let crop = crop(buffer, around: face.boundingBox, scale: embedder.cropScale) {
             reading.embedding = embedder.embed(crop)
         }
         return reading
     }
 
     /// A square around the face with a little room, scaled down for the embedder.
-    private static func crop(_ buffer: CVPixelBuffer, around box: CGRect) -> CGImage? {
+    private static func crop(_ buffer: CVPixelBuffer, around box: CGRect, scale room: CGFloat) -> CGImage? {
         let image = CIImage(cvPixelBuffer: buffer)
         let extent = image.extent
         let rect = VNImageRectForNormalizedRect(box, Int(extent.width), Int(extent.height))
-        let side = max(rect.width, rect.height) * 1.3
+        let side = max(rect.width, rect.height) * room
         let square = CGRect(x: rect.midX - side / 2, y: rect.midY - side / 2, width: side, height: side).intersection(extent)
         guard square.width > 20, square.height > 20 else { return nil }
         let scale = 160 / max(square.width, square.height)
@@ -73,12 +73,14 @@ nonisolated protocol FaceEmbedding: Sendable {
     var matchThreshold: Float { get }
     /// How far ahead of the next person the best match must be.
     var margin: Float { get }
+    /// How much room around Vision's face box the crop gets.
+    var cropScale: CGFloat { get }
     func embed(_ image: CGImage) -> [Float]?
 }
 
 nonisolated enum FaceEmbedder {
-    /// A dedicated face model when one is in the app (FaceEmbedding.mlmodel, compiled into the
-    /// bundle), otherwise Vision's general image feature print.
+    /// The FaceNet face model in the app (FaceNet512.mlpackage), or Vision's general image
+    /// feature print if it's ever missing.
     static let current: any FaceEmbedding = {
         if let model = CoreMLFaceEmbedder() { return model }
         return FeaturePrintEmbedder()
@@ -93,6 +95,7 @@ nonisolated struct FeaturePrintEmbedder: FaceEmbedding {
     let id = "vision.featureprint"
     let matchThreshold: Float = 0.80
     let margin: Float = 0.03
+    let cropScale: CGFloat = 1.3
 
     func embed(_ image: CGImage) -> [Float]? {
         let request = VNGenerateImageFeaturePrintRequest()
@@ -107,20 +110,23 @@ nonisolated struct FeaturePrintEmbedder: FaceEmbedding {
     }
 }
 
-/// A bundled face-embedding model (MobileFaceNet-style: a face crop in, a vector out).
+/// FaceNet (Inception-ResNet-v1, VGGFace2 weights from facenet-pytorch), converted to Core ML:
+/// a 160×160 face crop in, a 512-number embedding out. Same person: about 0.6–0.9 similar;
+/// different people: under about 0.4.
 nonisolated final class CoreMLFaceEmbedder: FaceEmbedding, @unchecked Sendable {
     let id: String
     let matchThreshold: Float = 0.55
-    let margin: Float = 0.08
+    let margin: Float = 0.10
+    let cropScale: CGFloat = 1.2
     private let model: VNCoreMLModel
 
     init?() {
-        guard let url = Bundle.main.url(forResource: "FaceEmbedding", withExtension: "mlmodelc"),
+        guard let url = Bundle.main.url(forResource: "FaceNet512", withExtension: "mlmodelc"),
               let ml = try? MLModel(contentsOf: url),
               let vision = try? VNCoreMLModel(for: ml) else { return nil }
         model = vision
         let version = ml.modelDescription.metadata[.versionString] as? String ?? "1"
-        id = "coreml.FaceEmbedding.\(version)"
+        id = "coreml.\(version)"
     }
 
     func embed(_ image: CGImage) -> [Float]? {

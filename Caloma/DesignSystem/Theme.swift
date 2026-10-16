@@ -51,8 +51,8 @@ nonisolated enum SettingsKey {
     static let kioskFaces = "kiosk.faces"
     /// Show the doorbell card on the wall (on unless turned off).
     static let kioskDoorbell = "kiosk.doorbell"
-    /// Also show it when the doorbell sees someone, not just when it's rung.
-    static let kioskDoorbellMotion = "kiosk.doorbellMotion"
+    /// Cameras whose motion shows them on the wall: Apple Home accessory IDs.
+    static let kioskMotionCameras = "kiosk.motionCameras"
     /// Play a chime on the wall when the doorbell rings (on unless turned off).
     static let kioskChime = "kiosk.chime"
     /// Which Apple Home the wall iPad watches, when there's more than one.

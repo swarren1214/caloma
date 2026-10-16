@@ -2,14 +2,22 @@ import AudioToolbox
 import HomeKit
 import SwiftUI
 
-/// Someone at the door: a doorbell press, or (when turned on) a person seen by the doorbell.
+/// Something to show on the wall: a doorbell press, or motion on a camera the family chose.
 struct DoorbellEvent: Identifiable, Equatable {
     let id = UUID()
-    /// The doorbell accessory.
+    /// The doorbell or camera accessory.
     let accessoryID: UUID
     let name: String
     let byMotion: Bool
     let at = Date.now
+}
+
+/// A camera in Apple Home, for choosing which ones show on the wall.
+struct HomeCamera: Identifiable, Hashable {
+    let id: UUID
+    let name: String
+    let room: String
+    let isDoorbell: Bool
 }
 
 /// One of the family's Apple Homes, for the picker.
@@ -70,6 +78,31 @@ final class HomeBridge: NSObject {
     private func accessories(with serviceType: String) -> [(HMAccessory, HMService)] {
         (home?.accessories ?? []).flatMap { accessory in
             accessory.services.filter { $0.serviceType == serviceType }.map { (accessory, $0) }
+        }
+    }
+
+    /// Every camera in the home, doorbells first.
+    var cameras: [HomeCamera] {
+        _ = revision
+        return (home?.accessories ?? [])
+            .filter { !($0.cameraProfiles ?? []).isEmpty }
+            .map { accessory in
+                HomeCamera(id: accessory.uniqueIdentifier, name: accessory.name, room: accessory.room?.name ?? "",
+                           isDoorbell: accessory.services.contains { $0.serviceType == HMServiceTypeDoorbell })
+            }
+            .sorted { ($0.isDoorbell ? 0 : 1, $0.name) < ($1.isDoorbell ? 0 : 1, $1.name) }
+    }
+
+    /// Cameras that pop up on the wall when they see motion (Family › Kiosk Mode › Cameras).
+    var motionCameraIDs: Set<UUID> {
+        get {
+            _ = revision
+            let saved = UserDefaults.standard.stringArray(forKey: SettingsKey.kioskMotionCameras) ?? []
+            return Set(saved.compactMap(UUID.init(uuidString:)))
+        }
+        set {
+            UserDefaults.standard.set(newValue.map(\.uuidString), forKey: SettingsKey.kioskMotionCameras)
+            revision += 1
         }
     }
 
@@ -188,16 +221,18 @@ final class HomeBridge: NSObject {
             guard showDoorbell else { return }
             ring(DoorbellEvent(accessoryID: accessory.uniqueIdentifier, name: accessory.name, byMotion: false))
         case HMCharacteristicTypeMotionDetected:
-            guard showDoorbell, defaults.bool(forKey: SettingsKey.kioskDoorbellMotion),
-                  (characteristic.value as? NSNumber)?.boolValue == true else { return }
-            // Only motion seen by the doorbell itself or its camera, at most every two minutes.
-            guard let doorbell = home?.accessories.first(where: { candidate in
-                candidate.services.contains { $0.serviceType == HMServiceTypeDoorbell }
-                    && (candidate == accessory || (accessory.cameraProfiles != nil && candidate.room == accessory.room))
-            }) else { return }
-            if let last = lastMotion[doorbell.uniqueIdentifier], Date.now.timeIntervalSince(last) < 120 { return }
-            lastMotion[doorbell.uniqueIdentifier] = .now
-            ring(DoorbellEvent(accessoryID: doorbell.uniqueIdentifier, name: doorbell.name, byMotion: true))
+            // Motion from a camera the family picked, at most every two minutes per camera.
+            // (Apple doesn't share Secure Video's person, animal or package alerts with apps,
+            // so this is the camera's own motion sensor.)
+            guard (characteristic.value as? NSNumber)?.boolValue == true,
+                  !(accessory.cameraProfiles ?? []).isEmpty,
+                  motionCameraIDs.contains(accessory.uniqueIdentifier) else {
+                revision += 1
+                return
+            }
+            if let last = lastMotion[accessory.uniqueIdentifier], Date.now.timeIntervalSince(last) < 120 { return }
+            lastMotion[accessory.uniqueIdentifier] = .now
+            ring(DoorbellEvent(accessoryID: accessory.uniqueIdentifier, name: accessory.name, byMotion: true))
         default:
             revision += 1
         }
@@ -205,7 +240,8 @@ final class HomeBridge: NSObject {
 
     private func ring(_ event: DoorbellEvent) {
         guard let onDoorbell else { return }
-        if UserDefaults.standard.object(forKey: SettingsKey.kioskChime) as? Bool ?? true {
+        // The chime is for the doorbell; motion slides in quietly.
+        if !event.byMotion, UserDefaults.standard.object(forKey: SettingsKey.kioskChime) as? Bool ?? true {
             AudioServicesPlaySystemSound(1013)
         }
         onDoorbell(event)

@@ -94,6 +94,8 @@ struct KioskRootView: View {
             UIApplication.shared.isIdleTimerDisabled = keepAwake
             HomeBridge.shared.start()
             HomeBridge.shared.onDoorbell = { event in
+                // A ring always shows; motion never covers a card that's already up.
+                if event.byMotion && session.doorbell != nil { return }
                 withAnimation(.spring(duration: 0.45, bounce: 0.2)) { session.ring(event) }
             }
             startFaces()

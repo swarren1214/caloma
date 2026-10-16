@@ -9,7 +9,6 @@ struct KioskSettingsView: View {
     @AppStorage(SettingsKey.kioskKeepAwake) private var keepAwake = true
     @AppStorage(SettingsKey.kioskFaces) private var facesOn = false
     @AppStorage(SettingsKey.kioskDoorbell) private var doorbellOn = true
-    @AppStorage(SettingsKey.kioskDoorbellMotion) private var doorbellMotion = false
     @AppStorage(SettingsKey.kioskChime) private var chime = true
     private let home = HomeBridge.shared
 
@@ -77,12 +76,7 @@ struct KioskSettingsView: View {
                 Toggle(isOn: $doorbellOn) {
                     settingLabel("Show the Doorbell", "Live video on the wall when someone rings")
                 }
-                Toggle(isOn: $doorbellMotion) {
-                    settingLabel("When Someone's at the Door", "Also show it when the doorbell sees a person")
-                }
-                .disabled(!doorbellOn)
                 Toggle("Chime on the Wall", isOn: $chime)
-                    .disabled(!doorbellOn)
                 if home.homeNames.count > 1 {
                     Picker("Home", selection: Binding(get: { home.home?.uniqueIdentifier ?? home.homeNames[0].id }, set: { home.chooseHome($0) })) {
                         ForEach(home.homeNames) { entry in
@@ -94,6 +88,27 @@ struct KioskSettingsView: View {
                 Text("Doorbell")
             } footer: {
                 Text(doorbellFooter)
+            }
+
+            if !home.cameras.isEmpty {
+                Section {
+                    ForEach(home.cameras) { camera in
+                        Toggle(isOn: Binding(
+                            get: { home.motionCameraIDs.contains(camera.id) },
+                            set: { on in
+                                var ids = home.motionCameraIDs
+                                if on { ids.insert(camera.id) } else { ids.remove(camera.id) }
+                                home.motionCameraIDs = ids
+                            }
+                        )) {
+                            settingLabel(camera.name, camera.room.isEmpty ? (camera.isDoorbell ? "Doorbell" : "Camera") : camera.room)
+                        }
+                    }
+                } header: {
+                    Text("Show When They See Motion")
+                } footer: {
+                    Text("The camera's live view slides onto the wall, at most every two minutes per camera. Apple doesn't share Secure Video's person, animal and package alerts with other apps, so any motion the camera reports counts.")
+                }
             }
 
             Section {

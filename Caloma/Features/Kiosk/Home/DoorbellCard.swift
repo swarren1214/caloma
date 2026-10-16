@@ -138,7 +138,7 @@ struct DoorbellCard: View {
 
     private var controls: some View {
         HStack(spacing: 12) {
-            Image(systemName: event.byMotion ? "figure.stand" : "bell.fill")
+            Image(systemName: event.byMotion ? "video.fill" : "bell.fill")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 40, height: 40)
@@ -193,7 +193,7 @@ struct DoorbellCard: View {
     private var subtitle: String {
         if talking { return "Talking · stays open until you're done" }
         let when = event.at.formatted(date: .omitted, time: .shortened)
-        return (event.byMotion ? "Someone's at the door · " : "Doorbell · ") + when + (muted ? " · sound off" : "")
+        return (event.byMotion ? "Motion · " : "Doorbell · ") + when + (muted ? " · sound off" : "")
     }
 
     private func roundButton(_ symbol: String, _ label: String, action: @escaping () -> Void) -> some View {
