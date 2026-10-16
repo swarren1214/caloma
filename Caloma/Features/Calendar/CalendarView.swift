@@ -84,7 +84,7 @@ struct CalendarView: View {
         .sheet(item: $creating) { request in
             EventEditor(event: nil, day: request.day, startAt: request.start, allDay: request.allDay)
         }
-        .sheet(item: $writing) { request in
+        .fullScreenCover(item: $writing) { request in
             WriteEventSheet(day: request.day, onTheWall: readOnly)
         }
         .sheet(item: $open) { ref in

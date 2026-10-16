@@ -13,6 +13,7 @@ struct WriteEventSheet: View {
     var onTheWall = false
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.modelContext) private var context
     @Environment(KioskSession.self) private var session: KioskSession?
     @Query(sort: \Member.sortOrder) private var members: [Member]
@@ -28,6 +29,8 @@ struct WriteEventSheet: View {
     @State private var typedWhen = ""
     @State private var typedNotes = ""
     @State private var typing: Field?
+    /// The box the Pencil is on right now, so its hint goes away as the stroke starts.
+    @State private var writingIn: Field?
 
     @State private var fallback: Date
     /// What was read from WHEN, shown under it once it's been read.
@@ -62,27 +65,41 @@ struct WriteEventSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    whoRow
-                    box(.what, label: "WHAT", hint: "Soccer practice", height: 150, drawing: $what, typed: $typedWhat)
-                    VStack(alignment: .leading, spacing: 8) {
-                        box(.when, label: "WHEN", hint: "Tue 4:30  ·  Sat 10–12  ·  tomorrow 6", height: 110, drawing: $when, typed: $typedWhen)
-                        HStack(spacing: 10) {
-                            Image(systemName: timeUnreadable ? "exclamationmark.circle.fill" : "clock")
-                                .foregroundStyle(timeUnreadable ? Brand.waiting : .secondary)
-                            Text(timeUnreadable ? "Couldn't read \u{201C}\(readWhen ?? "")\u{201D} as a time. Check it here, then Add." : "Or pick it")
-                                .font(.subheadline.weight(timeUnreadable ? .semibold : .regular))
-                                .foregroundStyle(timeUnreadable ? Brand.waiting : .secondary)
-                            Spacer()
-                            DatePicker("Time", selection: $fallback)
-                                .labelsHidden()
+            Group {
+                if sizeClass == .regular {
+                    // iPad: the whole screen is paper. WHAT on the left, as tall as the screen;
+                    // WHEN and NOTES stacked on the right.
+                    VStack(alignment: .leading, spacing: 16) {
+                        whoRow
+                        HStack(alignment: .top, spacing: 16) {
+                            box(.what, label: "WHAT", hint: "Soccer practice", height: nil, drawing: $what, typed: $typedWhat)
+                                .frame(maxWidth: .infinity)
+                            VStack(alignment: .leading, spacing: 14) {
+                                box(.when, label: "WHEN", hint: "Tue 4:30  ·  Sat 10–12", height: nil, drawing: $when, typed: $typedWhen)
+                                pickRow
+                                box(.notes, label: "NOTES", hint: "Bring cleats", height: nil, drawing: $notes, typed: $typedNotes)
+                            }
+                            .frame(maxWidth: .infinity)
                         }
-                        .padding(.horizontal, 4)
+                        .frame(maxHeight: .infinity)
                     }
-                    box(.notes, label: "NOTES", hint: "Bring cleats", height: 130, drawing: $notes, typed: $typedNotes)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                    .padding(.top, 8)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+                            whoRow
+                            box(.what, label: "WHAT", hint: "Soccer practice", height: 180, drawing: $what, typed: $typedWhat)
+                            VStack(alignment: .leading, spacing: 8) {
+                                box(.when, label: "WHEN", hint: "Tue 4:30  ·  Sat 10–12", height: 130, drawing: $when, typed: $typedWhen)
+                                pickRow
+                            }
+                            box(.notes, label: "NOTES", hint: "Bring cleats", height: 150, drawing: $notes, typed: $typedNotes)
+                        }
+                        .padding(20)
+                    }
                 }
-                .padding(20)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Write an Event")
@@ -119,7 +136,6 @@ struct WriteEventSheet: View {
             .onChange(of: session?.idleResets) { _, _ in dismiss() }
             .onChange(of: typedWhen) { _, _ in timeUnreadable = false }
         }
-        .presentationDetents([.large])
         .sheet(item: $unlocking) { person in
             ProfileUnlockSheet(member: person) {
                 unlocking = nil
@@ -138,6 +154,21 @@ struct WriteEventSheet: View {
                 KioskPresence.shared.pause(false)
             }
         }
+    }
+
+    /// The time picker under WHEN, used when nothing's written or it can't be read.
+    private var pickRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: timeUnreadable ? "exclamationmark.circle.fill" : "clock")
+                .foregroundStyle(timeUnreadable ? Brand.waiting : .secondary)
+            Text(timeUnreadable ? "Couldn't read \u{201C}\(readWhen ?? "")\u{201D} as a time. Check it here, then Add." : "Or pick it")
+                .font(.subheadline.weight(timeUnreadable ? .semibold : .regular))
+                .foregroundStyle(timeUnreadable ? Brand.waiting : .secondary)
+            Spacer()
+            DatePicker("Time", selection: $fallback)
+                .labelsHidden()
+        }
+        .padding(.horizontal, 4)
     }
 
     // MARK: Who
@@ -204,7 +235,8 @@ struct WriteEventSheet: View {
         }
     }
 
-    private func box(_ field: Field, label title: String, hint: String, height: CGFloat, drawing: Binding<PKDrawing>, typed: Binding<String>) -> some View {
+    /// A writing box. `height` nil fills the space it's given.
+    private func box(_ field: Field, label title: String, hint: String, height: CGFloat?, drawing: Binding<PKDrawing>, typed: Binding<String>) -> some View {
         let isTyping = typing == field
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -231,28 +263,26 @@ struct WriteEventSheet: View {
             Group {
                 if isTyping {
                     TextField(hint, text: typed, axis: .vertical)
-                        .font(.title3)
-                        .padding(14)
-                        .frame(maxWidth: .infinity, minHeight: height, alignment: .topLeading)
+                        .font(.title2)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, minHeight: height ?? 0, maxHeight: height == nil ? .infinity : nil, alignment: .topLeading)
                 } else {
-                    PencilCanvas(drawing: drawing, tool: tool, onPencilTap: { erasing.toggle() })
-                        .frame(height: height)
-                        .overlay(alignment: .topLeading) {
-                            if !drawing.wrappedValue.hasInk {
-                                Text(hint)
-                                    .font(.title3)
-                                    .foregroundStyle(Color.black.opacity(0.18))
-                                    .padding(16)
-                                    .allowsHitTesting(false)
-                            }
+                    PencilCanvas(drawing: drawing, tool: tool, onPencilTap: { erasing.toggle() }, onDrawingChange: { on in
+                        writingIn = on ? field : nil
+                    })
+                    .frame(maxWidth: .infinity)
+                    .frame(height: height)
+                    .frame(maxHeight: height == nil ? .infinity : nil)
+                    .overlay(alignment: .topLeading) {
+                        if !drawing.wrappedValue.hasInk && writingIn != field {
+                            Text(hint)
+                                .font(.title)
+                                .foregroundStyle(Color.black.opacity(0.16))
+                                .padding(20)
+                                .allowsHitTesting(false)
                         }
-                        .background {
-                            // Writing lines.
-                            VStack(spacing: 0) {
-                                Spacer()
-                                Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1).padding(.horizontal, 16).padding(.bottom, 26)
-                            }
-                        }
+                    }
+                    .background(RuledLines())
                 }
             }
             .background(Color(red: 0.995, green: 0.995, blue: 0.99), in: .rect(cornerRadius: 16))
@@ -325,6 +355,21 @@ struct WriteEventSheet: View {
             saving = false
             dismiss()
         }
+    }
+}
+
+/// Faint writing lines, like a notepad.
+private struct RuledLines: View {
+    var body: some View {
+        Canvas { context, size in
+            let spacing: CGFloat = 64
+            var y = spacing
+            while y < size.height - 12 {
+                context.fill(Path(CGRect(x: 20, y: y, width: max(size.width - 40, 0), height: 1)), with: .color(.black.opacity(0.07)))
+                y += spacing
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
