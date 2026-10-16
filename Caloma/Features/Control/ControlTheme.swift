@@ -66,9 +66,19 @@ extension Color {
     }
 }
 
+/// Called when someone changes a device by hand, so the running scene's glow lets go.
+/// A struct rather than a bare closure, so the environment can tell when it really changed.
+struct ControlTouch: Equatable {
+    var id = "none"
+    var action: () -> Void = {}
+
+    func callAsFunction() { action() }
+
+    static func == (lhs: ControlTouch, rhs: ControlTouch) -> Bool { lhs.id == rhs.id }
+}
+
 extension EnvironmentValues {
-    /// Called when someone changes a device by hand, so the running scene's glow lets go.
-    @Entry var controlTouched: () -> Void = {}
+    @Entry var controlTouched = ControlTouch()
 }
 
 // MARK: - A device's look

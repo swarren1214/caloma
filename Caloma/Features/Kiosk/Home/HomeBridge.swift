@@ -253,6 +253,9 @@ extension HomeBridge: HMHomeManagerDelegate, HMAccessoryDelegate {
         Task { @MainActor in
             self.homeNames = manager.homes.map { HomeName(id: $0.uniqueIdentifier, name: $0.name) }
             self.authorized = manager.authorizationStatus.contains(.authorized)
+            if self.authorized == true {
+                UserDefaults.standard.set(true, forKey: SettingsKey.homeKitAllowed)
+            }
             self.subscribe()
         }
     }

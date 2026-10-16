@@ -24,10 +24,10 @@ extension HomeBridge {
     func rename(_ control: HomeControl, to name: String) async throws {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != control.name else { return }
-        try await control.service.updateName(trimmed)
+        try await homeKit { control.service.updateName(trimmed, completionHandler: $0) }
         let controls = control.accessory.services.filter { $0.isUserInteractive && $0.serviceType != HMServiceTypeAccessoryInformation && $0.serviceType != HMServiceTypeBattery }
         if controls.count <= 1 {
-            try await control.accessory.updateName(trimmed)
+            try await homeKit { control.accessory.updateName(trimmed, completionHandler: $0) }
         }
         revision += 1
     }
@@ -36,7 +36,7 @@ extension HomeBridge {
     func move(_ control: HomeControl, to roomID: UUID) async throws {
         guard let home, let room = homeRooms.first(where: { $0.uniqueIdentifier == roomID }) else { return }
         guard control.accessory.room?.uniqueIdentifier != roomID else { return }
-        try await home.assignAccessory(control.accessory, to: room)
+        try await homeKit { home.assignAccessory(control.accessory, to: room, completionHandler: $0) }
         revision += 1
     }
 
@@ -45,7 +45,15 @@ extension HomeBridge {
         guard let home else { return nil }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let room = try await home.addRoom(withName: trimmed)
+        let room: HMRoom = try await withCheckedThrowingContinuation { continuation in
+            home.addRoom(withName: trimmed) { room, error in
+                if let room {
+                    continuation.resume(returning: room)
+                } else {
+                    continuation.resume(throwing: error ?? HMError(.genericError))
+                }
+            }
+        }
         revision += 1
         return room
     }
@@ -53,7 +61,7 @@ extension HomeBridge {
     /// What a plug or switch controls, so scenes and "turn off the lights" include it.
     func setShowAs(_ control: HomeControl, _ kind: ShowAs) async throws {
         guard control.service.serviceType == HMServiceTypeOutlet || control.service.serviceType == HMServiceTypeSwitch else { return }
-        try await control.service.updateAssociatedServiceType(kind.serviceType)
+        try await homeKit { control.service.updateAssociatedServiceType(kind.serviceType, completionHandler: $0) }
         revision += 1
     }
 
@@ -66,6 +74,19 @@ extension HomeBridge {
         case HMServiceTypeLightbulb?: return .light
         case HMServiceTypeFan?, HMServiceTypeVentilationFan?: return .fan
         default: return type == HMServiceTypeSwitch ? .switch : .outlet
+        }
+    }
+
+    /// Runs a HomeKit call that reports back through a completion handler, and waits for it.
+    private func homeKit(_ call: (@escaping @Sendable (Error?) -> Void) -> Void) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            call { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
         }
     }
 

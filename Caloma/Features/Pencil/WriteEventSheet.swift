@@ -277,7 +277,7 @@ struct WriteEventSheet: View {
                         if !drawing.wrappedValue.hasInk && writingIn != field {
                             Text(hint)
                                 .font(.title)
-                                .foregroundStyle(Color.black.opacity(0.16))
+                                .foregroundStyle(PencilPaper.hint)
                                 .padding(20)
                                 .allowsHitTesting(false)
                         }
@@ -285,10 +285,8 @@ struct WriteEventSheet: View {
                     .background(RuledLines())
                 }
             }
-            .background(Color(red: 0.995, green: 0.995, blue: 0.99), in: .rect(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.08)))
-            // Paper is always light, like the ink on it.
-            .environment(\.colorScheme, .light)
+            .background(PencilPaper.color, in: .rect(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(PencilPaper.border))
         }
     }
 
@@ -365,7 +363,7 @@ private struct RuledLines: View {
             let spacing: CGFloat = 64
             var y = spacing
             while y < size.height - 12 {
-                context.fill(Path(CGRect(x: 20, y: y, width: max(size.width - 40, 0), height: 1)), with: .color(.black.opacity(0.07)))
+                context.fill(Path(CGRect(x: 20, y: y, width: max(size.width - 40, 0), height: 1)), with: .color(PencilPaper.marks))
                 y += spacing
             }
         }
@@ -373,19 +371,20 @@ private struct RuledLines: View {
     }
 }
 
-/// An event's handwritten title, in the writer's ink on light paper.
+/// An event's handwritten title, in the writer's ink on paper that matches light or dark mode.
 struct EventHandwriting: View {
     var data: Data
     var maxHeight: CGFloat = 120
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        if let image = PKDrawing(savedData: data).inkImage(scale: 2) {
+        if let image = PKDrawing(savedData: data).inkImage(scale: 2, dark: scheme == .dark) {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
                 .frame(maxHeight: maxHeight, alignment: .leading)
                 .padding(10)
-                .background(Color(red: 0.995, green: 0.995, blue: 0.99), in: .rect(cornerRadius: 12))
+                .background(PencilPaper.color, in: .rect(cornerRadius: 12))
                 .accessibilityHidden(true)
         }
     }

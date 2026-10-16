@@ -22,6 +22,11 @@ struct ControlView: View {
 
     private static let everything = "all"
 
+    /// Lets go of the scene glow when someone changes a device by hand.
+    private var clearScene: ControlTouch {
+        ControlTouch(id: "control") { activeSceneID = "" }
+    }
+
     var body: some View {
         let book = StyleBook(styles)
         let scenes = home.scenes
@@ -48,7 +53,7 @@ struct ControlView: View {
         .navigationTitle(home.homeTitle ?? "Control")
         .navigationBarTitleDisplayMode(.large)
         .environment(\.styleBook, book)
-        .environment(\.controlTouched, { activeSceneID = "" })
+        .environment(\.controlTouched, clearScene)
         .toolbar {
             if home.homeNames.count > 1 {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -83,10 +88,10 @@ struct ControlView: View {
             case .light(let control):
                 LightDetailView(control: control) { self.sheet = .edit(control) }
                     .environment(\.styleBook, book)
-                    .environment(\.controlTouched, { activeSceneID = "" })
+                    .environment(\.controlTouched, clearScene)
             case .adjust(let control):
                 DeviceAdjustSheet(control: control) { self.sheet = .edit(control) }
-                    .environment(\.controlTouched, { activeSceneID = "" })
+                    .environment(\.controlTouched, clearScene)
                     .presentationDetents([.medium])
             case .edit(let control):
                 EditDeviceView(control: control)
@@ -149,7 +154,7 @@ struct ControlView: View {
                     ForEach(thermostats) { thermostat in
                         NavigationLink {
                             ClimateView(control: thermostat)
-                                .environment(\.controlTouched, { activeSceneID = "" })
+                                .environment(\.controlTouched, clearScene)
                         } label: {
                             ThermostatTile(control: thermostat)
                         }

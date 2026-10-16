@@ -140,6 +140,8 @@ struct DrawBackSheet: View {
                     .accessibilityLabel("Eraser")
                 }
                 PencilCanvas(drawing: $drawing, tool: erasing ? .eraser : .pen(from.color.color, width: 5), onPencilTap: { erasing.toggle() })
+                    // Yellow sticky-note paper stays light, in dark mode too.
+                    .environment(\.colorScheme, .light)
                     .background(WallNotePaper.color)
                     .clipShape(.rect(cornerRadius: 14))
                     .overlay {

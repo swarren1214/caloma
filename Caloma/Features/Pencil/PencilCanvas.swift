@@ -25,8 +25,21 @@ struct PencilToolPicker: Equatable {
     var isVisible = true
 }
 
-/// A PencilKit drawing surface. Always drawn on light paper, so ink looks the same in dark mode
-/// and on the wall as it does in a note. With the iPad's "Only Draw with Apple Pencil" setting
+/// The paper Pencil writing sits on: near-white by day, near-black in dark mode so a late-night
+/// whiteboard isn't blinding. Ink is always saved in its light colors; PencilKit shows black ink
+/// as white (and lightens dark colors) on the dark paper.
+enum PencilPaper {
+    static let color = Color(light: 0xFEFEFC, dark: 0x1C1C1E)
+    /// Dots and ruled lines.
+    static let marks = Color.primary.opacity(0.09)
+    static let border = Color.primary.opacity(0.08)
+    /// "Draw anything", "What's happening?"
+    static let hint = Color.primary.opacity(0.22)
+}
+
+/// A PencilKit drawing surface. It follows the appearance around it: dark paper and a dark tool
+/// palette in dark mode (wrap it in a light color scheme to keep it light, as wall notes'
+/// yellow paper does). With the iPad's "Only Draw with Apple Pencil" setting
 /// on, fingers scroll and tap instead of drawing. A double-tap (or squeeze) on the Pencil calls
 /// `onPencilTap`, usually to switch between pen and eraser.
 struct PencilCanvas: View {
@@ -40,9 +53,6 @@ struct PencilCanvas: View {
 
     var body: some View {
         PencilCanvasView(drawing: $drawing, tool: tool, onPencilTap: onPencilTap, onDrawingChange: onDrawingChange, toolPicker: toolPicker)
-            // PencilKit redraws finished strokes for the trait it's in. In dark mode it would
-            // turn black ink white on this white paper, so the canvas is always light.
-            .environment(\.colorScheme, .light)
     }
 }
 
@@ -59,7 +69,8 @@ private struct PencilCanvasView: UIViewRepresentable {
         let canvas = ResponderCanvasView()
         canvas.backgroundColor = .clear
         canvas.isOpaque = false
-        canvas.overrideUserInterfaceStyle = .light
+        let style = Self.style(context.environment.colorScheme)
+        canvas.overrideUserInterfaceStyle = style
         canvas.drawingPolicy = .default
         canvas.isScrollEnabled = false
         canvas.showsVerticalScrollIndicator = false
@@ -68,8 +79,9 @@ private struct PencilCanvasView: UIViewRepresentable {
         canvas.delegate = context.coordinator
         if toolPicker != nil {
             let picker = PKToolPicker()
-            // Colors as they'll look on the light paper.
-            picker.colorUserInterfaceStyle = .light
+            // The palette and its colors match the paper.
+            picker.colorUserInterfaceStyle = style
+            picker.overrideUserInterfaceStyle = style
             picker.stateAutosaveName = "caloma.whiteboard"
             picker.addObserver(canvas)
             context.coordinator.picker = picker
@@ -83,9 +95,21 @@ private struct PencilCanvasView: UIViewRepresentable {
         return canvas
     }
 
+    /// Light or dark, from SwiftUI's color scheme around the canvas.
+    static func style(_ scheme: ColorScheme) -> UIUserInterfaceStyle {
+        scheme == .dark ? .dark : .light
+    }
+
     func updateUIView(_ canvas: ResponderCanvasView, context: Context) {
         let coordinator = context.coordinator
         coordinator.parent = self
+        // Follows a switch between light and dark while it's open.
+        let style = Self.style(context.environment.colorScheme)
+        if canvas.overrideUserInterfaceStyle != style {
+            canvas.overrideUserInterfaceStyle = style
+            coordinator.picker?.colorUserInterfaceStyle = style
+            coordinator.picker?.overrideUserInterfaceStyle = style
+        }
         // The canvas owns the ink. Only push a drawing in when SwiftUI changed it on purpose
         // (another board, Clear, Undo, a sync) — never because the view redrew with a copy from
         // before the stroke that just finished, which would wipe that stroke.
@@ -207,11 +231,12 @@ extension PKDrawing {
         }
     }
 
-    /// The ink alone (transparent around it), in light colors, at the drawing's own size.
-    func inkImage(in rect: CGRect? = nil, scale: CGFloat = 2) -> UIImage? {
+    /// The ink alone (transparent around it), at the drawing's own size: in light colors, or as
+    /// it shows on dark paper.
+    func inkImage(in rect: CGRect? = nil, scale: CGFloat = 2, dark: Bool = false) -> UIImage? {
         guard !strokes.isEmpty else { return nil }
         var ink: UIImage?
-        UITraitCollection(userInterfaceStyle: .light).performAsCurrent {
+        UITraitCollection(userInterfaceStyle: dark ? .dark : .light).performAsCurrent {
             ink = image(from: rect ?? bounds.insetBy(dx: -8, dy: -8), scale: scale)
         }
         return ink

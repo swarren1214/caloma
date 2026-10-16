@@ -132,7 +132,9 @@ struct ChoreEditor: View {
                 } header: {
                     Text("Room")
                 } footer: {
-                    Text("Optional. Shows on the chore so kids know where to go.")
+                    Text(UserDefaults.standard.bool(forKey: SettingsKey.homeKitAllowed)
+                         ? "Optional. Shows on the chore so kids know where to go. Your Apple Home rooms are here too."
+                         : "Optional. Shows on the chore so kids know where to go.")
                 }
 
                 Section {
@@ -208,6 +210,10 @@ struct ChoreEditor: View {
             .contentMargins(.bottom, 56, for: .scrollContent)
             .sheet(isPresented: $addingRoom) {
                 RoomEditor(room: nil) { room in roomID = room.id }
+            }
+            .task {
+                // Apple Home's rooms join the picker (once; the family can delete them).
+                await HomeRoomImport.run(in: context)
             }
             .onChange(of: upForGrabs) { _, on in
                 guard on else { return }

@@ -20,6 +20,8 @@ struct AdultContextView: View {
     @Query(filter: #Predicate<HomeTask> { !$0.isArchived }, sort: \HomeTask.nextDue) private var homeTasks: [HomeTask]
 
     @State private var picking = false
+    /// The parent PIN, then every Apple Home control.
+    @State private var homeSheet: KioskHomeSheet?
 
     private var color: Color { member.color.color }
     private var family: FamilySnapshot {
@@ -520,14 +522,85 @@ struct AdultContextView: View {
     // MARK: Home, dinner, the week
 
     /// Locks, garage and thermostat from Apple Home, working: lock up or close in one tap,
-    /// unlock or open with the parent PIN, step the thermostat. Anything open in orange.
+    /// unlock or open with the parent PIN, step the thermostat. Anything open in orange. All
+    /// Home Controls opens the whole Control screen, after the parent PIN.
     private var homeStatusCard: some View {
         let items = HomeBridge.shared.statusItems
         let hasDoors = items.contains { $0.symbol != "thermometer.medium" }
         let secure = hasDoors && !items.contains { $0.needsAttention }
         return card(title: "Home", symbol: "house.fill", tint: Color(hex: 0x30B0C7), trailing: secure ? "All secure" : nil) {
             KioskHomeControls()
+            Button(action: openAllControls) {
+                HStack(spacing: 10) {
+                    Image(systemName: "square.grid.2x2.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(hex: 0x30B0C7))
+                    Text("All Home Controls")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer(minLength: 6)
+                    if !session.isUnlocked {
+                        Image(systemName: "key.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 14))
+                .contentShape(.rect(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(session.isUnlocked ? "Opens every light, lock and device" : "Asks for the parent PIN, then opens every light, lock and device")
         }
+        .sheet(item: $homeSheet) { sheet in
+            switch sheet {
+            case .pin:
+                NavigationStack {
+                    VStack(spacing: 16) {
+                        if ParentPIN.isSet {
+                            ParentPINPad(title: "Enter the parent PIN for all home controls", tint: Color(hex: 0x30B0C7)) {
+                                session.unlock()
+                                homeSheet = .controls
+                            }
+                        } else {
+                            ContentUnavailableView(
+                                "Set a Parent PIN First",
+                                systemImage: "key.fill",
+                                description: Text("Every home control, unlocking doors included, takes the parent PIN on the wall. Set one in Family › Kiosk Mode.")
+                            )
+                        }
+                    }
+                    .padding(24)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { homeSheet = nil }
+                        }
+                    }
+                }
+                .presentationDetents([.large])
+            case .controls:
+                NavigationStack {
+                    ControlView()
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { homeSheet = nil }
+                            }
+                        }
+                }
+                // Using the controls counts as using the wall, so it doesn't idle away.
+                .simultaneousGesture(TapGesture().onEnded { session.touched() })
+                .presentationSizing(.page)
+            }
+        }
+    }
+
+    /// Straight in when this visit is already unlocked; the parent PIN first otherwise.
+    private func openAllControls() {
+        session.touched()
+        homeSheet = session.isUnlocked ? .controls : .pin
     }
 
     private var homeCareCard: some View {
@@ -681,4 +754,11 @@ struct AdultContextView: View {
         .frame(minHeight: 150)
         .padding(.vertical, 6)
     }
+}
+
+/// What's up over a parent's wall screen from the Home card.
+enum KioskHomeSheet: String, Identifiable {
+    case pin, controls
+
+    var id: String { rawValue }
 }

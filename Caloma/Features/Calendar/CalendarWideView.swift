@@ -18,6 +18,16 @@ struct CalendarWideView: View {
     var canCreate = true
 
     @Environment(\.accent) private var accent
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Where the weeks sit while a turn or spring-back animates.
+    @State private var dragOffset: CGFloat = 0
+    /// The finger, while it's down. Resets by itself if the drag is cancelled (say, by
+    /// picking up an event to move it), so the weeks never stay stuck partway.
+    @GestureState private var liveDrag = PagerDrag()
+    @State private var pageWidth: CGFloat = 0
+    /// A week turn is animating; drags and taps wait for it.
+    @State private var paging = false
+    private let pageGap: CGFloat = 16
     private let apple = AppleCalendar.shared
     private let filter = CalendarFilter.shared
     private var showChores: Bool { filter.showChores }
@@ -27,19 +37,7 @@ struct CalendarWideView: View {
             VStack(alignment: .leading, spacing: 14) {
                 header
                 if mode == .week {
-                    WeekGrid(data: data, week: CalendarMath.week(containing: day), visible: visible, showChores: showChores, showHomeCare: filter.showHomeCare, showMeals: filter.showMeals, onNew: onNew, onOpen: onOpen, onMove: onMove)
-                        // Swipe left for next week, right for last week. Mostly sideways
-                        // only, so scrolling through the hours still works.
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 30)
-                                .onEnded { value in
-                                    let dx = value.translation.width
-                                    let dy = value.translation.height
-                                    guard abs(dx) > 80, abs(dx) > abs(dy) * 1.5 else { return }
-                                    move(by: dx < 0 ? 1 : -1)
-                                }
-                        )
-                        .sensoryFeedback(.selection, trigger: CalendarMath.dayKey(CalendarMath.week(containing: day).first ?? day))
+                    weekPager
                 } else {
                     HStack(alignment: .top, spacing: 16) {
                         MonthGrid(day: $day, data: data, visible: visible, cellHeight: 64, onNew: { date in onNew(NewEventRequest(day: date)) }, onDrop: { ref, date in onMove(EventMove(ref: ref, toDay: date)) })
@@ -102,7 +100,7 @@ struct CalendarWideView: View {
                     }
                     .accessibilityLabel(mode == .week ? "Previous week" : "Previous month")
                     Button {
-                        withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
+                        go(to: Calendar.current.startOfDay(for: .now))
                     } label: {
                         Text("Today")
                             .font(.subheadline.weight(.semibold))
@@ -193,9 +191,108 @@ struct CalendarWideView: View {
     }
 
     private func move(by step: Int) {
-        withAnimation(.snappy) {
-            let component: Calendar.Component = mode == .week ? .weekOfYear : .month
-            day = Calendar.current.date(byAdding: component, value: step, to: day) ?? day
+        let component: Calendar.Component = mode == .week ? .weekOfYear : .month
+        go(to: Calendar.current.date(byAdding: component, value: step, to: day) ?? day)
+    }
+
+    /// Changes the day. In the week grid, a week next door turns like a page; further away
+    /// cross-fades.
+    private func go(to newDay: Date) {
+        guard !paging else { return }
+        guard mode == .week else {
+            withAnimation(.snappy) { day = newDay }
+            return
+        }
+        let calendar = Calendar.current
+        let from = CalendarMath.week(containing: day).first ?? day
+        let to = CalendarMath.week(containing: newDay).first ?? newDay
+        let weeks = calendar.dateComponents([.weekOfYear], from: from, to: to).weekOfYear ?? 0
+        if weeks == 0 {
+            withAnimation(.snappy) { day = newDay }
+        } else if abs(weeks) == 1 && !reduceMotion && pageWidth > 0 {
+            turn(weeks, to: newDay)
+        } else {
+            withAnimation(.easeInOut(duration: 0.25)) { day = newDay }
+        }
+    }
+
+    // MARK: Week pager
+
+    /// Last week, this week and next week side by side, this week showing. A sideways drag
+    /// moves them with the finger; letting go far enough (or with a flick) turns the page,
+    /// otherwise it springs back. Up and down still scrolls the hours.
+    private var weekPager: some View {
+        let calendar = Calendar.current
+        let pages = [-1, 0, 1].map { step in
+            let date = calendar.date(byAdding: .weekOfYear, value: step, to: day) ?? day
+            let days = CalendarMath.week(containing: date)
+            return WeekPage(key: CalendarMath.dayKey(days.first ?? date), days: days)
+        }
+        return GeometryReader { proxy in
+            HStack(spacing: pageGap) {
+                ForEach(pages) { page in
+                    WeekGrid(data: data, week: page.days, visible: visible, showChores: showChores, showHomeCare: filter.showHomeCare, showMeals: filter.showMeals, onNew: onNew, onOpen: onOpen, onMove: onMove)
+                        .frame(width: proxy.size.width)
+                        // The neighbors are only glimpsed while dragging.
+                        .accessibilityHidden(page.key != pages[1].key)
+                }
+            }
+            .offset(x: -(proxy.size.width + pageGap) + dragOffset + liveDrag.dx)
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { pageWidth = $0 }
+        .clipShape(.rect(cornerRadius: 22))
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 12)
+                .updating($liveDrag) { value, state, _ in
+                    guard !paging else { return }
+                    let dx = value.translation.width
+                    let dy = value.translation.height
+                    // Decided once per drag: sideways turns weeks, up and down scrolls hours.
+                    if state.axis == nil, abs(dx) > 10 || abs(dy) > 10 {
+                        state.axis = abs(dx) > abs(dy) * 1.2 ? .horizontal : .vertical
+                    }
+                    if state.axis == .horizontal {
+                        state.dx = dx
+                    }
+                }
+                .onEnded { value in
+                    let dx = value.translation.width
+                    guard !paging, abs(dx) > abs(value.translation.height) * 1.2 else { return }
+                    // Carry on from where the finger left the weeks.
+                    var hold = Transaction()
+                    hold.disablesAnimations = true
+                    withTransaction(hold) { dragOffset = dx }
+                    let flick = value.predictedEndTranslation.width
+                    if abs(dx) > pageWidth * 0.25 || (abs(flick) > pageWidth * 0.5 && flick.sign == dx.sign) {
+                        let step = dx < 0 ? 1 : -1
+                        turn(step, to: calendar.date(byAdding: .weekOfYear, value: step, to: day) ?? day)
+                    } else {
+                        withAnimation(.smooth(duration: 0.3)) { dragOffset = 0 }
+                    }
+                }
+        )
+        .sensoryFeedback(.selection, trigger: pages[1].key)
+    }
+
+    /// Slides to the week next door, from wherever a drag left it, then makes it this week
+    /// without moving anything on screen.
+    private func turn(_ step: Int, to newDay: Date) {
+        guard pageWidth > 0 else {
+            day = newDay
+            return
+        }
+        paging = true
+        let target = (pageWidth + pageGap) * (step > 0 ? -1 : 1)
+        withAnimation(.smooth(duration: 0.35)) {
+            dragOffset = target
+        } completion: {
+            var settle = Transaction()
+            settle.disablesAnimations = true
+            withTransaction(settle) {
+                day = newDay
+                dragOffset = 0
+            }
+            paging = false
         }
     }
 }
@@ -659,4 +756,17 @@ private struct DropLine: View {
             .allowsHitTesting(false)
             .animation(.snappy(duration: 0.12), value: minutes)
     }
+}
+
+/// One week in the pager, keyed by its first day so a turn keeps each grid (and its scroll).
+private struct WeekPage: Identifiable {
+    let key: String
+    let days: [Date]
+    var id: String { key }
+}
+
+/// A sideways drag on the week pager: which way it's going, and how far.
+private struct PagerDrag {
+    var axis: Axis?
+    var dx: CGFloat = 0
 }

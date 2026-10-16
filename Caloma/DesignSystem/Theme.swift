@@ -71,6 +71,11 @@ nonisolated enum SettingsKey {
     /// The Apple Home scene Control last ran (its action set's ID), for the glow behind the
     /// screen. Cleared when someone changes a device by hand.
     static let controlScene = "control.scene"
+    /// This device has let Caloma see Apple Home, so other screens may start it quietly.
+    static let homeKitAllowed = "homeKit.allowed"
+    /// Apple Home room names already brought into Caloma's rooms (lowercased), so a room the
+    /// family deletes doesn't come back.
+    static let importedHomeRooms = "rooms.importedFromHome"
 }
 
 /// Caloma's colors, from the Tend designs on the Claude Design canvas.

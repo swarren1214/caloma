@@ -281,12 +281,12 @@ struct WhiteboardView: View {
         )
         .background {
             ZStack {
-                Color(red: 0.995, green: 0.995, blue: 0.99)
+                PencilPaper.color
                 DotGrid()
             }
         }
         .clipShape(.rect(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Color.black.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(PencilPaper.border))
         .overlay {
             // Gone the moment the Pencil touches down, not when the first stroke ends.
             if !drawing.hasInk && !inStroke {
@@ -296,7 +296,7 @@ struct WhiteboardView: View {
                     Text("Draw anything")
                         .font(.title3.weight(.semibold))
                 }
-                .foregroundStyle(Color.black.opacity(0.25))
+                .foregroundStyle(PencilPaper.hint)
                 .allowsHitTesting(false)
             }
         }
@@ -487,7 +487,7 @@ private struct DotGrid: View {
             while y < size.height {
                 var x = step
                 while x < size.width {
-                    context.fill(Path(ellipseIn: CGRect(x: x - 1.2, y: y - 1.2, width: 2.4, height: 2.4)), with: .color(.black.opacity(0.09)))
+                    context.fill(Path(ellipseIn: CGRect(x: x - 1.2, y: y - 1.2, width: 2.4, height: 2.4)), with: .color(PencilPaper.marks))
                     x += step
                 }
                 y += step
