@@ -14,6 +14,7 @@ struct KioskRootView: View {
     @AppStorage(SettingsKey.kioskFaces) private var facesOn = false
 
     @State private var session = KioskSession()
+    private let presence = KioskPresence.shared
     @State private var leaving = false
 
     private var people: [Member] { members.filter { !$0.isArchived } }
@@ -86,12 +87,24 @@ struct KioskRootView: View {
             }
         }
         .animation(.spring(duration: 0.45, bounce: 0.2), value: session.doorbell)
-        .background(TouchObserver { session.touched() })
+        // Dimmed: the first touch only wakes the screen; it doesn't press anything.
+        .overlay {
+            if presence.isDimmed {
+                Color.black.opacity(0.001)
+                    .ignoresSafeArea()
+                    .onTapGesture { presence.touched() }
+            }
+        }
+        .background(TouchObserver {
+            session.touched()
+            presence.touched()
+        })
         .environment(session)
         .persistentSystemOverlays(.hidden)
         .onAppear {
             session.start()
             UIApplication.shared.isIdleTimerDisabled = keepAwake
+            Task { await presence.start() }
             HomeBridge.shared.start()
             HomeBridge.shared.onDoorbell = { event in
                 // A ring always shows; motion never covers a card that's already up.
@@ -104,6 +117,7 @@ struct KioskRootView: View {
             session.stop()
             UIApplication.shared.isIdleTimerDisabled = false
             HomeBridge.shared.onDoorbell = nil
+            presence.stop()
             FaceRecognizer.shared.onRecognized = nil
             FaceRecognizer.shared.stop()
         }
@@ -111,6 +125,7 @@ struct KioskRootView: View {
         // Face ID shares the front camera; let it have it while a passcode is asked for.
         .onChange(of: session.lockRequest != nil) { _, asking in
             FaceRecognizer.shared.pause(asking)
+            presence.pause(asking)
         }
         .onChange(of: session.doorbell != nil) { _, ringing in
             // Look less often while the doorbell is up; it won't switch screens anyway.

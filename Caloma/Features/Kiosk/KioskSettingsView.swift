@@ -9,6 +9,9 @@ struct KioskSettingsView: View {
     @AppStorage(SettingsKey.kioskShowsFamily) private var showsFamily = true
     @AppStorage(SettingsKey.kioskKeepAwake) private var keepAwake = true
     @AppStorage(SettingsKey.kioskFaces) private var facesOn = false
+    @AppStorage(SettingsKey.kioskDims) private var dims = true
+    @AppStorage(SettingsKey.kioskDimMinutes) private var dimMinutes = 5
+    @AppStorage(SettingsKey.kioskMatchLight) private var matchLight = true
     @AppStorage(SettingsKey.kioskDoorbell) private var doorbellOn = true
     @AppStorage(SettingsKey.kioskChime) private var chime = true
     @AppStorage(SettingsKey.kioskLockBiometrics) private var lockBiometrics = true
@@ -63,8 +66,25 @@ struct KioskSettingsView: View {
                 Toggle(isOn: $keepAwake) {
                     settingLabel("Keep the Screen On", "So the wall never goes dark")
                 }
+                Toggle(isOn: $dims) {
+                    settingLabel("Dim When No One's Around", "Fades right down, and wakes when the camera sees someone move")
+                }
+                if dims {
+                    Picker("Dim After", selection: $dimMinutes) {
+                        ForEach([2, 5, 10, 15], id: \.self) { minutes in
+                            Text("\(minutes) minutes").tag(minutes)
+                        }
+                    }
+                }
+                Toggle(isOn: $matchLight) {
+                    settingLabel("Match the Room's Light", "About 50% in a dark room, up to 100% in a bright one")
+                }
             } header: {
                 Text("On the Wall")
+            } footer: {
+                if dims || matchLight {
+                    Text("Uses the front camera to notice movement and light; nothing is recorded. The camera light stays on while Kiosk Mode is showing.")
+                }
             }
 
             Section {

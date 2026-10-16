@@ -59,6 +59,13 @@ nonisolated enum SettingsKey {
     static let kioskLockedProfiles = "kiosk.lockedProfiles"
     /// Face ID or Touch ID can unlock a locked profile (on unless turned off).
     static let kioskLockBiometrics = "kiosk.lockBiometrics"
+    /// Dim the wall when no one's around, and wake it when the camera sees movement (on unless
+    /// turned off).
+    static let kioskDims = "kiosk.dims"
+    /// Minutes without a touch or movement before the wall dims.
+    static let kioskDimMinutes = "kiosk.dimMinutes"
+    /// Wake to a brightness that suits the room (on unless turned off).
+    static let kioskMatchLight = "kiosk.matchLight"
     /// Which Apple Home the wall iPad watches, when there's more than one.
     static let kioskHomeID = "kiosk.homeID"
 }

@@ -1,4 +1,5 @@
 import AVFoundation
+import ImageIO
 import QuartzCore
 import SwiftUI
 import UIKit
@@ -19,6 +20,12 @@ nonisolated final class FaceCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
     private let lock = NSLock()
     private var _framesPerSecond: Double = 6
     private var _onFrame: (@Sendable (CVPixelBuffer) -> Void)?
+    private var _onPresence: (@Sendable (_ motion: Bool, _ brightness: Double?) -> Void)?
+
+    /// Faces and the wall's dimming share the camera; it runs while either needs it.
+    private var users: Set<String> = []
+    private var lastPresence: CFTimeInterval = 0
+    private var previousGrid: [UInt8] = []
 
     /// How many frames a second are handed on. Lower at night.
     var framesPerSecond: Double {
@@ -32,6 +39,14 @@ nonisolated final class FaceCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         set { lock.withLock { _onFrame = newValue } }
     }
 
+    /// Called on the camera's queue twice a second: whether anything moved, and how bright the
+    /// room is (the camera's own brightness reading, in APEX stops: about 0 in a dim room,
+    /// 5 or more in a bright one).
+    var onPresence: (@Sendable (_ motion: Bool, _ brightness: Double?) -> Void)? {
+        get { lock.withLock { _onPresence } }
+        set { lock.withLock { _onPresence = newValue } }
+    }
+
     static func requestAccess() async -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: return true
@@ -40,16 +55,18 @@ nonisolated final class FaceCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         }
     }
 
-    func start() {
+    func start(_ user: String = "faces") {
         queue.async { [self] in
+            users.insert(user)
             if !configured { configure() }
             if !session.isRunning { session.startRunning() }
         }
     }
 
-    func stop() {
+    func stop(_ user: String = "faces") {
         queue.async { [self] in
-            if session.isRunning { session.stopRunning() }
+            users.remove(user)
+            if users.isEmpty, session.isRunning { session.stopRunning() }
         }
     }
 
@@ -86,10 +103,51 @@ nonisolated final class FaceCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         let now = CACurrentMediaTime()
+        guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        if let presence = onPresence, now - lastPresence >= 0.5 {
+            lastPresence = now
+            presence(moved(buffer), roomBrightness(sampleBuffer))
+        }
         let fps = max(framesPerSecond, 0.5)
-        guard now - lastFrame >= 1 / fps, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer), let handler = onFrame else { return }
+        guard now - lastFrame >= 1 / fps, let handler = onFrame else { return }
         lastFrame = now
         handler(buffer)
+    }
+
+    /// Compares a coarse 32×24 grid of the frame with the last one. Movement is when more
+    /// than 6% of the cells change noticeably.
+    private func moved(_ buffer: CVPixelBuffer) -> Bool {
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return false }
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+        let pixels = base.assumingMemoryBound(to: UInt8.self)
+        let columns = 32, rows = 24
+        var grid = [UInt8](repeating: 0, count: columns * rows)
+        for row in 0..<rows {
+            let y = min(height - 1, row * height / rows + height / (rows * 2))
+            for column in 0..<columns {
+                let x = min(width - 1, column * width / columns + width / (columns * 2))
+                // BGRA: the green channel stands in for brightness.
+                grid[row * columns + column] = pixels[y * bytesPerRow + x * 4 + 1]
+            }
+        }
+        defer { previousGrid = grid }
+        guard previousGrid.count == grid.count else { return false }
+        var changed = 0
+        for index in grid.indices where abs(Int(grid[index]) - Int(previousGrid[index])) > 18 {
+            changed += 1
+        }
+        return Double(changed) / Double(grid.count) > 0.06
+    }
+
+    /// The scene's brightness value from the frame's EXIF data.
+    private func roomBrightness(_ sampleBuffer: CMSampleBuffer) -> Double? {
+        guard let attachments = CMCopyDictionaryOfAttachments(allocator: kCFAllocatorDefault, target: sampleBuffer, attachmentMode: kCMAttachmentMode_ShouldPropagate) as? [String: Any],
+              let exif = attachments[kCGImagePropertyExifDictionary as String] as? [String: Any] else { return nil }
+        return (exif[kCGImagePropertyExifBrightnessValue as String] as? NSNumber)?.doubleValue
     }
 }
 
