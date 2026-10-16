@@ -198,15 +198,27 @@ extension HomeBridge {
         return int(control.service, HMCharacteristicTypeTargetPosition).map(Double.init)
     }
 
-    /// Celsius in, the person's own unit out: "70°" in the US.
-    nonisolated static func temperatureText(_ celsius: Double) -> String {
-        Measurement(value: celsius, unit: UnitTemperature.celsius)
+    /// Whether temperatures show in Fahrenheit: the same choice the formatter makes from the
+    /// region and the person's Temperature setting, so steps, rounding and display agree.
+    nonisolated static let usesFahrenheit: Bool = {
+        Measurement(value: 100, unit: UnitTemperature.celsius)
             .formatted(.measurement(width: .narrow, usage: .weather, numberFormatStyle: .number.precision(.fractionLength(0))))
+            .contains("212")
+    }()
+
+    /// Celsius in, the person's own unit out: "70°" in Fahrenheit, "21.5°" in Celsius.
+    nonisolated static func temperatureText(_ celsius: Double) -> String {
+        let measurement = Measurement(value: celsius, unit: UnitTemperature.celsius)
+        if usesFahrenheit {
+            return measurement.converted(to: .fahrenheit)
+                .formatted(.measurement(width: .narrow, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(0))))
+        }
+        return measurement.formatted(.measurement(width: .narrow, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(0...1))))
     }
 
     /// One step on the thermostat: 1° in Fahrenheit, half a degree in Celsius.
     nonisolated static var temperatureStep: Double {
-        Locale.current.measurementSystem == .us ? 5.0 / 9.0 : 0.5
+        usesFahrenheit ? 5.0 / 9.0 : 0.5
     }
 
     // MARK: Changing
@@ -241,13 +253,39 @@ extension HomeBridge {
     }
 
     func setTargetTemperature(_ control: HomeControl, to celsius: Double) async {
-        var value = (celsius * 2).rounded() / 2
+        let metadata = characteristic(control.service, HMCharacteristicTypeTargetTemperature)?.metadata
+        let step = (metadata?.stepValue?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 0.1
+        let snap = { (value: Double) in (value / step).rounded() * step }
+        var value: Double
+        if HomeBridge.usesFahrenheit {
+            // A whole degree Fahrenheit, then the thermostat's own step (often 0.1 °C).
+            value = snap(((celsius * 9 / 5 + 32).rounded() - 32) * 5 / 9)
+        } else {
+            value = snap((celsius * 2).rounded() / 2)
+        }
+        // A coarse step can snap straight back to where it was; go one step the way asked.
+        if let current = targetTemperature(control), abs(value - current) < 0.001, abs(celsius - current) > 0.001 {
+            value = current + (celsius > current ? step : -step)
+        }
         // Stay inside what the thermostat accepts (usually 10–38 °C).
-        if let metadata = characteristic(control.service, HMCharacteristicTypeTargetTemperature)?.metadata {
+        if let metadata {
             if let low = metadata.minimumValue?.doubleValue { value = max(value, low) }
             if let high = metadata.maximumValue?.doubleValue { value = min(value, high) }
         }
         await write(control.service, HMCharacteristicTypeTargetTemperature, value)
+    }
+
+    /// Locks or unlocks, closes or opens a garage door: an explicit direction rather than a
+    /// flip, so a state that changed a moment ago can't turn "lock" into "unlock".
+    func setSecured(_ control: HomeControl, _ secured: Bool) async {
+        switch control.kind {
+        case .lock:
+            await write(control.service, HMCharacteristicTypeTargetLockMechanismState, secured ? 1 : 0)
+        case .garage:
+            await write(control.service, HMCharacteristicTypeTargetDoorState, secured ? 1 : 0)
+        default:
+            break
+        }
     }
 
     func setShadePosition(_ control: HomeControl, to position: Double) async {

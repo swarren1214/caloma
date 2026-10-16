@@ -519,33 +519,14 @@ struct AdultContextView: View {
 
     // MARK: Home, dinner, the week
 
-    /// Locks, garage and thermostat from Apple Home; anything open or unlocked in orange.
+    /// Locks, garage and thermostat from Apple Home, working: lock up or close in one tap,
+    /// unlock or open with the parent PIN, step the thermostat. Anything open in orange.
     private var homeStatusCard: some View {
         let items = HomeBridge.shared.statusItems
-        return card(title: "Home", symbol: "house.fill", tint: Color(hex: 0x30B0C7), trailing: nil) {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                ForEach(items) { item in
-                    let tint = item.needsAttention ? Brand.waiting : Self.green
-                    HStack(spacing: 10) {
-                        Image(systemName: item.symbol)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(tint)
-                            .frame(width: 34, height: 34)
-                            .background(tint.opacity(0.15), in: Circle())
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(item.name)
-                                .font(.subheadline.weight(.semibold))
-                                .lineLimit(1)
-                            Text(item.state)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(item.needsAttention ? Brand.waiting : .secondary)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(10)
-                    .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 14))
-                }
-            }
+        let hasDoors = items.contains { $0.symbol != "thermometer.medium" }
+        let secure = hasDoors && !items.contains { $0.needsAttention }
+        return card(title: "Home", symbol: "house.fill", tint: Color(hex: 0x30B0C7), trailing: secure ? "All secure" : nil) {
+            KioskHomeControls()
         }
     }
 
