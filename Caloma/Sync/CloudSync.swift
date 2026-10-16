@@ -68,7 +68,9 @@ final class CloudSync {
     static let author = "sync"
     /// Raise to have every device send everything again once (after records were refused,
     /// like before the CloudKit schema was in Production).
-    static let uploadGeneration = 2
+    /// 3: Lists, device styles, wall notes and handwriting, once their record types were
+    /// deployed (October 2026).
+    static let uploadGeneration = 3
     static let zoneName = "Family"
 
     var zoneID: CKRecordZone.ID { CKRecordZone.ID(zoneName: state.zoneName, ownerName: state.zoneOwner) }
@@ -146,6 +148,14 @@ final class CloudSync {
     func syncNow() async {
         guard let engine else { return }
         status = .syncing
+        // iCloud refused records earlier (an undeployed schema, say): try them all again now,
+        // not only at the next launch, so a fix in the CloudKit Console takes effect as soon
+        // as the app comes back to the front.
+        if !state.didInitialUpload {
+            queueEverything()
+            state.didInitialUpload = true
+            saveState()
+        }
         do {
             try await engine.fetchChanges()
             try await engine.sendChanges()

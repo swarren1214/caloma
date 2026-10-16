@@ -206,9 +206,9 @@ Before the first run with sync:
    **Deploy Schema Changes…**. (Apple's built-in SwiftData sync creates types by itself;
    Caloma syncs on its own so two Apple Accounts can share a family, so it needs this file.)
 
-   Sharing also needs CloudKit's own `cloudkit.share` type, which can't be imported. Create
-   it once from a Debug build: run Caloma from Xcode in a Simulator signed in to iCloud, tap
-   Family › Family Sharing › Invite Family (then cancel), and deploy again.
+   The file includes CloudKit's own `cloudkit.share` type (copied from a Development
+   export), since an import that leaves it out is refused as an attempt to delete it. If the
+   import ever fails, choose **Export Schema** in Development and compare.
 
    Adding a synced field or model means adding it to `CloudRecord.swift` *and* to
    `schema.ckdb`, importing and deploying again before the TestFlight build goes out. If

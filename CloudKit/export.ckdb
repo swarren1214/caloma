@@ -1,0 +1,296 @@
+DEFINE SCHEMA
+
+    RECORD TYPE Chore (
+        "___createTime"  TIMESTAMP,
+        "___createdBy"   REFERENCE,
+        "___etag"        STRING,
+        "___modTime"     TIMESTAMP,
+        "___modifiedBy"  REFERENCE,
+        "___recordID"    REFERENCE QUERYABLE,
+        assigneeIDsRaw   STRING,
+        createdAt        TIMESTAMP,
+        dueMinutes       INT64,
+        eventID          STRING,
+        homeTaskID       STRING,
+        isArchived       INT64,
+        points           INT64,
+        priorityRaw      INT64,
+        repeatRaw        STRING,
+        requiresApproval INT64,
+        requiresPhoto    INT64,
+        roomID           STRING,
+        rotates          INT64,
+        sortOrder        INT64,
+        startDate        TIMESTAMP,
+        symbol           STRING,
+        title            STRING,
+        upForGrabs       INT64,
+        weekdayMask      INT64,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE ChoreCompletion (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        choreID         STRING,
+        completedAt     TIMESTAMP,
+        day             TIMESTAMP,
+        memberID        STRING,
+        photo           ASSET,
+        points          INT64,
+        reviewedAt      TIMESTAMP,
+        statusRaw       STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE EventPacking (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        day             TIMESTAMP,
+        eventID         STRING,
+        memberID        STRING,
+        packedRaw       STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE FamilyEvent (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        alertMinutes    INT64,
+        attendeeIDsRaw  STRING,
+        bringRaw        STRING,
+        countsDown      INT64,
+        createdAt       TIMESTAMP,
+        driverID        STRING,
+        end             TIMESTAMP,
+        getReadyChoreID STRING,
+        isAllDay        INT64,
+        isArchived      INT64,
+        location        STRING,
+        notes           STRING,
+        repeatEnd       TIMESTAMP,
+        repeatRaw       STRING,
+        showInKidView   INT64,
+        skippedDaysRaw  STRING,
+        start           TIMESTAMP,
+        symbol          STRING,
+        title           STRING,
+        weekdayMask     INT64,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE FamilySetting (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        key             STRING,
+        updatedAt       TIMESTAMP,
+        value           STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE HomeTask (
+        "___createTime"  TIMESTAMP,
+        "___createdBy"   REFERENCE,
+        "___etag"        STRING,
+        "___modTime"     TIMESTAMP,
+        "___modifiedBy"  REFERENCE,
+        "___recordID"    REFERENCE QUERYABLE,
+        areaRaw          STRING,
+        createdAt        TIMESTAMP,
+        details          STRING,
+        intervalCount    INT64,
+        intervalUnitRaw  STRING,
+        isArchived       INT64,
+        location         STRING,
+        name             STRING,
+        nextDue          TIMESTAMP,
+        notes            STRING,
+        remindDaysBefore INT64,
+        symbol           STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE HomeTaskLog (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        daysLate        INT64,
+        doneAt          TIMESTAMP,
+        memberID        STRING,
+        note            STRING,
+        previousDue     TIMESTAMP,
+        taskID          STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Member (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        colorRaw        STRING,
+        createdAt       TIMESTAMP,
+        isArchived      INT64,
+        name            STRING,
+        photo           ASSET,
+        roleRaw         STRING,
+        sortOrder       INT64,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE PointEntry (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        date            TIMESTAMP,
+        kindRaw         STRING,
+        memberID        STRING,
+        note            STRING,
+        points          INT64,
+        refID           STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Redemption (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        cost            INT64,
+        memberID        STRING,
+        requestedAt     TIMESTAMP,
+        reviewedAt      TIMESTAMP,
+        rewardID        STRING,
+        statusRaw       STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Reward (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        cost            INT64,
+        createdAt       TIMESTAMP,
+        eligibleIDsRaw  STRING,
+        isArchived      INT64,
+        isFamilyGoal    INT64,
+        kindRaw         STRING,
+        limitRaw        STRING,
+        name            STRING,
+        needsApproval   INT64,
+        note            STRING,
+        sortOrder       INT64,
+        symbol          STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Room (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        createdAt       TIMESTAMP,
+        isArchived      INT64,
+        name            STRING,
+        sortOrder       INT64,
+        symbol          STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Users (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        roles           LIST<INT64>,
+        GRANT WRITE TO "_creator",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Whiteboard (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        createdAt       TIMESTAMP QUERYABLE SORTABLE,
+        name            STRING QUERYABLE SEARCHABLE SORTABLE,
+        sortOrder       INT64 QUERYABLE SORTABLE,
+        updatedAt       TIMESTAMP QUERYABLE SORTABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE "cloudkit.share" (
+        "___createTime"               TIMESTAMP,
+        "___createdBy"                REFERENCE,
+        "___etag"                     STRING,
+        "___modTime"                  TIMESTAMP,
+        "___modifiedBy"               REFERENCE,
+        "___recordID"                 REFERENCE,
+        "cloudkit.thumbnailImageData" BYTES,
+        "cloudkit.title"              STRING,
+        "cloudkit.type"               STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );

@@ -166,6 +166,7 @@ DEFINE SCHEMA
         "notes" STRING,
         "isArchived" INT64,
         "createdAt" TIMESTAMP,
+        "sourceKey" STRING,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",
         GRANT READ TO "_world"
@@ -256,16 +257,16 @@ DEFINE SCHEMA
 
     RECORD TYPE Whiteboard (
         "___createTime" TIMESTAMP,
-        "___createdBy" REFERENCE,
-        "___etag" STRING,
-        "___modTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
         "___modifiedBy" REFERENCE,
-        "___recordID" REFERENCE QUERYABLE,
-        "name" STRING,
-        "drawing" ASSET,
-        "sortOrder" INT64,
-        "updatedAt" TIMESTAMP,
-        "createdAt" TIMESTAMP,
+        "___recordID"   REFERENCE,
+        createdAt       TIMESTAMP QUERYABLE SORTABLE,
+        name            STRING QUERYABLE SEARCHABLE SORTABLE,
+        sortOrder       INT64 QUERYABLE SORTABLE,
+        updatedAt       TIMESTAMP QUERYABLE SORTABLE,
+        "drawing"                     ASSET,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",
         GRANT READ TO "_world"
@@ -287,6 +288,100 @@ DEFINE SCHEMA
         "createdAt" TIMESTAMP,
         "expiresAt" TIMESTAMP,
         "replyToID" STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE DeviceStyle (
+        "___createTime" TIMESTAMP,
+        "___createdBy" REFERENCE,
+        "___etag" STRING,
+        "___modTime" TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID" REFERENCE QUERYABLE,
+        "homeID" STRING,
+        "serviceID" STRING,
+        "matchKey" STRING,
+        "symbol" STRING,
+        "colorHex" STRING,
+        "tileStyleRaw" STRING,
+        "photo" ASSET,
+        "hidden" INT64,
+        "kidsAllowed" INT64,
+        "pinnedToHome" INT64,
+        "sortOrder" INT64,
+        "updatedAt" TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE FamilyList (
+        "___createTime" TIMESTAMP,
+        "___createdBy" REFERENCE,
+        "___etag" STRING,
+        "___modTime" TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID" REFERENCE QUERYABLE,
+        "title" STRING,
+        "symbol" STRING,
+        "dueAt" TIMESTAMP,
+        "eventID" STRING,
+        "endsAt" TIMESTAMP,
+        "clearsWhenOver" INT64,
+        "isArchived" INT64,
+        "archivedAt" TIMESTAMP,
+        "createdAt" TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE FamilyListItem (
+        "___createTime" TIMESTAMP,
+        "___createdBy" REFERENCE,
+        "___etag" STRING,
+        "___modTime" TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID" REFERENCE QUERYABLE,
+        "listID" STRING,
+        "title" STRING,
+        "symbol" STRING,
+        "everyone" INT64,
+        "assigneeIDsRaw" STRING,
+        "sortOrder" INT64,
+        "createdAt" TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE FamilyListCheck (
+        "___createTime" TIMESTAMP,
+        "___createdBy" REFERENCE,
+        "___etag" STRING,
+        "___modTime" TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID" REFERENCE QUERYABLE,
+        "itemID" STRING,
+        "memberID" STRING,
+        "createdAt" TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE "cloudkit.share" (
+        "___createTime"               TIMESTAMP,
+        "___createdBy"                REFERENCE,
+        "___etag"                     STRING,
+        "___modTime"                  TIMESTAMP,
+        "___modifiedBy"               REFERENCE,
+        "___recordID"                 REFERENCE,
+        "cloudkit.thumbnailImageData" BYTES,
+        "cloudkit.title"              STRING,
+        "cloudkit.type"               STRING,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",
         GRANT READ TO "_world"
