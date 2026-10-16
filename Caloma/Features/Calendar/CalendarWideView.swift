@@ -105,7 +105,7 @@ struct CalendarWideView: View {
                         Text("Today")
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 16)
-                            .frame(height: 40)
+                            .frame(minHeight: 40)
                             .glassEffect(.regular.interactive(), in: Capsule())
                     }
                     Button {
@@ -129,7 +129,7 @@ struct CalendarWideView: View {
                             .font(.subheadline.weight(.semibold))
                             .padding(.leading, 12)
                             .padding(.trailing, 16)
-                            .frame(height: 40)
+                            .frame(minHeight: 40)
                             .foregroundStyle(canCreate ? accent : .white)
                             .glassEffect(canCreate ? Glass.regular.interactive() : Glass.regular.tint(accent).interactive(), in: Capsule())
                     }
@@ -144,7 +144,7 @@ struct CalendarWideView: View {
                             .font(.subheadline.weight(.semibold))
                             .padding(.leading, 12)
                             .padding(.trailing, 16)
-                            .frame(height: 40)
+                            .frame(minHeight: 40)
                             .foregroundStyle(.white)
                             .glassEffect(.regular.tint(accent).interactive(), in: Capsule())
                     }

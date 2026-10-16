@@ -92,6 +92,7 @@ struct HomeTaskDetailView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Color(.systemGroupedBackground))
+        .refreshesFromICloud()
         .navigationTitle(task.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -240,10 +241,10 @@ private struct GiveTaskSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Give", systemImage: "checkmark", role: .confirm) {
+                    SheetDoneButton("Give") {
                         Family.give(task, to: kid, points: points, in: context)
                         dismiss()
                     }

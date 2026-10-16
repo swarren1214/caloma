@@ -39,7 +39,16 @@ final class CloudSync {
 
     private(set) var role: Role = .solo
     private(set) var status: Status = .off
-    private(set) var lastSynced: Date?
+    /// When a sync last finished without an error. Kept between launches, for the iCloud Sync
+    /// card's "Last synced".
+    private(set) var lastSynced: Date? = UserDefaults.standard.object(forKey: CloudSync.lastSyncedKey) as? Date {
+        didSet { UserDefaults.standard.set(lastSynced, forKey: CloudSync.lastSyncedKey) }
+    }
+    /// The last sync's error in words a person can act on, for the iCloud Sync card; nil once a
+    /// sync succeeds, and for errors the engine retries by itself (offline, signed out).
+    private(set) var errorMessage: String?
+    /// iCloud's answer at the last account check, to tell "signed out" from "restricted".
+    private(set) var accountStatus: CKAccountStatus?
     /// An invitation someone tapped, waiting for them to say Join.
     var pendingInvite: CKShare.Metadata?
     /// Something to tell the person, like "You left the family."
@@ -59,6 +68,8 @@ final class CloudSync {
     @ObservationIgnored private var retries: [String: Int] = [:]
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var lastRestart: Date?
+    /// `syncNow` is starting the engine after a sign-in, so a second call doesn't start another.
+    @ObservationIgnored private var isStarting = false
     /// Why iCloud refused the last records sent, if it did.
     @ObservationIgnored private var sendError: String?
     private var scanTask: Task<Void, Never>?
@@ -72,6 +83,7 @@ final class CloudSync {
     /// deployed (October 2026).
     static let uploadGeneration = 3
     static let zoneName = "Family"
+    nonisolated static let lastSyncedKey = "sync.lastSynced"
 
     var zoneID: CKRecordZone.ID { CKRecordZone.ID(zoneName: state.zoneName, ownerName: state.zoneOwner) }
     var database: CKDatabase { role == .participant ? ckContainer.sharedCloudDatabase : ckContainer.privateCloudDatabase }
@@ -100,6 +112,7 @@ final class CloudSync {
     private func startEngine() async {
         do {
             let account = try await ckContainer.accountStatus()
+            accountStatus = account
             guard account == .available else {
                 status = .noAccount
                 return
@@ -108,6 +121,16 @@ final class CloudSync {
             status = .noAccount
             return
         }
+        // A build that adds record types (Lists, say) fetches the whole family again once.
+        // Older builds skipped records of types they didn't know yet, and the engine's change
+        // token had moved past them, so without this they'd never arrive on this device.
+        let typeNames = SyncSchema.types.map { $0.recordType }.sorted()
+        if state.knownTypes.map({ !Set(typeNames).isSubset(of: Set($0)) }) ?? true, state.engineState != nil {
+            log.info("New record types since last launch: fetching everything again")
+            state.engineState = nil
+            state.didInitialUpload = false
+        }
+        state.knownTypes = typeNames
         let configuration = CKSyncEngine.Configuration(database: database, stateSerialization: state.engineState, delegate: delegate)
         let engine = CKSyncEngine(configuration)
         self.engine = engine
@@ -146,6 +169,13 @@ final class CloudSync {
 
     /// Fetches and sends now (pull to refresh, coming back to the app).
     func syncNow() async {
+        // Signed in to iCloud since launch (or signed back in): start syncing now, not at the
+        // next launch. Without an account this is just one quick account check.
+        if engine == nil, modelContainer != nil, status == .noAccount, !isStarting {
+            isStarting = true
+            await startEngine()
+            isStarting = false
+        }
         guard let engine else { return }
         status = .syncing
         // iCloud refused records earlier (an undeployed schema, say): try them all again now,
@@ -161,6 +191,7 @@ final class CloudSync {
             try await engine.sendChanges()
             status = .upToDate
             lastSynced = .now
+            errorMessage = nil
         } catch {
             fail(error)
         }
@@ -285,6 +316,7 @@ final class CloudSync {
             } else {
                 status = .upToDate
                 lastSynced = .now
+                errorMessage = nil
             }
 
         case .willFetchRecordZoneChanges, .didFetchRecordZoneChanges:
@@ -438,12 +470,14 @@ final class CloudSync {
         sendError = rejected.map { "iCloud didn't accept \(sent.failedRecordSaves.count) change\(sent.failedRecordSaves.count == 1 ? "" : "s"): \($0.localizedDescription)" }
         if let sendError {
             status = .failed(sendError)
+            errorMessage = rejected.flatMap { syncErrorMessage(for: $0) }
             // Refused records aren't queued anymore; send everything again next launch, once
             // whatever iCloud objected to may be fixed.
             state.didInitialUpload = false
         }
         if needsZone && role == .participant {
             // Their zone is gone: the family isn't shared anymore.
+            errorMessage = Self.removedFromFamilyMessage
             zoneWasDeleted()
             return
         }
@@ -698,6 +732,7 @@ final class CloudSync {
     private func fail(_ error: Error) {
         let message = (error as? CKError).map { Self.describe($0) } ?? error.localizedDescription
         status = .failed(message)
+        errorMessage = syncErrorMessage(for: error)
         log.error("Sync failed: \(error.localizedDescription, privacy: .public)")
     }
 
@@ -707,6 +742,55 @@ final class CloudSync {
         case .notAuthenticated: "Sign in to iCloud in Settings to sync."
         case .quotaExceeded: "iCloud storage is full."
         default: error.localizedDescription
+        }
+    }
+
+    // MARK: The iCloud Sync card
+
+    static let removedFromFamilyMessage = "You’re no longer in this family’s shared iCloud."
+
+    /// What Family › iCloud shows, from the sync's state right now.
+    var syncSnapshot: HearthSyncSnapshot {
+        let account: HearthSyncSnapshot.Account
+        if !AppConfig.cloudSyncEnabled {
+            account = .unavailable(nil)
+        } else {
+            switch status {
+            case .noAccount:
+                account = .unavailable(accountStatus == .restricted
+                    ? "iCloud is restricted on this device."
+                    : "Sign in to iCloud in Settings to keep the family’s chores, calendar and rewards on every device.")
+            case .off:
+                // Not started yet (or starting over): still asking iCloud.
+                account = .checking
+            case .syncing, .upToDate, .failed:
+                account = .available
+            }
+        }
+        return HearthSyncSnapshot(
+            account: account,
+            isSyncing: status == .syncing,
+            lastSynced: lastSynced,
+            pendingChanges: engine?.state.pendingRecordZoneChanges.count,
+            errorMessage: errorMessage
+        )
+    }
+
+    /// An error in words for the iCloud Sync card, or nil for ones that sort themselves out
+    /// (offline, signed out: the card says those itself).
+    private func syncErrorMessage(for error: Error) -> String? {
+        guard let error = error as? CKError else {
+            return "iCloud couldn’t sync right now. Caloma will try again on its own."
+        }
+        switch error.code {
+        case .quotaExceeded:
+            return "iCloud storage is full, so new changes can’t be saved there. Free up space in Settings › [your name] › iCloud."
+        case .networkUnavailable, .networkFailure, .notAuthenticated:
+            return nil
+        case .zoneNotFound where role == .participant:
+            return Self.removedFromFamilyMessage
+        default:
+            return "iCloud couldn’t sync right now. Caloma will try again on its own."
         }
     }
 
@@ -767,6 +851,9 @@ nonisolated struct SyncState: Codable, @unchecked Sendable {
     /// Which full resend this device has done (see `CloudSync.uploadGeneration`). Optional so
     /// older saved states still load.
     var uploadGeneration: Int?
+    /// The record types this device knew when it last started; a new one means fetching
+    /// everything again (see `CloudSync.startEngine`). nil: saved by a build before this.
+    var knownTypes: [String]?
 
     private static var url: URL {
         let folder = URL.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)

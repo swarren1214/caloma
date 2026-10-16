@@ -53,22 +53,27 @@ struct ListsView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    editing = .new
-                } label: {
-                    Label("New List", systemImage: "plus")
+                Group {
+                    Button {
+                        editing = .new
+                    } label: {
+                        Label("New List", systemImage: "plus")
+                    }
                 }
+                // White over the color header.
+                .tint(.white)
             }
         }
         .sheet(item: $editing) { target in
             ListEditor(target: target)
                 .tint(accent)
         }
-        .confirmationDialog(finishing.map { "Finish \($0.title)?" } ?? "", isPresented: Binding(get: { finishing != nil }, set: { if !$0 { finishing = nil } }), titleVisibility: .visible) {
+        .alert(finishing.map { "Finish \($0.title)?" } ?? "", isPresented: Binding(get: { finishing != nil }, set: { if !$0 { finishing = nil } })) {
             Button("Finish List") {
                 if let finishing { withAnimation { FamilyLists.finish(finishing, in: context) } }
                 finishing = nil
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("It comes off everyone's screens and waits here to use again.")
         }
@@ -103,6 +108,7 @@ struct ListProgressCard: View {
     var onFinish: () -> Void
 
     @Environment(\.accent) private var accent
+    @Environment(\.modelContext) private var context
     @State private var open: UUID?
 
     private var people: [Member] {
@@ -124,8 +130,8 @@ struct ListProgressCard: View {
                     }
                     Spacer(minLength: 6)
                     Menu {
-                        Button("Edit List", systemImage: "pencil", action: onEdit)
-                        Button("Finish List", systemImage: "checkmark.circle", action: onFinish)
+                        Button("Edit List", menuIcon: "pencil", action: onEdit)
+                        Button("Finish List", menuIcon: "checkmark.circle", action: onFinish)
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.body.weight(.semibold))
@@ -157,8 +163,8 @@ struct ListProgressCard: View {
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 24))
         .contentShape(.rect(cornerRadius: 24))
         .contextMenu {
-            Button("Edit List", systemImage: "pencil", action: onEdit)
-            Button("Finish List", systemImage: "checkmark.circle", action: onFinish)
+            Button("Edit List", menuIcon: "pencil", action: onEdit)
+            Button("Finish List", menuIcon: "checkmark.circle", action: onFinish)
         }
     }
 
@@ -200,30 +206,39 @@ struct ListProgressCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(mine) { item in
                         let checked = FamilyLists.isDone(item, for: person.id, checks: checks)
-                        HStack(spacing: 10) {
-                            Image(systemName: checked ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(checked ? Brand.done : Color(.systemGray3))
-                            Text(item.title)
-                                .strikethrough(checked)
-                                .foregroundStyle(checked ? .secondary : .primary)
-                            Spacer(minLength: 4)
-                            if item.everyone {
-                                Text("Everyone")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                            } else if item.assigneeIDs.count > 1 {
-                                Text("Shared")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
+                        // A parent can check off anyone's things, for that person only.
+                        Button {
+                            withAnimation(.snappy) { FamilyLists.toggle(item, for: person.id, in: context) }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: checked ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(checked ? Brand.done : Color(.systemGray3))
+                                    .contentTransition(.symbolEffect(.replace))
+                                Text(item.title)
+                                    .strikethrough(checked)
+                                    .foregroundStyle(checked ? .secondary : .primary)
+                                Spacer(minLength: 4)
+                                if item.everyone {
+                                    Text("Everyone")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            .font(.subheadline)
+                            .frame(minHeight: 36)
+                            .contentShape(.rect)
                         }
-                        .font(.subheadline)
-                        .accessibilityElement(children: .combine)
+                        .buttonStyle(.plain)
+                        .sensoryFeedback(.selection, trigger: checked)
+                        .accessibilityLabel("\(item.title), \(person.name)")
+                        .accessibilityValue(checked ? "Done" : "Not done")
+                        .accessibilityHint(checked ? "Un-checks it for \(person.name)" : "Checks it off for \(person.name)")
                     }
                 }
-                .padding(.leading, 64)
+                .padding(.leading, 60)
                 .padding(.trailing, 16)
-                .padding(.bottom, 12)
+                .padding(.bottom, 10)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }

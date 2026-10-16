@@ -106,7 +106,7 @@ struct WriteEventSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .principal) {
                     Button {
@@ -122,7 +122,7 @@ struct WriteEventSheet: View {
                     if saving {
                         ProgressView()
                     } else {
-                        Button("Add") { add() }
+                        SheetDoneButton("Add") { add() }
                             .disabled(!hasTitle)
                     }
                 }
@@ -191,7 +191,7 @@ struct WriteEventSheet: View {
                             }
                             .padding(.leading, 4)
                             .padding(.trailing, 14)
-                            .frame(height: 40)
+                            .frame(minHeight: 40)
                             .background(on ? person.color.color : Color(.secondarySystemGroupedBackground), in: Capsule())
                             .overlay(Capsule().strokeBorder(person.id == inkMemberID ? Color.primary.opacity(0.35) : .clear, lineWidth: 2))
                         }

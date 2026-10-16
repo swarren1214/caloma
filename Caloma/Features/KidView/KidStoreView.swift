@@ -74,6 +74,7 @@ struct KidStoreView: View {
         }
         .background(color.opacity(0.07).ignoresSafeArea())
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .refreshesFromICloud()
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { savingID = UserDefaults.standard.string(forKey: goalKey) }
         .overlay {

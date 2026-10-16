@@ -15,6 +15,9 @@ struct MemberEditor: View {
 
     @State private var name = ""
     @State private var color: KidColor = .blue
+    /// Their color when the editor opened, kept as it was unless someone picks another.
+    @State private var loadedColor: KidColor = .blue
+    @State private var pickingColor = false
     @State private var photo: Data?
     @State private var loaded = false
     @State private var confirmsRemove = false
@@ -45,36 +48,13 @@ struct MemberEditor: View {
             }
 
             Section {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 10)], spacing: 10) {
-                    ForEach(KidColor.swatches) { option in
-                        Button {
-                            color = option
-                        } label: {
-                            swatch(option.color, isSelected: option == color)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(option.name)
-                        .accessibilityAddTraits(option == color ? .isSelected : [])
-                    }
-                    // Any other color, from the system color picker.
-                    ColorPicker("Custom color", selection: Binding(
-                        get: { color.color },
-                        set: { color = KidColor(hex: $0.hexValue) }
-                    ), supportsOpacity: false)
-                    .labelsHidden()
-                    .frame(width: 44, height: 44)
-                    .overlay {
-                        if color.isCustom {
-                            Circle()
-                                .strokeBorder(color.color, lineWidth: 3)
-                                .frame(width: 44, height: 44)
-                                .allowsHitTesting(false)
-                        }
-                    }
+                Button { pickingColor = true } label: {
+                    HearthColorLabel(initial: name, color: colorChoice.wrappedValue)
                 }
-                .padding(.vertical, 4)
-            } header: {
-                Text("Color")
+                .hearthColorPicker(
+                    isPresented: $pickingColor, title: name,
+                    caption: role == .kid ? "Kid" : "Parent", color: colorChoice
+                )
             } footer: {
                 Text(role == .kid ? "Their avatar, their column on the chore board, the calendar and all of Kid View." : "Their avatar, their chores and their events on the calendar.")
             }
@@ -104,36 +84,43 @@ struct MemberEditor: View {
         .toolbar {
             if member == nil || showsCancel {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save", systemImage: "checkmark", role: .confirm) { save() }
+                SheetDoneButton("Save") { save() }
                     .disabled(!isValid)
             }
         }
-        .confirmationDialog("Remove \(name)?", isPresented: $confirmsRemove, titleVisibility: .visible) {
+        .alert("Remove \(name)?", isPresented: $confirmsRemove) {
             Button("Remove", role: .destructive) {
                 member?.isArchived = true
                 Persistence.save(context)
                 dismiss()
             }
+            Button("Cancel", role: .cancel) {}
         }
         .onAppear(perform: load)
     }
 
-    private func swatch(_ fill: Color, isSelected: Bool) -> some View {
-        Circle()
-            .fill(fill)
-            .frame(width: 36, height: 36)
-            .overlay {
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
+    /// Their color in the Hearth picker. Caloma's old presets ("blue", "gray"…) show as the
+    /// nearest palette color, but stay as they are unless someone picks another; a picked color
+    /// is saved as "#RRGGBB", which every app reading `KidColor.hex` already handles.
+    private var colorChoice: Binding<HearthColorChoice> {
+        Binding(
+            get: { Self.choice(for: color) },
+            set: { newValue in
+                if newValue == Self.choice(for: loadedColor) {
+                    color = loadedColor
+                } else if newValue != Self.choice(for: color) {
+                    color = KidColor(hex: newValue.hex)
                 }
             }
-            .frame(width: 44, height: 44)
+        )
+    }
+
+    private static func choice(for color: KidColor) -> HearthColorChoice {
+        color.isCustom ? HearthColorChoice(hex: color.hex) : .palette(HearthPalette.nearest(to: color.hex).id)
     }
 
     private func load() {
@@ -142,9 +129,11 @@ struct MemberEditor: View {
         if let member {
             name = member.name
             color = member.color
+            loadedColor = member.color
             photo = member.photoData
         } else {
             color = KidColor.next(for: role, after: members.filter { !$0.isArchived }.map(\.color))
+            loadedColor = color
         }
     }
 

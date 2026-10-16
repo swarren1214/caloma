@@ -98,7 +98,7 @@ struct FamilyStep: View {
             Menu {
                 Picker("Color", selection: kid.color) {
                     ForEach(KidColor.allCases) { color in
-                        Label(color.name, systemImage: "circle.fill").tag(color)
+                        Label { Text(color.name) } icon: { Image.menuSwatch(color.color) }.tag(color)
                     }
                 }
             } label: {

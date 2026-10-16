@@ -36,19 +36,27 @@ struct HomeView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .fixedSize()
+                Group {
+                    Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .fixedSize()
+                }
+                // White over the color header.
+                .tint(.white)
             }
             .sharedBackgroundVisibility(.hidden)
             ToolbarItemGroup(placement: .topBarTrailing) {
-                KidViewButton()
-                Button {
-                    router.sheet = .family
-                } label: {
-                    Label("Family", systemImage: "person.2.fill")
+                Group {
+                    KidViewButton()
+                    Button {
+                        router.sheet = .family
+                    } label: {
+                        Label("Family", systemImage: "person.2.fill")
+                    }
                 }
+                // White over the color header.
+                .tint(.white)
             }
         }
     }

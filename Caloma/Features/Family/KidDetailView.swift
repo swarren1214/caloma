@@ -104,7 +104,11 @@ struct KidDetailView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Edit") { editingMember = true }
+                Group {
+                    Button("Edit") { editingMember = true }
+                }
+                // White over the color header.
+                .tint(.white)
             }
         }
         .sheet(isPresented: $adjusting) {
@@ -189,10 +193,10 @@ private struct AdjustPointsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", systemImage: "checkmark", role: .confirm) {
+                    SheetDoneButton("Save") {
                         let reason = note.trimmingCharacters(in: .whitespaces)
                         Family.adjust(adding ? amount : -amount, for: kid.id, note: reason.isEmpty ? (adding ? "Bonus" : "Taken away") : reason, in: context)
                         dismiss()

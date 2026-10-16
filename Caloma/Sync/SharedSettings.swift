@@ -12,7 +12,7 @@ final class SharedSettings {
     static let keys: [String] = [
         SettingsKey.pointName, SettingsKey.customPointName, SettingsKey.approvalsByDefault,
         SettingsKey.streakBonus, SettingsKey.allowanceOn, SettingsKey.centsPer100, SettingsKey.payday,
-        SettingsKey.splitSpend, SettingsKey.splitSave, SettingsKey.splitGive, SettingsKey.accentHex,
+        SettingsKey.splitSpend, SettingsKey.splitSave, SettingsKey.splitGive,
         SettingsKey.familyName,
     ]
 

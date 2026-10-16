@@ -118,7 +118,7 @@ struct CameraFullScreen: View {
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
-            .frame(height: 36)
+            .frame(minHeight: 36)
             .background(.black.opacity(0.5), in: Capsule())
             .padding()
         }
@@ -154,7 +154,7 @@ struct CameraFullScreen: View {
                         .font(.headline)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 24)
-                        .frame(height: 56)
+                        .frame(minHeight: 56)
                         .background(talking ? Brand.late : Color(hex: 0x34C759), in: Capsule())
                 }
                 .sensoryFeedback(.impact, trigger: talking)

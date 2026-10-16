@@ -166,14 +166,14 @@ final class EnrollmentModel {
             step = .failed("Caloma couldn't get a clear enough look. Try somewhere brighter.")
             return
         }
-        // Each new look gets the same test the wall uses. If a third of them would be taken
-        // for someone already set up, this isn't safe to save.
+        // Each new look gets the same test the wall uses, against everyone else set up. If a
+        // third of them would be taken for someone already set up, this isn't safe to save.
         let embedder = FaceEmbedder.current
-        let rivals = FaceStore.shared.faces.filter { $0.key != memberID }
+        let family = FamilyFaceModel(faces: FaceStore.shared.faces.filter { $0.key != memberID })
         var hits: [UUID: Int] = [:]
         for look in collected {
-            if let best = FaceMath.rank(look, in: rivals).first, best.score >= embedder.matchThreshold {
-                hits[best.id, default: 0] += 1
+            if let rival = family.isRival(look, embedder: embedder) {
+                hits[rival, default: 0] += 1
             }
         }
         if let rival = hits.max(by: { $0.value < $1.value }), rival.value * 3 > collected.count {

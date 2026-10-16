@@ -69,6 +69,7 @@ struct AdultContextView: View {
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
+        .refreshesFromICloud()
         .background {
             // A soft wash of their color behind the greeting.
             LinearGradient(colors: [color.opacity(0.16), .clear], startPoint: .top, endPoint: .center)

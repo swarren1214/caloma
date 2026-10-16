@@ -166,11 +166,10 @@ struct AppRoot: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var context
     @AppStorage(SettingsKey.onboarded) private var onboarded = false
-    @AppStorage(SettingsKey.accentHex) private var accentHex = hexString(Brand.defaultAccentHex)
     @Environment(\.scenePhase) private var scenePhase
     private var sync: CloudSync { CloudSync.shared }
 
-    private var accent: Color { Color(hexString: accentHex) ?? Brand.defaultAccent }
+    private var accent: Color { Brand.defaultAccent }
 
     var body: some View {
         @Bindable var router = router

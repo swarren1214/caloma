@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Family: who's in it, how points work, allowance, reminders, the accent color and data.
+/// Family: who's in it, how points work, allowance, reminders and data.
 struct FamilyView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -20,7 +20,6 @@ struct FamilyView: View {
     @AppStorage(SettingsKey.splitSpend) private var splitSpend = 70
     @AppStorage(SettingsKey.splitSave) private var splitSave = 20
     @AppStorage(SettingsKey.splitGive) private var splitGive = 10
-    @AppStorage(SettingsKey.accentHex) private var accentHex = hexString(Brand.defaultAccentHex)
     @AppStorage(SettingsKey.homeReminders) private var homeReminders = false
     @AppStorage(SettingsKey.approvalAlerts) private var approvalAlerts = true
 
@@ -67,8 +66,8 @@ struct FamilyView: View {
                     }
                 }
                 Menu {
-                    Button("Add a Kid", systemImage: "figure.child") { addingRole = .kid }
-                    Button("Add a Parent", systemImage: "person") { addingRole = .parent }
+                    Button("Add a Kid", menuIcon: "figure.child") { addingRole = .kid }
+                    Button("Add a Parent", menuIcon: "person") { addingRole = .parent }
                 } label: {
                     Label("Add Family Member", systemImage: "plus.circle.fill")
                 }
@@ -206,35 +205,6 @@ struct FamilyView: View {
                 Text("Meal times place BigTable's meals on the calendar, and change in BigTable too. Apple Calendar is optional: show your other calendars beside the family's, or add family events to it.")
             }
 
-            Section("Accent Color") {
-                HStack {
-                    ForEach(Brand.accents, id: \.hex) { option in
-                        let on = accentHex == hexString(option.hex)
-                        Button {
-                            accentHex = hexString(option.hex)
-                        } label: {
-                            Circle()
-                                .fill(Color(hex: option.hex))
-                                .frame(width: 32, height: 32)
-                                .overlay {
-                                    if on {
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundStyle(.white)
-                                    }
-                                }
-                                .padding(3)
-                                .overlay(Circle().strokeBorder(on ? Color(hex: option.hex) : .clear, lineWidth: 2))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(option.name)
-                        .accessibilityAddTraits(on ? .isSelected : [])
-                        if option.hex != Brand.accents.last?.hex { Spacer(minLength: 0) }
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-
             Section {
                 NavigationLink {
                     HearthAppsView(current: .caloma)
@@ -245,8 +215,19 @@ struct FamilyView: View {
 
             AccountSection()
 
+            Section("iCloud") {
+                HearthSyncCard(
+                    app: .caloma,
+                    snapshot: CloudSync.shared.syncSnapshot,
+                    summary: "The family’s chores, calendar and rewards",
+                    sharing: syncSharing
+                ) {
+                    await CloudSync.shared.syncNow()
+                }
+                .hearthSyncCardRow()
+            }
+
             Section {
-                LabeledContent("Sync", value: AppConfig.cloudSyncEnabled ? (CloudSync.shared.isShared ? "iCloud, shared" : "iCloud") : "This device")
                 LabeledContent("Version", value: AppConfig.version)
                 Button("Erase All Caloma Data", role: .destructive) { confirmsErase = true }
             } header: {
@@ -255,6 +236,7 @@ struct FamilyView: View {
                 Text("Your family's data lives in your own iCloud. Caloma has no servers and can't see it.")
             }
         }
+        .refreshesFromICloud()
         .navigationTitle("Family")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -267,16 +249,28 @@ struct FamilyView: View {
         .sheet(isPresented: $payingOut) {
             PayOutSheet()
         }
-        .confirmationDialog("Erase everything?", isPresented: $confirmsErase, titleVisibility: .visible) {
+        .alert("Erase everything?", isPresented: $confirmsErase) {
             Button("Erase All Data", role: .destructive) {
                 Family.eraseAll(in: context)
                 dismiss()
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text(CloudSync.shared.role == .participant
                  ? "This iPhone leaves the family and Caloma starts over here. The family's data stays with everyone else."
                  : "Every chore, reward, point, event and home care task is deleted from this device and iCloud\(CloudSync.shared.isShared ? ", for everyone in the family" : ""), and Caloma starts over. This can't be undone.")
         }
+    }
+
+    /// Who the family is shared with, for the iCloud Sync card: the parents, since they're the
+    /// ones on their own Apple Accounts.
+    private var syncSharing: HearthSyncSharing? {
+        guard CloudSync.shared.isShared else { return nil }
+        let parents = members.filter { $0.role == .parent }.prefix(4)
+        return HearthSyncSharing(
+            label: "Your family",
+            people: parents.map { HearthSyncSharing.Person(id: $0.id.uuidString, initial: $0.initial, colorHex: $0.color.hex) }
+        )
     }
 
     private var sharingSummary: String {
@@ -430,6 +424,7 @@ private struct PayOutSheet: View {
                     .padding(.vertical, 6)
                 }
             }
+            .refreshesFromICloud()
             .navigationTitle("Pay Out")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -21,6 +21,8 @@ struct KioskRootView: View {
     /// Repeating notes already dismissed on this visit.
     @State private var dismissedNotes: Set<UUID> = []
     @State private var drawingBack: DrawBackRequest?
+    /// Two people the camera can't tell apart: ask which.
+    @State private var closeCall: CloseCall?
 
     private var people: [Member] { members.filter { !$0.isArchived } }
     private var active: Member? {
@@ -129,6 +131,7 @@ struct KioskRootView: View {
             session.showCalendar()
             leaving = false
             drawingBack = nil
+            closeCall = nil
         }
         // Look less often while the screen is dark or the doorbell is up.
         .onChange(of: presence.isDimmed) { _, dimmed in
@@ -195,9 +198,21 @@ struct KioskRootView: View {
             presence.onScreensaverEnd = nil
             presence.stop()
             FaceRecognizer.shared.onRecognized = nil
+            FaceRecognizer.shared.onCloseCall = nil
             FaceRecognizer.shared.stop()
         }
         .onChange(of: facesOn) { _, _ in startFaces() }
+        .onChange(of: session.idleResets) { _, _ in closeCall = nil }
+        // Brothers and sisters the camera can't tell apart: a quick pick instead of a guess.
+        .sheet(item: $closeCall) { call in
+            if let first = people.first(where: { $0.id == call.first }), let second = people.first(where: { $0.id == call.second }) {
+                CloseCallPicker(call: call, first: first, second: second) { person in
+                    pickedCloseCall(call, person: person)
+                }
+            } else {
+                Color.clear.onAppear { closeCall = nil }
+            }
+        }
         .onChange(of: people.filter { !$0.isKid }.map(\.id), initial: true) { _, ids in
             session.parentIDs = Set(ids)
         }
@@ -257,10 +272,12 @@ extension KioskRootView {
         let recognizer = FaceRecognizer.shared
         guard facesOn, !FaceStore.shared.isEmpty else {
             recognizer.onRecognized = nil
+            recognizer.onCloseCall = nil
             recognizer.stop()
             return
         }
         recognizer.onRecognized = { id, held in recognized(id, held: held) }
+        recognizer.onCloseCall = { first, second, look in closeCalled(first, second, look: look) }
         Task { await recognizer.start(.recognize) }
     }
 
@@ -268,6 +285,8 @@ extension KioskRootView {
     /// a steady second and a half, and never while a parent has it unlocked with the PIN.
     private func recognized(_ id: UUID, held: TimeInterval) {
         guard !leaving, session.doorbell == nil, session.lockRequest == nil, people.contains(where: { $0.id == id }) else { return }
+        // A steady match settles a close call that was still up.
+        if closeCall != nil { closeCall = nil }
         // Remembered even when it doesn't change screens: a tap on their own profile, or a
         // parent's approvals and home controls, then skip the PIN.
         if held >= 0.5 { session.faceSeen(id) }
@@ -286,6 +305,34 @@ extension KioskRootView {
             session.open(id, source: .face)
         } else if session.source == .face, !session.isUnlocked || session.unlockedByFace, held >= 1.5 {
             session.open(id, source: .face)
+        }
+    }
+}
+
+extension KioskRootView {
+    /// Two people keep coming out about even. Only asked over the calendar, with nothing else
+    /// up; anywhere else a tap on the family rail is just as quick.
+    private func closeCalled(_ first: UUID, _ second: UUID, look: [Float]) {
+        guard !leaving, closeCall == nil, drawingBack == nil, session.doorbell == nil, session.lockRequest == nil,
+              session.activeID == nil, !session.isComposing, !session.showsWhiteboard,
+              people.contains(where: { $0.id == first }), people.contains(where: { $0.id == second }) else { return }
+        if let paused = session.facesPausedUntil, paused > .now { return }
+        if presence.isScreensaverOn {
+            presence.touched()
+            if ScreensaverPrefs.wakeTo == .calendar { return }
+        }
+        closeCall = CloseCall(first: first, second: second, look: look)
+    }
+
+    /// The pick opens their screen like "Who's here?" does. The look is kept only if the
+    /// camera was already leaning their way; a locked profile keeps it once its passcode is right.
+    private func pickedCloseCall(_ call: CloseCall, person: Member) {
+        let locked = ProfileLock.isLocked(person.id)
+        if !locked { FaceStore.shared.learn(call.look, for: person.id) }
+        closeCall = nil
+        Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            session.open(person.id, source: .picker, look: locked ? call.look : nil)
         }
     }
 }
@@ -320,7 +367,7 @@ private struct RecentDoorbellPill: View {
                     }
                     .padding(.leading, 6)
                     .padding(.trailing, 14)
-                    .frame(height: 40)
+                    .frame(minHeight: 40)
                     .background(.regularMaterial, in: Capsule())
                     .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
                 }

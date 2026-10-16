@@ -21,21 +21,23 @@ struct KidViewButton: View {
                     if !kids.isEmpty {
                         Section("Open Kid View for") {
                             ForEach(kids) { kid in
-                                Button(kid.name, systemImage: "person.fill") { router.openKidView(for: kid.id) }
+                                Button(kid.name, menuIcon: "person.fill") { router.openKidView(for: kid.id) }
                             }
                         }
                     }
                     if kids.count > 1 {
-                        Button("Let the Kids Pick", systemImage: "person.3.fill") { router.openKidViewPicker() }
+                        Button("Let the Kids Pick", menuIcon: "person.3.fill") { router.openKidViewPicker() }
                     }
                     if isPad {
                         Section {
-                            Button("Start Family Board", systemImage: "rectangle.inset.filled.and.person.filled", action: startBoard)
+                            Button("Start Family Board", menuIcon: "rectangle.inset.filled.and.person.filled", action: startBoard)
                         }
                     }
                 } label: {
                     Label("Kid View", systemImage: "figure.and.child.holdinghands")
                 }
+                // Menu icons take the tint; keep them the same color as their text, not the accent.
+                .tint(.primary)
             } else {
                 Button {
                     router.openKidView(for: kids.first?.id)

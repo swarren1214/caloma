@@ -30,6 +30,7 @@ struct ChoreEditor: View {
     @State private var requiresApproval = true
     @State private var loaded = false
     @State private var confirmsDelete = false
+    @State private var pickingIcon = false
 
     private var kids: [Member] { members.filter { $0.isKid && !$0.isArchived } }
     /// Kids first, then parents: anyone in the family can have chores.
@@ -55,8 +56,15 @@ struct ChoreEditor: View {
                     Text("Short and clear. Kids see this name.")
                 }
 
-                Section("Icon") {
-                    IconPicker(quick: SymbolSets.chores, selection: $symbol, color: accent, text: title)
+                Section {
+                    // Chores don't have a color of their own: they show in the family's accent.
+                    Button { pickingIcon = true } label: {
+                        HearthIconColorLabel(icon: symbol, color: HearthColorChoice(hex: accent.hexValue), title: "Icon", showsColorName: false)
+                    }
+                    .hearthIconPicker(
+                        isPresented: $pickingIcon, title: title, caption: "Chore", context: .chore,
+                        icon: $symbol, tint: HearthColorChoice(hex: accent.hexValue)
+                    )
                 }
 
                 Section {
@@ -117,7 +125,7 @@ struct ChoreEditor: View {
 
                 Section {
                     Picker(selection: $roomID) {
-                        Text("No Room").tag(UUID?.none)
+                        Label("No Room", systemImage: "minus.circle").tag(UUID?.none)
                         ForEach(rooms) { room in
                             Label(room.name, systemImage: room.symbol).tag(UUID?.some(room.id))
                         }
@@ -226,19 +234,20 @@ struct ChoreEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", systemImage: "checkmark", role: .confirm) { save() }
+                    SheetDoneButton("Save") { save() }
                         .disabled(!isValid)
                 }
             }
-            .confirmationDialog("Delete \(title)?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+            .alert("Delete \(title)?", isPresented: $confirmsDelete) {
                 Button("Delete Chore", role: .destructive) {
                     chore?.isArchived = true
                     Persistence.save(context)
                     dismiss()
                 }
+                Button("Cancel", role: .cancel) {}
             } message: {
                 Text("It comes off everyone's board. Points already earned stay.")
             }

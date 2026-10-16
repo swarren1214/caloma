@@ -203,13 +203,13 @@ struct EditDeviceView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if saving {
                         ProgressView()
                     } else {
-                        Button("Save", action: save)
+                        SheetDoneButton("Save", action: save)
                             .fontWeight(.semibold)
                     }
                 }

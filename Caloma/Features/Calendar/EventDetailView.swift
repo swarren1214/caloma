@@ -28,6 +28,7 @@ struct EventDetailView: View {
                 ContentUnavailableView("Event Deleted", systemImage: "calendar.badge.minus")
             }
         }
+        .refreshesFromICloud()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -166,7 +167,7 @@ struct EventDetailView: View {
                 }
             }
         }
-        .confirmationDialog("Delete \(event.title)?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+        .alert("Delete \(event.title)?", isPresented: $confirmsDelete) {
             if event.repeatRule != .never {
                 Button("Only This Day", role: .destructive) {
                     Family.skip(event, on: day, in: context)
@@ -182,6 +183,7 @@ struct EventDetailView: View {
                     dismiss()
                 }
             }
+            Button("Cancel", role: .cancel) {}
         }
     }
 

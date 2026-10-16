@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 /// New List and Edit List: the name and icon, when it's needed and what it's for, and the
-/// things on it, each given to someone, to a few people (either can bring it), or to everyone
+/// things on it, each given to someone, to a few people (each brings their own), or to everyone
 /// (each brings their own). Nothing is saved until Done.
 struct ListEditor: View {
     var target: ListEditorTarget
@@ -29,6 +29,7 @@ struct ListEditor: View {
     @State private var picked: Set<UUID> = []
     @State private var loaded = false
     @State private var confirmingDelete = false
+    @State private var pickingIcon = false
     @FocusState private var addFocused: Bool
 
     /// One thing on the list while editing.
@@ -85,7 +86,14 @@ struct ListEditor: View {
                             .submitLabel(.next)
                             .onSubmit { addFocused = true }
                     }
-                    IconPicker(quick: Self.quickSymbols, selection: $symbol, color: accent, text: title)
+                    // Lists don't have a color of their own: they show in the family's accent.
+                    Button { pickingIcon = true } label: {
+                        HearthIconColorLabel(icon: symbol, color: HearthColorChoice(hex: accent.hexValue), title: "Icon", showsColorName: false)
+                    }
+                    .hearthIconPicker(
+                        isPresented: $pickingIcon, title: title, caption: "List", context: .list,
+                        icon: $symbol, tint: HearthColorChoice(hex: accent.hexValue)
+                    )
                 }
 
                 Section {
@@ -141,19 +149,20 @@ struct ListEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done", action: save)
+                    SheetDoneButton(action: save)
                         .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             .safeAreaInset(edge: .bottom) { addBar }
-            .confirmationDialog("Delete \(title)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            .alert("Delete \(title)?", isPresented: $confirmingDelete) {
                 Button("Delete List", role: .destructive) {
                     if let existing { FamilyLists.delete(existing, in: context) }
                     dismiss()
                 }
+                Button("Cancel", role: .cancel) {}
             } message: {
                 Text("It comes off everyone's screens and won't be offered to use again.")
             }
@@ -375,7 +384,7 @@ private struct ThingRow: View {
                     thing.everyone = true
                     thing.assignees = []
                 } label: {
-                    Label("Everyone Brings Their Own", systemImage: thing.everyone ? "checkmark" : "person.3")
+                    Label { Text("Everyone Brings Their Own") } icon: { Image.menuIcon(thing.everyone ? "checkmark" : "person.3") }
                 }
                 Section("Or Give It To") {
                     ForEach(family) { person in
@@ -386,7 +395,7 @@ private struct ThingRow: View {
                             thing.everyone = ids.isEmpty
                             thing.assignees = ids
                         } label: {
-                            Label(person.name, systemImage: on ? "checkmark" : "person")
+                            Label { Text(person.name) } icon: { Image.menuIcon(on ? "checkmark" : "person") }
                         }
                     }
                 }
@@ -403,7 +412,7 @@ private struct ThingRow: View {
         switch names.count {
         case 0: return "Nobody yet"
         case 1: return names[0]
-        default: return names.formatted(.list(type: .or)) + ", either one"
+        default: return names.formatted(.list(type: .and)) + ", each their own"
         }
     }
 }
@@ -425,7 +434,7 @@ private struct FaceStack: View {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
-                    .frame(height: 30)
+                    .frame(minHeight: 30)
                     .background(Color(.tertiarySystemFill), in: Capsule())
                     .overlay(Capsule().strokeBorder(Color(.secondarySystemGroupedBackground), lineWidth: 2))
             }

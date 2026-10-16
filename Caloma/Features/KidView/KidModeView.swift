@@ -427,6 +427,7 @@ struct KidDayView: View {
         .background(color.opacity(0.07).ignoresSafeArea())
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .coordinateSpace(.named("kid"))
+        .refreshesFromICloud()
         .overlay {
             if let flight, !reduceMotion {
                 FlyingStars(from: flight.from, to: flight.to)

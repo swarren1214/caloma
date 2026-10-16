@@ -83,24 +83,15 @@ struct FamilySharingView: View {
             }
 
             Section {
-                LabeledContent("iCloud") {
-                    statusLabel
+                // The same iCloud Sync card as Family › iCloud, so sync status reads one way everywhere.
+                HearthSyncCard(
+                    app: .caloma,
+                    snapshot: sync.syncSnapshot,
+                    summary: "The family’s chores, calendar and rewards"
+                ) {
+                    await sync.syncNow()
                 }
-                // A new row when the status changes, so it never keeps the height of a long
-                // error that's gone.
-                .id(statusKey)
-                if case .failed(let message) = sync.status {
-                    Text(message)
-                        .font(.footnote)
-                        .foregroundStyle(Brand.late)
-                }
-                if let last = sync.lastSynced {
-                    LabeledContent("Last Synced", value: last.formatted(.relative(presentation: .named)))
-                }
-                Button("Sync Now") {
-                    Task { await sync.syncNow() }
-                }
-                .disabled(!canSync)
+                .hearthSyncCardRow()
             } header: {
                 Text("Sync")
             } footer: {
@@ -121,13 +112,15 @@ struct FamilySharingView: View {
                 }
             }
         }
+        .refreshesFromICloud()
         .navigationTitle("Family Sharing")
         .navigationBarTitleDisplayMode(.inline)
         .task { share = await sync.fetchShare() }
-        .confirmationDialog("Leave the family?", isPresented: $confirmsLeave, titleVisibility: .visible) {
+        .alert("Leave the family?", isPresented: $confirmsLeave) {
             Button("Leave Family", role: .destructive) {
                 Task { await sync.leaveFamily() }
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("Caloma starts fresh on this iPhone. You can join again with a new invitation.")
         }
@@ -135,27 +128,6 @@ struct FamilySharingView: View {
 
     private var canSync: Bool {
         AppConfig.cloudSyncEnabled && sync.status != .noAccount
-    }
-
-    private var statusKey: String {
-        switch sync.status {
-        case .off: "off"
-        case .noAccount: "noAccount"
-        case .syncing: "syncing"
-        case .upToDate: "upToDate"
-        case .failed: "failed"
-        }
-    }
-
-    @ViewBuilder
-    private var statusLabel: some View {
-        switch sync.status {
-        case .off: Text(AppConfig.cloudSyncEnabled ? "Starting…" : "Off")
-        case .noAccount: Text("Sign in to iCloud in Settings").foregroundStyle(Brand.waiting)
-        case .syncing: HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Syncing") }
-        case .upToDate: Label("Up to date", systemImage: "checkmark.icloud").foregroundStyle(.secondary)
-        case .failed: Label("Couldn't sync", systemImage: "exclamationmark.icloud").foregroundStyle(Brand.late)
-        }
     }
 
     private func invite() async {

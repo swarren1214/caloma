@@ -23,6 +23,20 @@ struct FacesSettingsView: View {
                 Text("When someone walks up to the wall, Caloma says hi and opens their screen. The camera is only on while the Family Board is showing.")
             }
 
+            if facesOn, store.needsSetupAgain {
+                Section {
+                    Label("Face matching was improved, so faces need setting up again. It's now much better at telling brothers and sisters apart.", systemImage: "sparkles")
+                        .font(.subheadline)
+                }
+            }
+
+            if facesOn, !store.isEmpty, people.contains(where: { !store.isEnrolled($0.id) }) {
+                Section {
+                    Label("Set up everyone who uses the wall. Caloma can only tell people apart from the faces it knows, so a brother or sister who isn't set up can be taken for one who is.", systemImage: "person.2.badge.gearshape")
+                        .font(.subheadline)
+                }
+            }
+
             if facesOn {
                 Section("Family") {
                     ForEach(people) { person in
@@ -38,8 +52,8 @@ struct FacesSettingsView: View {
                             Spacer()
                             if store.isEnrolled(person.id) {
                                 Menu("Redo") {
-                                    Button("Set Up Again", systemImage: "faceid") { settingUp = person }
-                                    Button("Forget \(person.name)'s Face", systemImage: "trash", role: .destructive) {
+                                    Button("Set Up Again", menuIcon: "faceid") { settingUp = person }
+                                    Button("Forget \(person.name)'s Face", menuIcon: "trash", role: .destructive) {
                                         store.erase(person.id)
                                     }
                                 }
@@ -72,11 +86,12 @@ struct FacesSettingsView: View {
                 settingUp = people.first { $0.id == nextID }
             }
         }
-        .confirmationDialog("Turn off Recognize Faces?", isPresented: $confirmsOff, titleVisibility: .visible) {
+        .alert("Turn off Recognize Faces?", isPresented: $confirmsOff) {
             Button("Turn Off and Erase Faces", role: .destructive) {
                 store.eraseAll()
                 facesOn = false
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("Everyone's face is erased from this iPad. You can set them up again later.")
         }
@@ -103,6 +118,7 @@ private struct FaceTestView: View {
 
     var body: some View {
         let embedder = FaceEmbedder.current
+        let calibrated = FaceStore.shared.family.isCalibrated
         List {
             Section {
                 FaceCameraPreview(camera: recognizer.camera)
@@ -120,21 +136,36 @@ private struct FaceTestView: View {
                     Text("No clear face yet.")
                         .foregroundStyle(.secondary)
                 }
-                ForEach(Array(recognizer.scores.enumerated()), id: \.offset) { index, entry in
+                ForEach(recognizer.scores, id: \.id) { entry in
                     let name = members.first { $0.id == entry.id }?.name ?? "Someone"
-                    let match = index == 0 && entry.score >= embedder.matchThreshold
+                    let match = recognizer.verdict == .match(entry.id)
+                    let close: Bool = {
+                        if case .closeCall(let a, let b) = recognizer.verdict { return entry.id == a || entry.id == b }
+                        return false
+                    }()
                     LabeledContent {
-                        Text(entry.score.formatted(.number.precision(.fractionLength(3))))
-                            .monospacedDigit()
-                            .foregroundStyle(match ? Color(hex: 0x1E9E6A) : .secondary)
+                        HStack(spacing: 10) {
+                            if let standout = entry.standout {
+                                Text(standout.formatted(.number.precision(.fractionLength(1))) + "×")
+                                    .fontWeight(.semibold)
+                            }
+                            Text(entry.similarity.formatted(.number.precision(.fractionLength(3))))
+                                .font(entry.standout == nil ? .body : .caption)
+                        }
+                        .monospacedDigit()
+                        .foregroundStyle(match ? Color(hex: 0x1E9E6A) : close ? Color.orange : .secondary)
                     } label: {
-                        Text(name).fontWeight(match ? .semibold : .regular)
+                        Text(name + (close ? " · close call" : "")).fontWeight(match ? .semibold : .regular)
                     }
                 }
             } header: {
                 Text("Match Scores")
             } footer: {
-                Text("A match needs \(embedder.matchThreshold.formatted()) or more, \(embedder.margin.formatted()) ahead of the next person, in 3 of 4 looks. " + (FaceEmbedder.usesFaceModel ? "Using the face model." : "Using Apple's on-device image matching; a dedicated face model will be more accurate."))
+                if calibrated {
+                    Text("The big number is how far each person stands out from how close the rest of the family usually comes to them. A match needs \(FamilyFaceModel.matchStandout.formatted())× or more, \(FamilyFaceModel.standoutMargin.formatted())× ahead of the next person, in 3 of 4 looks. Two people both over \(FamilyFaceModel.closeCallStandout.formatted())× is a close call, and the wall asks which.")
+                } else {
+                    Text("Set up two or more people for family matching. Until then a match needs \(embedder.matchThreshold.formatted()) or more, in 3 of 4 looks. " + (FaceEmbedder.usesFaceModel ? "Using the face model." : "Using Apple's on-device image matching; a dedicated face model will be more accurate."))
+                }
             }
         }
         .navigationTitle("Test Recognition")

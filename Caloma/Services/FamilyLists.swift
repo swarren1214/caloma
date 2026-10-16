@@ -27,13 +27,10 @@ enum FamilyLists {
         checks.filter { $0.itemID == item.id }.compactMap(\.memberID)
     }
 
-    /// Done for this person: their own copy of an "everyone" item, or anyone's tick on a
-    /// shared one (two people given the tent means either can bring it).
+    /// Done for this person. Everyone it's for checks off their own: giving "Swimsuit" to
+    /// Ella and Max means each packs one, and Ella's tick doesn't count for Max.
     static func isDone(_ item: FamilyListItem, for memberID: UUID, checks: [FamilyListCheck]) -> Bool {
-        if item.everyone {
-            return checks.contains { $0.itemID == item.id && $0.memberID == memberID }
-        }
-        return checks.contains { $0.itemID == item.id }
+        checks.contains { $0.itemID == item.id && $0.memberID == memberID }
     }
 
     /// Everything on a list, in order.
@@ -61,13 +58,9 @@ enum FamilyLists {
         for item in items(of: list, in: all) {
             let people = people(for: item, members: members)
             guard !people.isEmpty else { continue }
-            if item.everyone {
-                total += people.count
-                done += people.filter { isDone(item, for: $0.id, checks: checks) }.count
-            } else {
-                total += 1
-                if isDone(item, for: people[0].id, checks: checks) { done += 1 }
-            }
+            // Each person's copy counts on its own.
+            total += people.count
+            done += people.filter { isDone(item, for: $0.id, checks: checks) }.count
         }
         return (done, total)
     }
@@ -114,18 +107,12 @@ enum FamilyLists {
     static func toggle(_ item: FamilyListItem, for memberID: UUID, in context: ModelContext) {
         let itemID: UUID? = item.id
         let checks = (try? context.fetch(FetchDescriptor<FamilyListCheck>(predicate: #Predicate { $0.itemID == itemID }))) ?? []
-        if item.everyone {
-            let mine = checks.filter { $0.memberID == memberID }
-            if mine.isEmpty {
-                context.insert(FamilyListCheck(itemID: item.id, memberID: memberID))
-            } else {
-                mine.forEach(context.delete)
-            }
-        } else if checks.isEmpty {
+        // Only this person's tick: checking it off for one never checks it off for another.
+        let mine = checks.filter { $0.memberID == memberID }
+        if mine.isEmpty {
             context.insert(FamilyListCheck(itemID: item.id, memberID: memberID))
         } else {
-            // Shared: one tap undoes it, whoever ticked it.
-            checks.forEach(context.delete)
+            mine.forEach(context.delete)
         }
         Persistence.save(context)
     }

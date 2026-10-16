@@ -58,6 +58,7 @@ struct CalendarView: View {
         Group {
             if sizeClass == .regular {
                 CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { if !readOnly { creating = $0 } }, onOpen: { open = $0 }, onMove: { if !readOnly { move($0) } }, onWrite: { writing = NewEventRequest(day: $0) }, canCreate: !readOnly)
+                    .refreshesFromICloud()
             } else {
                 compact(data)
             }
@@ -70,14 +71,18 @@ struct CalendarView: View {
             // On iPad these are in the calendar's own header, as in the design.
             if sizeClass != .regular && !readOnly {
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("Today") {
-                        withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
+                    Group {
+                        Button("Today") {
+                            withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
+                        }
+                        Button {
+                            creating = NewEventRequest(day: day)
+                        } label: {
+                            Label("New Event", systemImage: "plus")
+                        }
                     }
-                    Button {
-                        creating = NewEventRequest(day: day)
-                    } label: {
-                        Label("New Event", systemImage: "plus")
-                    }
+                    // White over the color header.
+                    .tint(.white)
                 }
             }
         }
@@ -92,7 +97,7 @@ struct CalendarView: View {
                 EventDetailView(eventID: ref.eventID, day: ref.day)
             }
         }
-        .confirmationDialog("Move this event?", isPresented: Binding(get: { pendingMove != nil }, set: { if !$0 { pendingMove = nil } }), titleVisibility: .visible, presenting: pendingMove) { move in
+        .alert("Move this event?", isPresented: Binding(get: { pendingMove != nil }, set: { if !$0 { pendingMove = nil } }), presenting: pendingMove) { move in
             Button("Only This One") { perform(move, all: false) }
             Button("All of Them") { perform(move, all: true) }
             Button("Cancel", role: .cancel) {}
@@ -298,7 +303,7 @@ struct WeekStrip: View {
                 .accessibilityAddTraits(selected ? .isSelected : [])
                 .contextMenu {
                     if let onNew {
-                        Button("New Event", systemImage: "plus") { onNew(date) }
+                        Button("New Event", menuIcon: "plus") { onNew(date) }
                     }
                 }
                 .eventDropTarget(on: date, perform: onDrop)
@@ -412,7 +417,7 @@ struct MonthGrid: View {
                     .accessibilityAddTraits(selected ? .isSelected : [])
                     .contextMenu {
                         if let onNew {
-                            Button("New Event", systemImage: "plus") { onNew(date) }
+                            Button("New Event", menuIcon: "plus") { onNew(date) }
                         }
                     }
                     .eventDropTarget(on: date, cornerRadius: 10, perform: onDrop)

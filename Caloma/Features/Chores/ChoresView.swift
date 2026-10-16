@@ -34,9 +34,9 @@ struct ChoresView: View {
     private var roomMenu: some View {
         Menu {
             Picker("Room", selection: $roomFilter) {
-                Label("All Rooms", systemImage: "house").tag(UUID?.none)
+                Label { Text("All Rooms") } icon: { Image.menuIcon("house") }.tag(UUID?.none)
                 ForEach(rooms) { room in
-                    Label(room.name, systemImage: room.symbol).tag(UUID?.some(room.id))
+                    Label { Text(room.name) } icon: { Image.menuIcon(room.symbol) }.tag(UUID?.some(room.id))
                 }
             }
         } label: {
@@ -57,6 +57,7 @@ struct ChoresView: View {
         Group {
             if sizeClass == .regular && range == .today {
                 wideBoard(family)
+                    .refreshesFromICloud()
             } else {
                 CalomaScreen(title: "Chores") {
                     controls(family)
@@ -73,18 +74,22 @@ struct ChoresView: View {
         .navigationTitle("Chores")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                KidViewButton()
-                Button {
-                    router.sheet = .approvals
-                } label: {
-                    Label("Needs Your OK", systemImage: "checkmark.shield")
+                Group {
+                    KidViewButton()
+                    Button {
+                        router.sheet = .approvals
+                    } label: {
+                        Label("Needs Your OK", systemImage: "checkmark.shield")
+                    }
+                    .badge(family.needsOKCount)
+                    Button {
+                        router.sheet = .newChore
+                    } label: {
+                        Label("New Chore", systemImage: "plus")
+                    }
                 }
-                .badge(family.needsOKCount)
-                Button {
-                    router.sheet = .newChore
-                } label: {
-                    Label("New Chore", systemImage: "plus")
-                }
+                // White over the color header.
+                .tint(.white)
             }
         }
         .sheet(item: $editing) { chore in
@@ -359,7 +364,7 @@ struct ChoreRow: View {
         .padding(.trailing, 14)
         .frame(minHeight: 60)
         .choreActions(title: item.chore.title, choreID: item.chore.id, onEdit: onEdit) {
-            Button(completeTitle, systemImage: completeSymbol, action: onToggle)
+            Button(completeTitle, menuIcon: completeSymbol, action: onToggle)
         }
     }
 
@@ -434,7 +439,7 @@ private struct UpForGrabsRow: View {
         .frame(minHeight: 64)
         .choreActions(title: item.chore.title, choreID: item.chore.id, onEdit: onEdit) {
             // Up for grabs: completing it means saying who did it.
-            Menu("Mark Complete", systemImage: "checkmark.circle") {
+            Menu("Mark Complete", menuIcon: "checkmark.circle") {
                 Section("Who did it?") {
                     ForEach(eligible) { kid in
                         Button(kid.name) { onDone(kid) }

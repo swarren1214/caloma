@@ -33,22 +33,31 @@ struct FamilyListsTests {
         #expect(progress.total == 3)
     }
 
-    @Test func sharedItemsAreDoneByEither() {
+    @Test func itemsForSeveralPeopleAreCheckedOffOneByOne() {
         let container = Persistence.makeContainer(inMemory: true)
         let context = container.mainContext
         let (mom, ella, max) = family(in: context)
         let list = FamilyList(title: "Party")
         context.insert(list)
-        let snacks = FamilyListItem(listID: list.id, title: "Snacks", everyone: false, assignees: [mom.id, ella.id], sortOrder: 0)
-        context.insert(snacks)
+        let swimsuit = FamilyListItem(listID: list.id, title: "Swimsuit", everyone: false, assignees: [ella.id, max.id], sortOrder: 0)
+        context.insert(swimsuit)
 
-        #expect(FamilyLists.isAssigned(snacks, to: ella.id))
-        #expect(!FamilyLists.isAssigned(snacks, to: max.id))
-        FamilyLists.toggle(snacks, for: mom.id, in: context)
-        #expect(FamilyLists.isDone(snacks, for: ella.id, checks: Persistence.fetchAll(FamilyListCheck.self, in: context)))
-        // One tap undoes it, whoever ticked it.
-        FamilyLists.toggle(snacks, for: ella.id, in: context)
-        #expect(!FamilyLists.isDone(snacks, for: mom.id, checks: Persistence.fetchAll(FamilyListCheck.self, in: context)))
+        #expect(FamilyLists.isAssigned(swimsuit, to: ella.id))
+        #expect(!FamilyLists.isAssigned(swimsuit, to: mom.id))
+        // A parent checks it off for Ella: Max still needs his.
+        FamilyLists.toggle(swimsuit, for: ella.id, in: context)
+        var checks = Persistence.fetchAll(FamilyListCheck.self, in: context)
+        #expect(FamilyLists.isDone(swimsuit, for: ella.id, checks: checks))
+        #expect(!FamilyLists.isDone(swimsuit, for: max.id, checks: checks))
+        let progress = FamilyLists.progress(of: list, in: [swimsuit], checks: checks, members: [mom, ella, max])
+        #expect(progress.done == 1)
+        #expect(progress.total == 2)
+        // Un-checking is just as personal.
+        FamilyLists.toggle(swimsuit, for: max.id, in: context)
+        FamilyLists.toggle(swimsuit, for: ella.id, in: context)
+        checks = Persistence.fetchAll(FamilyListCheck.self, in: context)
+        #expect(!FamilyLists.isDone(swimsuit, for: ella.id, checks: checks))
+        #expect(FamilyLists.isDone(swimsuit, for: max.id, checks: checks))
     }
 
     @Test func kidsOnlySeeListsWithSomethingOfTheirs() {

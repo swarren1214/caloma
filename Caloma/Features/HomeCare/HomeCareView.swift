@@ -46,11 +46,15 @@ struct HomeCareView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    addingTask = true
-                } label: {
-                    Label("New Task", systemImage: "plus")
+                Group {
+                    Button {
+                        addingTask = true
+                    } label: {
+                        Label("New Task", systemImage: "plus")
+                    }
                 }
+                // White over the color header.
+                .tint(.white)
             }
         }
         .sheet(isPresented: $addingTask) {

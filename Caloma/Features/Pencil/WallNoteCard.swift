@@ -47,7 +47,7 @@ struct WallNoteCard: View {
                         Text("\(position.index) of \(position.count)")
                             .font(.caption.weight(.bold))
                             .padding(.horizontal, 10)
-                            .frame(height: 26)
+                            .frame(minHeight: 26)
                             .background(Color.black.opacity(0.07), in: Capsule())
                     }
                 }

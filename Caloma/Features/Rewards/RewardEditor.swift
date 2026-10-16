@@ -23,6 +23,7 @@ struct RewardEditor: View {
     @State private var isFamilyGoal = false
     @State private var loaded = false
     @State private var confirmsDelete = false
+    @State private var pickingIcon = false
 
     private var kids: [Member] { members.filter { $0.isKid && !$0.isArchived } }
     private var color: Color { Color(hex: kind.colorHex) }
@@ -44,8 +45,15 @@ struct RewardEditor: View {
                     TextField("A short note (optional)", text: $note)
                 }
 
-                Section("Icon") {
-                    IconPicker(quick: SymbolSets.rewards, selection: $symbol, color: color, text: name)
+                Section {
+                    // A reward's color comes from its kind, so only the icon changes here.
+                    Button { pickingIcon = true } label: {
+                        HearthIconColorLabel(icon: symbol, color: HearthColorChoice(hex: kind.colorHex), title: "Icon", showsColorName: false)
+                    }
+                    .hearthIconPicker(
+                        isPresented: $pickingIcon, title: name, caption: "Reward", context: .reward,
+                        icon: $symbol, tint: HearthColorChoice(hex: kind.colorHex)
+                    )
                 }
 
                 Section {
@@ -122,19 +130,20 @@ struct RewardEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", systemImage: "checkmark", role: .confirm) { save() }
+                    SheetDoneButton("Save") { save() }
                         .disabled(!isValid)
                 }
             }
-            .confirmationDialog("Remove \(name)?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+            .alert("Remove \(name)?", isPresented: $confirmsDelete) {
                 Button("Remove from Store", role: .destructive) {
                     reward?.isArchived = true
                     Persistence.save(context)
                     dismiss()
                 }
+                Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Kids won't see it anymore. What they've already spent stays in their history.")
             }

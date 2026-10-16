@@ -103,7 +103,7 @@ struct KioskHomeControls: View {
                     }
                     .foregroundStyle(secured ? Color.primary : .white)
                     .padding(.horizontal, 11)
-                    .frame(height: 30)
+                    .frame(minHeight: 30)
                     .background(secured ? AnyShapeStyle(Color(.secondarySystemFill)) : AnyShapeStyle(Brand.waiting), in: Capsule())
                 }
             }

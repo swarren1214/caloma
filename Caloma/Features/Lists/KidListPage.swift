@@ -127,18 +127,12 @@ struct KidListPage: View {
     /// "Everyone packs one", "Dad asked you to grab it" (a parent gave it to just them and
     /// others), or nothing.
     private func note(for item: FamilyListItem) -> String {
-        if FamilyLists.isDone(item, for: kid.id, checks: checks) {
-            if !item.everyone, let by = FamilyLists.doneBy(item, checks: checks).first, by != kid.id,
-               let person = members.first(where: { $0.id == by }) {
-                return "\(person.name) got it"
-            }
-            return "Done!"
-        }
+        if FamilyLists.isDone(item, for: kid.id, checks: checks) { return "Done!" }
         if item.everyone { return "Everyone needs one" }
         let others = item.assigneeIDs.filter { $0 != kid.id }
         if others.isEmpty { return "Just for you" }
         let names = members.filter { others.contains($0.id) }.map(\.name)
-        return names.isEmpty ? "Shared" : "You or " + names.formatted(.list(type: .or))
+        return names.isEmpty ? "Just for you" : "You and " + names.formatted(.list(type: .and)) + " each need one"
     }
 
     private func toggle(_ item: FamilyListItem) {

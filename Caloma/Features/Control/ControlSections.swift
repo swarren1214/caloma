@@ -22,7 +22,7 @@ struct SafetySection: View {
             ForEach(systems) { system in
                 SecuritySystemCard(control: system)
                     .contextMenu {
-                        Button("Edit Name, Room & Icon", systemImage: "pencil") { onEdit(system) }
+                        Button("Edit Name, Room & Icon", menuIcon: "pencil") { onEdit(system) }
                     }
             }
             if !alarms.isEmpty {
@@ -30,7 +30,7 @@ struct SafetySection: View {
                     ForEach(alarms) { alarm in
                         AlarmTile(control: alarm)
                             .contextMenu {
-                                Button("Edit Name, Room & Icon", systemImage: "pencil") { onEdit(alarm) }
+                                Button("Edit Name, Room & Icon", menuIcon: "pencil") { onEdit(alarm) }
                             }
                     }
                 }
@@ -98,8 +98,9 @@ struct SecuritySystemCard: View {
         }
         .padding(14)
         .controlCard()
-        .confirmationDialog("Turn off \(control.name)?", isPresented: $confirmingOff, titleVisibility: .visible) {
+        .alert("Turn off \(control.name)?", isPresented: $confirmingOff) {
             Button("Turn Off", role: .destructive) { set(.off) }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -222,7 +223,7 @@ struct WaterSection: View {
                 ForEach(Array(controls.enumerated()), id: \.element.id) { index, control in
                     row(control, mainsOff: mainsOff)
                         .contextMenu {
-                            Button("Edit Name, Room & Icon", systemImage: "pencil") { onEdit(control) }
+                            Button("Edit Name, Room & Icon", menuIcon: "pencil") { onEdit(control) }
                         }
                     if index < controls.count - 1 {
                         Divider().padding(.leading, 64)

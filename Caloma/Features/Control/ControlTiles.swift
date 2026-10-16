@@ -74,16 +74,17 @@ struct DeviceTile: View {
         }
         .contextMenu {
             if let onAdjust {
-                Button("Adjust", systemImage: "slider.horizontal.3", action: onAdjust)
+                Button("Adjust", menuIcon: "slider.horizontal.3", action: onAdjust)
             }
-            Button("Edit Name, Room & Icon", systemImage: "pencil", action: onEdit)
+            Button("Edit Name, Room & Icon", menuIcon: "pencil", action: onEdit)
         }
         .sensoryFeedback(.selection, trigger: on)
         // A lock, garage or alarm pinned somewhere asks before opening up, as in Doors.
-        .confirmationDialog(confirmTitle, isPresented: $confirming, titleVisibility: .visible) {
+        .alert(confirmTitle, isPresented: $confirming) {
             Button(confirmVerb) {
                 if let target = pendingOn { send(target) }
             }
+            Button("Cancel", role: .cancel) {}
         }
         .accessibilityLabel("\(control.name), \(state)")
         .accessibilityAddTraits(control.isSensor ? [] : .isButton)
@@ -171,7 +172,7 @@ struct DeviceGrid<Content: View>: View {
 // MARK: - Doors
 
 /// Locks and garage doors, one row each with its own button. Locking up and closing are one
-/// tap; unlocking or opening asks first, right in the row.
+/// tap; unlocking or opening asks first in an alert.
 struct DoorsCard: View {
     var controls: [HomeControl]
     var onEdit: (HomeControl) -> Void
@@ -187,17 +188,24 @@ struct DoorsCard: View {
         VStack(spacing: 0) {
             ForEach(Array(controls.enumerated()), id: \.element.id) { index, control in
                 row(control)
-                if asking == control.id {
-                    confirm(control)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
                 if index < controls.count - 1 {
                     Divider().padding(.leading, 64)
                 }
             }
         }
         .controlCard()
-        .animation(.snappy, value: asking)
+        .alert(askingTitle, isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } }), presenting: controls.first(where: { $0.id == asking })) { control in
+            Button(control.kind == .lock ? "Unlock" : "Open") {
+                set(control, secured: false)
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    /// Unlocking or opening asks first.
+    private var askingTitle: String {
+        guard let control = controls.first(where: { $0.id == asking }) else { return "" }
+        return control.kind == .lock ? "Unlock \(control.name)?" : "Open the \(control.name)?"
     }
 
     private func row(_ control: HomeControl) -> some View {
@@ -248,32 +256,10 @@ struct DoorsCard: View {
         .padding(.vertical, 12)
         .contentShape(.rect)
         .contextMenu {
-            Button("Edit Name, Room & Icon", systemImage: "pencil") { onEdit(control) }
+            Button("Edit Name, Room & Icon", menuIcon: "pencil") { onEdit(control) }
         }
         .accessibilityElement(children: .combine)
         .accessibilityAction(named: "Edit") { onEdit(control) }
-    }
-
-    private func confirm(_ control: HomeControl) -> some View {
-        let isLock = control.kind == .lock
-        return HStack(spacing: 10) {
-            Text(isLock ? "Unlock \(control.name)?" : "Open the \(control.name)?")
-                .font(.subheadline.weight(.semibold))
-            Spacer()
-            Button("Cancel") { asking = nil }
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
-            Button(isLock ? "Unlock" : "Open") {
-                asking = nil
-                set(control, secured: false)
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(ControlTheme.attention)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(ControlTheme.attention.opacity(0.12))
     }
 
     private func set(_ control: HomeControl, secured: Bool) {

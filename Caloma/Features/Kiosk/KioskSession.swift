@@ -144,7 +144,7 @@ final class KioskSession {
         guard let request = lockRequest, request.id == requestID else { return }
         lockRequest = nil
         if let look = request.look {
-            FaceStore.shared.learn(look, for: request.memberID)
+            FaceStore.shared.learn(look, for: request.memberID, confirmed: true)
         }
         show(request.memberID, source: request.source)
         if isParent { unlock() }

@@ -8,8 +8,13 @@ final class FaceStore {
     static let shared = FaceStore()
 
     private(set) var faces: [UUID: [[Float]]] = [:]
+    /// What the wall matches against: built from everyone's looks whenever they change.
+    @ObservationIgnored private(set) var family = FamilyFaceModel.empty
 
-    /// Embeddings from face setup; Not-you picks add to these up to `maximum`.
+    /// Faces were made by an older matcher and erased: everyone needs setting up again.
+    private(set) var needsSetupAgain = false
+
+    /// Embeddings from face setup; picks on the wall add to these up to `maximum`.
     static let maximum = 40
     @ObservationIgnored private var setupCounts: [UUID: Int] = [:]
 
@@ -32,14 +37,19 @@ final class FaceStore {
     var isEmpty: Bool { faces.isEmpty }
 
     func set(_ embeddings: [[Float]], for id: UUID) {
+        needsSetupAgain = false
         faces[id] = embeddings
         setupCounts[id] = embeddings.count
+        family = FamilyFaceModel(faces: faces)
         save()
     }
 
-    /// A Not-you pick: one more look at this person, if they've been set up.
-    func learn(_ embedding: [Float], for id: UUID) {
+    /// A pick on the wall: one more look at this person, if they've been set up and the look
+    /// isn't clearly someone else's. `confirmed` is for a look backed by their passcode.
+    func learn(_ embedding: [Float], for id: UUID, confirmed: Bool = false) {
         guard var stored = faces[id], !stored.isEmpty else { return }
+        let embedder = FaceEmbedder.current
+        guard confirmed || family.leans(embedding, toward: id, embedder: embedder) else { return }
         stored.append(embedding)
         let kept = setupCounts[id] ?? 0
         if stored.count > Self.maximum, stored.count > kept {
@@ -47,18 +57,21 @@ final class FaceStore {
             stored.remove(at: min(kept, stored.count - 1))
         }
         faces[id] = stored
+        family = FamilyFaceModel(faces: faces)
         save()
     }
 
     func erase(_ id: UUID) {
         faces[id] = nil
         setupCounts[id] = nil
+        family = FamilyFaceModel(faces: faces)
         save()
     }
 
     func eraseAll() {
         faces = [:]
         setupCounts = [:]
+        family = .empty
         try? FileManager.default.removeItem(at: url)
     }
 
@@ -68,6 +81,7 @@ final class FaceStore {
         // Faces made by another embedder can't be compared; they need setting up again.
         guard file.embedder == FaceEmbedder.current.id else {
             try? FileManager.default.removeItem(at: url)
+            needsSetupAgain = !file.faces.isEmpty
             return
         }
         var loaded: [UUID: [[Float]]] = [:]
@@ -75,6 +89,7 @@ final class FaceStore {
             if let id = UUID(uuidString: key) { loaded[id] = value }
         }
         faces = loaded
+        family = FamilyFaceModel(faces: loaded)
         var counts: [UUID: Int] = [:]
         for (key, value) in file.setupCounts ?? [:] {
             if let id = UUID(uuidString: key) { counts[id] = value }
@@ -98,9 +113,11 @@ final class FaceStore {
     }
 }
 
-/// Watches the front camera in Kiosk Mode and says who's there. Only a confident, steady match
-/// counts: the best person must clear the threshold, beat the next person by a margin, and win
-/// 3 of the last 4 looks. Face setup borrows the same camera.
+/// Watches the front camera on the Family Board and says who's there. Only a confident, steady
+/// match counts: the best person must stand well clear of how close the rest of the family
+/// usually comes, beat the next person by a margin, and win 3 of the last 4 looks. When two
+/// people keep coming out about even, it says so instead of guessing. Face setup borrows the
+/// same camera.
 @Observable
 final class FaceRecognizer {
     static let shared = FaceRecognizer()
@@ -114,20 +131,31 @@ final class FaceRecognizer {
     /// The latest look, for face setup and the test screen.
     private(set) var latest: FaceReading = .nobody
     /// Everyone's score for the latest look, best first.
-    private(set) var scores: [(id: UUID, score: Float)] = []
+    private(set) var scores: [FamilyFaceModel.Score] = []
+    /// What the latest look was judged to be.
+    private(set) var verdict: FamilyFaceModel.Verdict = .nobody
 
     @ObservationIgnored let camera = FaceCamera()
     @ObservationIgnored private let store = FaceStore.shared
 
     /// Kiosk Mode: someone was recognized, and how long they've been the steady answer.
     @ObservationIgnored var onRecognized: ((UUID, TimeInterval) -> Void)?
+    /// Family Board: two people keep coming out about even (best first), with the look.
+    @ObservationIgnored var onCloseCall: ((UUID, UUID, [Float]) -> Void)?
     /// Face setup: every look.
     @ObservationIgnored var onReading: ((FaceReading) -> Void)?
 
-    @ObservationIgnored private var votes: [UUID?] = []
+    @ObservationIgnored private var votes: [FamilyFaceModel.Verdict] = []
+    @ObservationIgnored private var askedPair: Set<UUID>?
     @ObservationIgnored private var steady: UUID?
     @ObservationIgnored private var steadySince = Date.now
     @ObservationIgnored private var recent: (embedding: [Float], at: Date)?
+    /// The last few clear looks at the face in view, for pooling.
+    @ObservationIgnored private var track: [(embedding: [Float], quality: Double, box: CGRect, at: Date)] = []
+
+    /// Looks pooled together: a face only counts as the same one while it stays put.
+    static let trackLength = 5
+    static let trackWindow: TimeInterval = 1.5
 
     /// Faces must be at least this tall in the frame (the front camera is wide; check with
     /// Test Recognition and adjust).
@@ -144,8 +172,10 @@ final class FaceRecognizer {
         cameraDenied = false
         self.mode = mode
         reset()
-        camera.framesPerSecond = mode == .enroll ? 10 : 6
-        camera.onFrame = { FaceRecognizer.process($0) }
+        // Setup averages several views of each look, so it looks a little less often.
+        camera.framesPerSecond = mode == .enroll ? 8 : 6
+        let forSetup = mode == .enroll
+        camera.onFrame = { FaceRecognizer.process($0, forSetup: forSetup) }
         camera.start()
     }
 
@@ -156,6 +186,7 @@ final class FaceRecognizer {
         reset()
         latest = .nobody
         scores = []
+        verdict = .nobody
     }
 
     /// Stops looking for a moment (Face ID needs the camera), then carries on.
@@ -176,7 +207,8 @@ final class FaceRecognizer {
         return recent.embedding
     }
 
-    /// "Who's here?" picked someone while a face was in view: remember this look as theirs.
+    /// "Who's here?" picked someone while a face was in view: remember this look as theirs,
+    /// unless it's clearly closer to someone else.
     func learn(_ memberID: UUID) {
         guard mode == .recognize, let embedding = recentEmbedding() else { return }
         store.learn(embedding, for: memberID)
@@ -187,11 +219,13 @@ final class FaceRecognizer {
         votes = []
         steady = nil
         recent = nil
+        askedPair = nil
+        track = []
     }
 
     /// Runs on the camera's queue.
-    nonisolated private static func process(_ buffer: CVPixelBuffer) {
-        let reading = FaceAnalyzer.read(buffer, embedder: FaceEmbedder.current)
+    nonisolated private static func process(_ buffer: CVPixelBuffer, forSetup: Bool) {
+        let reading = FaceAnalyzer.read(buffer, embedder: FaceEmbedder.current, forSetup: forSetup)
         Task { @MainActor in
             FaceRecognizer.shared.handle(reading)
         }
@@ -209,27 +243,67 @@ final class FaceRecognizer {
         }
     }
 
+    private func pooled(_ look: [Float], _ reading: FaceReading) -> [Float] {
+        if let last = track.last {
+            let moved = Self.overlap(last.box, reading.box) < 0.3
+            if moved || reading.at.timeIntervalSince(last.at) > 1 { track = [] }
+        }
+        track.append((look, reading.quality, reading.box, reading.at))
+        track.removeAll { reading.at.timeIntervalSince($0.at) > Self.trackWindow }
+        if track.count > Self.trackLength { track.removeFirst(track.count - Self.trackLength) }
+        return FaceMath.weightedCentroid(track.map { ($0.embedding, Float(max($0.quality, 0.05))) }) ?? look
+    }
+
+    /// Intersection over union of two boxes.
+    private static func overlap(_ a: CGRect, _ b: CGRect) -> CGFloat {
+        let shared = a.intersection(b)
+        guard !shared.isNull else { return 0 }
+        let both = a.width * a.height + b.width * b.height - shared.width * shared.height
+        return both > 0 ? shared.width * shared.height / both : 0
+    }
+
     private func recognize(_ reading: FaceReading) {
-        var vote: UUID?
-        if reading.hasFace, reading.box.height >= Self.minimumFaceHeight, let embedding = reading.embedding, !store.isEmpty {
+        var vote = FamilyFaceModel.Verdict.nobody
+        if reading.hasFace, reading.box.height >= Self.minimumFaceHeight, let look = reading.embedding, !store.isEmpty {
+            // One frame is noisy; the same face over the last second and a bit is not. Pool the
+            // last few looks, clearer ones counting for more, as long as it's still the same
+            // face in about the same place.
+            let embedding = pooled(look, reading)
             recent = (embedding, reading.at)
-            let ranked = FaceMath.rank(embedding, in: store.faces)
+            let family = store.family
+            let ranked = family.scores(embedding)
             scores = ranked
             let embedder = FaceEmbedder.current
-            if let best = ranked.first, best.score >= embedder.matchThreshold,
-               ranked.count < 2 || best.score - ranked[1].score >= embedder.margin {
-                vote = best.id
-            }
+            vote = family.verdict(ranked, embedder: embedder)
         } else if !reading.hasFace {
             scores = []
+            askedPair = nil
+            track = []
         }
+        verdict = vote
         votes.append(vote)
         if votes.count > 4 { votes.removeFirst(votes.count - 4) }
 
         var counts: [UUID: Int] = [:]
-        for case let id? in votes { counts[id, default: 0] += 1 }
+        var pairs: [Set<UUID>: (count: Int, order: (UUID, UUID))] = [:]
+        for vote in votes {
+            switch vote {
+            case .match(let id):
+                counts[id, default: 0] += 1
+            case .closeCall(let first, let second):
+                let pair: Set<UUID> = [first, second]
+                pairs[pair] = ((pairs[pair]?.count ?? 0) + 1, (first, second))
+            case .nobody:
+                break
+            }
+        }
         guard let winner = counts.first(where: { $0.value >= 3 })?.key else {
             if counts.isEmpty { steady = nil }
+            // The same two people, about even, 3 of the last 4 looks: ask once while they stay.
+            if let found = pairs.first(where: { $0.value.count >= 3 }), found.key != askedPair, let recent {
+                askedPair = found.key
+                onCloseCall?(found.value.order.0, found.value.order.1, recent.embedding)
+            }
             return
         }
         if winner != steady {

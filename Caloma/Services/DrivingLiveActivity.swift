@@ -57,7 +57,7 @@ enum DrivingLiveActivity {
 
         let members = Persistence.fetchAll(Member.self, in: context).filter { !$0.isArchived }.sorted { $0.sortOrder < $1.sortOrder }
         let attendees = event.attendeeIDs.isEmpty ? [] : members.filter { event.attendeeIDs.contains($0.id) }
-        let accent = UserDefaults.standard.string(forKey: SettingsKey.accentHex).flatMap { UInt32($0.dropFirst(), radix: 16) } ?? Brand.defaultAccentHex
+        let accent = Brand.defaultAccentHex
         let attributes = DrivingAttributes(
             occurrenceID: occurrence.id,
             title: event.title,

@@ -43,8 +43,8 @@ struct RewardsView: View {
             if let goal {
                 FamilyGoalCard(goal: goal, family: family)
                     .contextMenu {
-                        Button("Edit Goal", systemImage: "pencil") { editing = goal }
-                        Button("Mark Reached", systemImage: "flag.checkered") { confirmsFinish = goal }
+                        Button("Edit Goal", menuIcon: "pencil") { editing = goal }
+                        Button("Mark Reached", menuIcon: "flag.checkered") { confirmsFinish = goal }
                     }
                     .onTapGesture { editing = goal }
             }
@@ -86,26 +86,31 @@ struct RewardsView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    router.sheet = .approvals
-                } label: {
-                    Label("Needs Your OK", systemImage: "checkmark.shield")
+                Group {
+                    Button {
+                        router.sheet = .approvals
+                    } label: {
+                        Label("Needs Your OK", systemImage: "checkmark.shield")
+                    }
+                    .badge(family.pendingRedemptionCount)
+                    Button {
+                        router.sheet = .newReward
+                    } label: {
+                        Label("New Reward", systemImage: "plus")
+                    }
                 }
-                .badge(family.pendingRedemptionCount)
-                Button {
-                    router.sheet = .newReward
-                } label: {
-                    Label("New Reward", systemImage: "plus")
-                }
+                // White over the color header.
+                .tint(.white)
             }
         }
         .sheet(item: $editing) { reward in
             RewardEditor(reward: reward)
         }
-        .confirmationDialog("Mark \(confirmsFinish?.name ?? "the goal") reached?", isPresented: Binding(get: { confirmsFinish != nil }, set: { if !$0 { confirmsFinish = nil } }), titleVisibility: .visible) {
+        .alert("Mark \(confirmsFinish?.name ?? "the goal") reached?", isPresented: Binding(get: { confirmsFinish != nil }, set: { if !$0 { confirmsFinish = nil } })) {
             Button("Mark Reached") {
                 if let goal = confirmsFinish { Family.finishGoal(goal, in: context) }
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("It leaves the store. Set up the next goal with New Reward › Make It a Family Goal.")
         }

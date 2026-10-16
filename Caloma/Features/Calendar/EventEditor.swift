@@ -144,18 +144,19 @@ struct EventEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", systemImage: "checkmark", role: .confirm) { save() }
+                    SheetDoneButton("Save") { save() }
                         .disabled(!isValid)
                 }
             }
-            .confirmationDialog("Delete \(title)?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+            .alert("Delete \(title)?", isPresented: $confirmsDelete) {
                 Button("Delete Event", role: .destructive) {
                     if let event { Family.delete(event, in: context) }
                     dismiss()
                 }
+                Button("Cancel", role: .cancel) {}
             } message: {
                 Text(repeatRule == .never ? "It comes off everyone's calendar." : "Every day it repeats comes off everyone's calendar.")
             }

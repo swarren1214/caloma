@@ -27,8 +27,6 @@ nonisolated enum SettingsKey {
     static let splitSpend = "allowance.split.spend"
     static let splitSave = "allowance.split.save"
     static let splitGive = "allowance.split.give"
-    /// The accent color as "#RRGGBB".
-    static let accentHex = "appearance.accent"
     /// Kid View was open when the app last closed, so it opens again.
     static let kidViewOpen = "kidView.open"
     /// The kid Kid View last showed.
@@ -109,19 +107,10 @@ nonisolated enum SettingsKey {
 
 /// Caloma's colors, from the Tend designs on the Claude Design canvas.
 nonisolated enum Brand {
-    /// The default accent, the rose of the app icon's gradient, deep enough for white text.
-    /// People can pick another in Family › Accent Color.
+    /// Caloma's tint, the rose of the app icon's gradient, deep enough for white text. (It used
+    /// to be a setting, Accent Color.)
     static let defaultAccentHex: UInt32 = 0xE0284F
     static var defaultAccent: Color { Color(hex: defaultAccentHex) }
-
-    /// The accent choices in Family, in order.
-    static let accents: [AccentChoice] = [
-        AccentChoice(name: "Rose", hex: 0xE0284F),
-        AccentChoice(name: "Green", hex: 0x1E9E6A), AccentChoice(name: "Teal", hex: 0x0E8A8A),
-        AccentChoice(name: "Blue", hex: 0x0A7AFF), AccentChoice(name: "Indigo", hex: 0x5E5CE6),
-        AccentChoice(name: "Pink", hex: 0xC2185B),
-        AccentChoice(name: "Orange", hex: 0xE8650F),
-    ]
 
     /// The gold of stars, everywhere points show.
     static let star = Color(hex: 0xF5A623)
@@ -133,13 +122,8 @@ nonisolated enum Brand {
     static let late = Color(hex: 0xD93B30)
 }
 
-nonisolated struct AccentChoice: Hashable, Sendable {
-    var name: String
-    var hex: UInt32
-}
-
 extension EnvironmentValues {
-    /// The family's accent color (Family › Accent Color).
+    /// Caloma's tint (`Brand.defaultAccent`).
     @Entry var accent: Color = Brand.defaultAccent
 }
 

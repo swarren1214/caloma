@@ -79,6 +79,8 @@ struct ControlView: View {
         }
         .refreshable {
             await home.refreshControls()
+            // Device names, icons and pins are family data in iCloud.
+            await CloudSync.shared.syncNow()
         }
         .fullScreenCover(item: $openCamera) { camera in
             CameraFullScreen(camera: camera)
@@ -164,7 +166,7 @@ struct ControlView: View {
                         }
                         .buttonStyle(KidPressStyle())
                         .contextMenu {
-                            Button("Edit Name, Room & Icon", systemImage: "pencil") { sheet = .edit(thermostat) }
+                            Button("Edit Name, Room & Icon", menuIcon: "pencil") { sheet = .edit(thermostat) }
                         }
                     }
                 }

@@ -26,17 +26,18 @@ struct ChoreActionsMenu<Complete: View>: ViewModifier {
                 Section {
                     complete()
                     if let onEdit {
-                        Button("Edit Chore", systemImage: "pencil") { onEdit(choreID) }
+                        Button("Edit Chore", menuIcon: "pencil") { onEdit(choreID) }
                     }
                 }
                 Section {
-                    Button("Delete Chore", systemImage: "trash", role: .destructive) {
+                    Button("Delete Chore", menuIcon: "trash", role: .destructive) {
                         confirmsDelete = true
                     }
                 }
             }
-            .confirmationDialog("Delete \(title)?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+            .alert("Delete \(title)?", isPresented: $confirmsDelete) {
                 Button("Delete Chore", role: .destructive, action: delete)
+                Button("Cancel", role: .cancel) {}
             } message: {
                 Text("It comes off everyone's board. Points already earned stay.")
             }

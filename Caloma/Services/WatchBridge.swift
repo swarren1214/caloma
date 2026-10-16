@@ -97,7 +97,7 @@ final class WatchBridge: NSObject {
             redemptions: Persistence.fetchAll(Redemption.self, in: context)
         )
         let me = defaults.string(forKey: SettingsKey.currentMember).flatMap(UUID.init(uuidString:))
-        let accentHex = defaults.string(forKey: SettingsKey.accentHex).flatMap { UInt32($0.dropFirst(), radix: 16) } ?? Brand.defaultAccentHex
+        let accentHex = Brand.defaultAccentHex
         func member(_ id: UUID?) -> Member? { members.first { $0.id == id } }
 
         var snapshot = WatchSnapshot(made: now, accent: accentHex, pointWord: PointWords.current().plural)

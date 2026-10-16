@@ -21,6 +21,7 @@ struct HomeTaskEditor: View {
     @State private var notes = ""
     @State private var loaded = false
     @State private var confirmsDelete = false
+    @State private var pickingIcon = false
 
     private var color: Color { Color(hex: area.colorHex) }
     private var isValid: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -39,8 +40,15 @@ struct HomeTaskEditor: View {
                     }
                 }
 
-                Section("Icon") {
-                    IconPicker(quick: SymbolSets.homeCare, selection: $symbol, color: color, text: name)
+                Section {
+                    // A task's color comes from its area, so only the icon changes here.
+                    Button { pickingIcon = true } label: {
+                        HearthIconColorLabel(icon: symbol, color: HearthColorChoice(hex: area.colorHex), title: "Icon", showsColorName: false)
+                    }
+                    .hearthIconPicker(
+                        isPresented: $pickingIcon, title: name, caption: "Home Care", context: .homeCare,
+                        icon: $symbol, tint: HearthColorChoice(hex: area.colorHex)
+                    )
                 }
 
                 Section {
@@ -86,20 +94,21 @@ struct HomeTaskEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", systemImage: "checkmark", role: .confirm) { save() }
+                    SheetDoneButton("Save") { save() }
                         .disabled(!isValid)
                 }
             }
-            .confirmationDialog("Delete \(name)?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+            .alert("Delete \(name)?", isPresented: $confirmsDelete) {
                 Button("Delete Task", role: .destructive) {
                     task?.isArchived = true
                     Persistence.save(context)
                     Reminders.reschedule(in: context)
                     dismiss()
                 }
+                Button("Cancel", role: .cancel) {}
             }
             .onChange(of: area) { old, new in
                 // Follow the area's icon until someone picks their own.

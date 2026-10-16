@@ -81,7 +81,7 @@ months. Onboarding offers eight starter chores and the family store from the des
   included, from the presets or any custom color; parents start teal and pink), Family
   Sharing, rooms, what points are called (Points, Stars, Coins or your own word), approvals
   by default, streak bonus, allowance (rate, payday, spend / save / give split, Pay Out Now),
-  home care reminders, Apple Calendar, accent color, erase.
+  home care reminders, Apple Calendar, erase.
 - **Kid page** (from Home or Rewards): balance, waiting points, streak, this week, today's
   chores, every change to their points, Adjust, and Open Kid View for them.
 

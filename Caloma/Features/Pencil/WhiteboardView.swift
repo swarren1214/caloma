@@ -146,15 +146,16 @@ struct WhiteboardView: View {
             }
             Button("Cancel", role: .cancel) { renaming = nil }
         }
-        .confirmationDialog("Delete \(deleting?.name ?? "this board")?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+        .alert("Delete \(deleting?.name ?? "this board")?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("Delete Board", role: .destructive) {
                 if let deleting { delete(deleting) }
                 deleting = nil
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("The drawing on it is erased everywhere.")
         }
-        .confirmationDialog("Erase this note?", isPresented: Binding(get: { erasingNote != nil }, set: { if !$0 { erasingNote = nil } }), titleVisibility: .visible) {
+        .alert("Erase this note?", isPresented: Binding(get: { erasingNote != nil }, set: { if !$0 { erasingNote = nil } })) {
             Button("Erase Note", role: .destructive) {
                 if let erasingNote {
                     context.delete(erasingNote)
@@ -162,6 +163,7 @@ struct WhiteboardView: View {
                 }
                 erasingNote = nil
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("It won't show on the wall anymore.")
         }
@@ -207,7 +209,7 @@ struct WhiteboardView: View {
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
                 .padding(.horizontal, 16)
-                .frame(height: 42)
+                .frame(minHeight: 42)
                 .foregroundStyle(.white)
                 .background(drawing.hasInk ? accent : Color.secondary.opacity(0.4), in: Capsule())
         }
@@ -224,18 +226,18 @@ struct WhiteboardView: View {
             Text(item.name.isEmpty ? "Board" : item.name)
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 14)
-                .frame(height: 38)
+                .frame(minHeight: 38)
                 .foregroundStyle(on ? .white : .primary)
                 .background(on ? accent : Color(.tertiarySystemFill), in: Capsule())
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button("Rename", systemImage: "pencil") {
+            Button("Rename", menuIcon: "pencil") {
                 newName = item.name
                 renaming = item
             }
             if boards.count > 1 {
-                Button("Delete", systemImage: "trash", role: .destructive) { deleting = item }
+                Button("Delete", menuIcon: "trash", role: .destructive) { deleting = item }
             }
         }
         .accessibilityAddTraits(on ? .isSelected : [])

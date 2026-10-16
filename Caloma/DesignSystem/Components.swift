@@ -60,7 +60,7 @@ struct SectionTitle<Trailing: View>: View {
     }
 }
 
-/// A tab's screen: a large title, then cards in a readable column (wider on iPad).
+/// A tab's screen: the color header with a large white title, then cards in a readable column (wider on iPad).
 struct CalomaScreen<Content: View>: View {
     static var readableWidth: CGFloat { 860 }
 
@@ -71,17 +71,18 @@ struct CalomaScreen<Content: View>: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                HeaderTitle(title)
                 content()
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.top, 4)
             .padding(.bottom, 40)
             .frame(maxWidth: maxWidth)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.large)
+        // Pull down to fetch the family's latest from iCloud.
+        .refreshesFromICloud()
+        .colorHeader(title)
     }
 }
 
@@ -349,7 +350,17 @@ extension View {
                     Image(systemName: "person.2.fill")
                 }
                 .accessibilityLabel("Family")
+                // White over the color header.
+                .tint(.white)
             }
         }
+    }
+}
+
+extension View {
+    /// Pull down to fetch the family's latest from iCloud (and send anything waiting). Goes on
+    /// every screen showing synced data; the scroll view inside picks it up.
+    func refreshesFromICloud() -> some View {
+        refreshable { await CloudSync.shared.syncNow() }
     }
 }

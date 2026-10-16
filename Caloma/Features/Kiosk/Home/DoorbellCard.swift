@@ -107,7 +107,7 @@ struct DoorbellCard: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
-                        .frame(height: 34)
+                        .frame(minHeight: 34)
                         .background(.black.opacity(0.55), in: Capsule())
                         .padding(.bottom, 14)
                         .transition(.opacity)

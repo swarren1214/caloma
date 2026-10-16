@@ -81,6 +81,7 @@ struct MoreView: View {
                 .padding(.bottom, 24)
             }
             .background(Color(.systemGroupedBackground))
+            .refreshesFromICloud()
             .navigationTitle("More")
             .navigationDestination(for: MoreItem.self) { item in
                 destination(item)

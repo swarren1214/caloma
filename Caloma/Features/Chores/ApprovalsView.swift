@@ -17,6 +17,7 @@ struct ApprovalsView: View {
                     .frame(maxWidth: .infinity)
             }
             .background(Color(.systemGroupedBackground))
+            .refreshesFromICloud()
             .navigationTitle("Needs Your OK")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

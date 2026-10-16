@@ -71,6 +71,7 @@ struct RoomsView: View {
                 Text("Kitchen, Living Room, Dining Room, Bathroom, Laundry Room, Garage, Yard and Playroom. Any you already have are skipped.")
             }
         }
+        .refreshesFromICloud()
         .navigationTitle("Rooms")
         .toolbar {
             if !rooms.isEmpty {
@@ -113,6 +114,7 @@ struct RoomEditor: View {
     @State private var symbol = "door.left.hand.closed"
     @State private var loaded = false
     @State private var confirmsDelete = false
+    @State private var pickingIcon = false
 
     private var isValid: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
 
@@ -130,8 +132,15 @@ struct RoomEditor: View {
                     Text("Like Kitchen, Ella's Room or Basement.")
                 }
 
-                Section("Icon") {
-                    IconPicker(quick: SymbolSets.rooms, selection: $symbol, color: accent, text: name)
+                Section {
+                    // Rooms don't have a color of their own: they show in the family's accent.
+                    Button { pickingIcon = true } label: {
+                        HearthIconColorLabel(icon: symbol, color: HearthColorChoice(hex: accent.hexValue), title: "Icon", showsColorName: false)
+                    }
+                    .hearthIconPicker(
+                        isPresented: $pickingIcon, title: name, caption: "Room", context: .room,
+                        icon: $symbol, tint: HearthColorChoice(hex: accent.hexValue)
+                    )
                 }
 
                 if room != nil {
@@ -159,14 +168,14 @@ struct RoomEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", systemImage: "checkmark", role: .confirm) { save() }
+                    SheetDoneButton("Save") { save() }
                         .disabled(!isValid)
                 }
             }
-            .confirmationDialog("Delete \(name)?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+            .alert("Delete \(name)?", isPresented: $confirmsDelete) {
                 Button("Delete Room", role: .destructive) {
                     if let room {
                         for chore in chores where chore.roomID == room.id { chore.roomID = nil }
@@ -175,6 +184,7 @@ struct RoomEditor: View {
                     }
                     dismiss()
                 }
+                Button("Cancel", role: .cancel) {}
             }
             .onAppear {
                 guard !loaded else { return }

@@ -46,7 +46,7 @@ struct CalendarSidebarFilters: View {
                 }
             }
             .contextMenu {
-                Button("Choose Calendars…", systemImage: "calendar") { showsAppleSettings = true }
+                Button("Choose Calendars…", menuIcon: "calendar") { showsAppleSettings = true }
             }
 
             let visible = events.map(\.record).filter { self.filter.shows($0) }

@@ -1,7 +1,8 @@
 import AuthenticationServices
 import SwiftUI
 
-/// Family › Account: Sign in with Apple, who's signed in, and Sign Out.
+/// Family › Account: the shared Hearth account section (HearthAccount.swift) with Caloma's
+/// Sign in with Apple, who's signed in, and Sign Out.
 ///
 /// Signing in is optional (everything works without it, and the family syncs through iCloud
 /// either way): it fills in your name and lets the other Hearth apps offer "Continue as Steve".
@@ -20,7 +21,11 @@ struct AccountSection: View {
 
     var body: some View {
         Section {
-            if appleUserID.isEmpty {
+            HearthAccountSection(
+                app: .caloma,
+                profile: appleUserID.isEmpty ? nil : HearthAccountProfile(name: identity?.fullName, email: identity?.email),
+                pitch: "Optional: your family syncs through iCloud either way. Signing in adds your name and lets your other Hearth apps recognize you."
+            ) {
                 SignInWithAppleButton(.signIn) { request in
                     request.requestedScopes = [.fullName, .email]
                 } onCompletion: { result in
@@ -39,36 +44,20 @@ struct AccountSection: View {
                     }
                 }
                 .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                .frame(height: 50)
-                .clipShape(Capsule())
-                // Just the button, without the list's card behind it.
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-            } else {
-                LabeledContent {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("Signed in with Apple", systemImage: "apple.logo")
-                        if let detail = [identity?.fullName, identity?.email].compactMap({ $0 }).first {
-                            Text(detail)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                Button("Sign Out", role: .destructive) { confirmsSignOut = true }
+            } onSignOut: {
+                confirmsSignOut = true
             }
+            .hearthAccountSectionRow()
         } header: {
             Text("Account")
         } footer: {
-            Text(appleUserID.isEmpty
-                 ? "Optional. Your family syncs through iCloud either way. Signing in adds your name and lets the other Hearth apps recognize you."
-                 : "Your family keeps syncing through iCloud whether or not you're signed in.")
+            if !appleUserID.isEmpty {
+                Text("Your family keeps syncing through iCloud whether or not you're signed in.")
+            }
         }
-        .confirmationDialog("Sign out of Caloma?", isPresented: $confirmsSignOut, titleVisibility: .visible) {
+        .alert("Sign out of Caloma?", isPresented: $confirmsSignOut) {
             Button("Sign Out", role: .destructive) { appleUserID = "" }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your family and its data stay on this device and in iCloud.")
         }
