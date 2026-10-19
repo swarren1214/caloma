@@ -13,6 +13,8 @@ struct ChoreEditor: View {
     @AppStorage(SettingsKey.centsPer100) private var centsPer100 = 500
     @AppStorage(SettingsKey.allowanceOn) private var allowanceOn = true
     @AppStorage(SettingsKey.approvalsByDefault) private var approvalsByDefault = true
+    @Query private var groups: [ChoreGroup]
+    @Query private var allChores: [Chore]
 
     @State private var title = ""
     @State private var symbol = "checkmark.circle"
@@ -31,6 +33,28 @@ struct ChoreEditor: View {
     @State private var loaded = false
     @State private var confirmsDelete = false
     @State private var pickingIcon = false
+    /// The chore group it's in: then the group decides who does it.
+    @State private var groupID: UUID?
+    @State private var rotationPeriod: RotationPeriod = .week
+    @State private var rotationWeekday = 0
+    /// Who did it and how, as loaded, so saving an untouched rotation doesn't restart it.
+    @State private var loadedRotation: RotationSnapshot?
+
+    private struct RotationSnapshot: Equatable {
+        var assignees: [UUID]
+        var rotates: Bool
+        var period: RotationPeriod
+        var weekday: Int
+        var groupID: UUID?
+    }
+
+    private var liveGroups: [ChoreGroup] {
+        groups.filter { !$0.isArchived }.sorted { ($0.sortOrder, $0.createdAt) < ($1.sortOrder, $1.createdAt) }
+    }
+
+    private var currentGroup: ChoreGroup? {
+        groupID.flatMap { id in liveGroups.first { $0.id == id } }
+    }
 
     private var kids: [Member] { members.filter { $0.isKid && !$0.isArchived } }
     /// Kids first, then parents: anyone in the family can have chores.
@@ -39,7 +63,7 @@ struct ChoreEditor: View {
 
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
-            && (upForGrabs || !assignees.isEmpty)
+            && (currentGroup != nil || upForGrabs || !assignees.isEmpty)
             && (repeatRule != .someDays || weekdayMask != 0)
     }
 
@@ -67,6 +91,24 @@ struct ChoreEditor: View {
                     )
                 }
 
+                if !liveGroups.isEmpty {
+                    Section {
+                        Picker(selection: $groupID) {
+                            Text("None").tag(UUID?.none)
+                            ForEach(liveGroups) { group in
+                                Label(group.name, systemImage: group.symbol).tag(UUID?.some(group.id))
+                            }
+                        } label: {
+                            Label("Chore Group", systemImage: "square.stack.3d.up")
+                        }
+                    } header: {
+                        Text("Group")
+                    } footer: {
+                        Text(currentGroup.map(groupFooter) ?? "Optional. A group’s chores pass from person to person together.")
+                    }
+                }
+
+                if currentGroup == nil {
                 Section {
                     if people.isEmpty {
                         Text("Add your family in Family first.").foregroundStyle(.secondary)
@@ -113,6 +155,15 @@ struct ChoreEditor: View {
                             }
                         }
                     }
+                    if rotates && assignees.count > 1 && !upForGrabs {
+                        Picker("Switch", selection: $rotationPeriod) {
+                            ForEach(RotationPeriod.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        if rotationPeriod.usesWeekday {
+                            SwitchDayPicker(weekday: $rotationWeekday)
+                        }
+                    }
                 } header: {
                     Text("Assign To")
                 } footer: {
@@ -120,7 +171,10 @@ struct ChoreEditor: View {
                         Text("Any kid can claim it. The first to finish gets the \(words.plural).")
                     } else if people.contains(where: { !$0.isKid && assignees.contains($0.id) }) {
                         Text("Parents' chores show on the board and the calendar, without \(words.plural).")
+                    } else if rotates && assignees.count > 1 {
+                        Text("They go in the order you picked them. Skip, swap or pause a turn in Chores › Rotations.")
                     }
+                }
                 }
 
                 Section {
@@ -243,7 +297,10 @@ struct ChoreEditor: View {
             }
             .alert("Delete \(title)?", isPresented: $confirmsDelete) {
                 Button("Delete Chore", role: .destructive) {
-                    chore?.isArchived = true
+                    if let chore {
+                        chore.isArchived = true
+                        Rotations.choreLeft(chore, in: context)
+                    }
                     Persistence.save(context)
                     dismiss()
                 }
@@ -256,8 +313,31 @@ struct ChoreEditor: View {
     }
 
     private var turnsDetail: String {
-        let names = people.filter { assignees.contains($0.id) }.map(\.name)
-        return names.formatted(.list(type: .and)) + " swap each week"
+        // In the order picked: that's the order they take turns in.
+        let names = assignees.compactMap { id in people.first { $0.id == id }?.name }
+        let every = switch rotationPeriod {
+        case .day: "each day"
+        case .week: "each week"
+        case .twoWeeks: "every 2 weeks"
+        case .month: "each month"
+        }
+        return names.joined(separator: ", then ") + ", switching \(every)"
+    }
+
+    private func groupFooter(_ group: ChoreGroup) -> String {
+        let rule = group.rule
+        let index = RotationMath.periodIndex(of: .now, rule: rule)
+        let names = group.memberIDs.compactMap { id in people.first { $0.id == id }?.name }
+        switch group.mode {
+        case .turns:
+            let holder = RotationMath.person(ofPeriod: index, members: group.memberIDs, adjustments: rule.adjustments)
+                .flatMap { id in people.first { $0.id == id }?.name }
+            return "Follows \(group.name)’s rotation: " + RotationText.holderTitle(holder, rule: rule) + "."
+        case .split:
+            return "Follows \(group.name)’s rotation, split between \(names.formatted(.list(type: .and)))."
+        case .everyone:
+            return "Everyone in \(group.name) does it: \(names.formatted(.list(type: .and)))."
+        }
     }
 
     private func toggle(_ id: UUID) {
@@ -290,6 +370,10 @@ struct ChoreEditor: View {
             requiresApproval = chore.requiresApproval
             roomID = chore.roomID
             priority = chore.priority
+            groupID = chore.groupID.flatMap { id in liveGroups.first { $0.id == id }?.id }
+            rotationPeriod = chore.rotationPeriod
+            rotationWeekday = chore.rotationWeekday
+            loadedRotation = RotationSnapshot(assignees: assignees, rotates: rotates, period: rotationPeriod, weekday: rotationWeekday, groupID: groupID)
         } else {
             requiresApproval = approvalsByDefault
             if kids.count == 1, let only = kids.first { assignees = [only.id] }
@@ -318,10 +402,30 @@ struct ChoreEditor: View {
         }
         target.title = name
         target.symbol = symbol
-        // Keep everyone in family order.
-        target.assigneeIDs = people.map(\.id).filter { assignees.contains($0) }
-        target.upForGrabs = upForGrabs
-        target.rotates = rotates && assignees.count > 1 && !upForGrabs
+        let leftGroup = target.groupID.flatMap { id in liveGroups.first { $0.id == id && $0.id != groupID } }
+        if let group = currentGroup {
+            // The group decides who does it.
+            Rotations.join(target, to: group)
+        } else {
+            target.groupID = nil
+            let rotating = rotates && assignees.count > 1 && !upForGrabs
+            // Taking turns goes in the order picked; otherwise keep everyone in family order.
+            target.assigneeIDs = rotating ? assignees : people.map(\.id).filter { assignees.contains($0) }
+            target.upForGrabs = upForGrabs
+            target.rotates = rotating
+            // Switch day 0 means the calendar's first day: picking that same day isn't a change.
+            let weekday = loadedRotation.map { RotationMath.sameWeekday($0.weekday, rotationWeekday) ? $0.weekday : rotationWeekday } ?? rotationWeekday
+            let now = RotationSnapshot(assignees: assignees, rotates: rotating, period: rotationPeriod, weekday: weekday, groupID: nil)
+            if rotating && now != loadedRotation {
+                // A new or changed rotation starts over: the first person has this turn.
+                target.rotationMode = .turns
+                target.rotationPeriod = rotationPeriod
+                target.rotationWeekday = rotationWeekday
+                target.rotationAnchor = Rotations.freshAnchor()
+                target.rotationAdjustRaw = ""
+                target.rotationSlot = 0
+            }
+        }
         target.repeatRule = repeatRule
         target.weekdayMask = weekdayMask
         target.startDate = Calendar.current.startOfDay(for: startDate)
@@ -330,6 +434,10 @@ struct ChoreEditor: View {
         target.requiresApproval = requiresApproval
         target.roomID = roomID
         target.priority = priority
+        // A new chore isn't in the query yet.
+        let everyChore = allChores.contains { $0.id == target.id } ? allChores : allChores + [target]
+        if let group = currentGroup { Rotations.apply(group, to: everyChore) }
+        if let leftGroup { Rotations.apply(leftGroup, to: everyChore) }
         Persistence.save(context)
         dismiss()
     }

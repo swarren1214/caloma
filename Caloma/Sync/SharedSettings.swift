@@ -13,7 +13,7 @@ final class SharedSettings {
         SettingsKey.pointName, SettingsKey.customPointName, SettingsKey.approvalsByDefault,
         SettingsKey.streakBonus, SettingsKey.allowanceOn, SettingsKey.centsPer100, SettingsKey.payday,
         SettingsKey.splitSpend, SettingsKey.splitSave, SettingsKey.splitGive,
-        SettingsKey.familyName,
+        SettingsKey.familyName, SettingsKey.rotationMakeUp,
     ]
 
     private var container: ModelContainer?

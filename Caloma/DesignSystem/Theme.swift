@@ -16,6 +16,8 @@ nonisolated enum SettingsKey {
     static let customPointName = "points.customName"
     /// New chores need a parent's OK before points land.
     static let approvalsByDefault = "points.approvalsByDefault"
+    /// Rotations: someone who skips a turn trades with the next person instead of missing it.
+    static let rotationMakeUp = "rotation.makeUp"
     /// +10 for every 7 days in a row of finished chores.
     static let streakBonus = "points.streakBonus"
     /// Points turn into allowance on payday.

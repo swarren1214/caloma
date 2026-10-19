@@ -390,6 +390,7 @@ struct KidDayView: View {
                     } else {
                         ProgressTrack(done: done, total: mine.count, kid: kid)
                     }
+                    KidTurnBanner(kid: kid)
                     if items.isEmpty {
                         nothingToday
                     } else {
@@ -403,6 +404,7 @@ struct KidDayView: View {
                             }
                         }
                     }
+                    KidComingUp(kid: kid)
                 }
                 if sizeClass == .compact {
                     storeButton

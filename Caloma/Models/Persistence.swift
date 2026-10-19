@@ -13,6 +13,7 @@ enum Persistence {
         HomeTask.self,
         HomeTaskLog.self,
         Room.self,
+        ChoreGroup.self,
         FamilyEvent.self,
         EventPacking.self,
         FamilySetting.self,

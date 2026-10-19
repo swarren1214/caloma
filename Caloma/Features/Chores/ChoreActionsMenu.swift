@@ -48,6 +48,7 @@ struct ChoreActionsMenu<Complete: View>: ViewModifier {
         guard let chore = Family.chore(choreID, in: context) else { return }
         withAnimation(.snappy) {
             chore.isArchived = true
+            Rotations.choreLeft(chore, in: context)
             Persistence.save(context)
         }
     }

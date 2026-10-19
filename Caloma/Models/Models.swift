@@ -76,6 +76,20 @@ final class Chore {
     var eventID: UUID?
     /// How important it is: 0 none, 1 low, 2 medium, 3 high (`ChorePriority`).
     var priorityRaw: Int = 0
+    /// The chore group it's in; the group's rotation is copied onto it (`Rotations.apply`).
+    var groupID: UUID?
+    /// How a rotating chore is shared (`RotationMode`).
+    var rotationModeRaw: String = RotationMode.turns.rawValue
+    /// How often the turn moves on (`RotationPeriod`).
+    var rotationPeriodRaw: String = RotationPeriod.week.rawValue
+    /// The day a weekly rotation switches (1 Sunday … 7 Saturday), or 0 for the calendar's.
+    var rotationWeekday: Int = 0
+    /// When turn 0 started; nil counts from `startDate`.
+    var rotationAnchor: Date?
+    /// Skipped, swapped and paused turns (`RotationAdjustments`).
+    var rotationAdjustRaw: String = ""
+    /// Its place in its group, so split-up chores land on different people.
+    var rotationSlot: Int = 0
     var isArchived: Bool = false
     var sortOrder: Int = 0
     var createdAt: Date = Date.now
@@ -107,8 +121,29 @@ final class Chore {
         set { priorityRaw = newValue.rawValue }
     }
 
+    var rotationMode: RotationMode {
+        get { RotationMode(rawValue: rotationModeRaw) ?? .turns }
+        set { rotationModeRaw = newValue.rawValue }
+    }
+
+    var rotationPeriod: RotationPeriod {
+        get { RotationPeriod(rawValue: rotationPeriodRaw) ?? .week }
+        set { rotationPeriodRaw = newValue.rawValue }
+    }
+
+    var rotationAdjustments: RotationAdjustments {
+        get { RotationAdjustments(raw: rotationAdjustRaw) }
+        set { rotationAdjustRaw = newValue.raw }
+    }
+
     var record: ChoreRecord {
-        ChoreRecord(id: id, title: title, symbol: symbol, points: points, assigneeIDs: assigneeIDs, rotates: rotates, upForGrabs: upForGrabs, repeatRule: repeatRule, weekdayMask: weekdayMask, startDate: startDate, requiresPhoto: requiresPhoto, requiresApproval: requiresApproval, isArchived: isArchived, sortOrder: sortOrder, roomID: roomID, priority: priority)
+        ChoreRecord(
+            id: id, title: title, symbol: symbol, points: points, assigneeIDs: assigneeIDs, rotates: rotates, upForGrabs: upForGrabs,
+            repeatRule: repeatRule, weekdayMask: weekdayMask, startDate: startDate, requiresPhoto: requiresPhoto, requiresApproval: requiresApproval,
+            isArchived: isArchived, sortOrder: sortOrder, roomID: roomID, priority: priority,
+            groupID: groupID, rotationMode: rotationMode, rotationPeriod: rotationPeriod, rotationWeekday: rotationWeekday,
+            rotationAnchor: rotationAnchor, rotationAdjustments: rotationAdjustments, rotationSlot: rotationSlot
+        )
     }
 
     nonisolated static func encode(_ ids: [UUID]) -> String {

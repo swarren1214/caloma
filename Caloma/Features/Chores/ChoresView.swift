@@ -82,6 +82,11 @@ struct ChoresView: View {
                         Label("Needs Your OK", systemImage: "checkmark.shield")
                     }
                     .badge(family.needsOKCount)
+                    NavigationLink {
+                        RotationsView()
+                    } label: {
+                        Label("Rotations", systemImage: "arrow.triangle.2.circlepath")
+                    }
                     Button {
                         router.sheet = .newChore
                     } label: {

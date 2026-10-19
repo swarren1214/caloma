@@ -23,6 +23,21 @@ nonisolated struct ChoreRecord: Hashable, Sendable {
     var sortOrder: Int = 0
     var roomID: UUID?
     var priority: ChorePriority = .unset
+    /// The chore group it's in (its rotation is copied from the group).
+    var groupID: UUID?
+    var rotationMode: RotationMode = .turns
+    var rotationPeriod: RotationPeriod = .week
+    /// The day a weekly rotation switches (1 Sunday … 7 Saturday), or 0 for the calendar's.
+    var rotationWeekday: Int = 0
+    /// When turn 0 started; nil counts from the start date.
+    var rotationAnchor: Date?
+    var rotationAdjustments = RotationAdjustments()
+    /// Its place in its group, so split-up chores land on different people.
+    var rotationSlot: Int = 0
+
+    var rotationRule: RotationRule {
+        RotationRule(mode: rotationMode, period: rotationPeriod, weekday: rotationWeekday, anchor: rotationAnchor ?? startDate, adjustments: rotationAdjustments)
+    }
 }
 
 nonisolated struct CompletionRecord: Hashable, Sendable {
@@ -100,13 +115,12 @@ nonisolated enum ChoreMath {
         }
     }
 
-    /// Who does a chore on a day. Taking turns swaps kids each week, starting from the week of
-    /// the chore's start day. Up-for-grabs chores return everyone (any of them can claim it).
+    /// Who does a chore on a day. A rotating chore goes by its rotation (`RotationMath`): by
+    /// default the kids swap each week, starting from the week of the chore's start day.
+    /// Up-for-grabs chores return everyone (any of them can claim it).
     static func assignees(of chore: ChoreRecord, on day: Date, calendar: Calendar = .current) -> [UUID] {
         guard chore.rotates, !chore.upForGrabs, chore.assigneeIDs.count > 1 else { return chore.assigneeIDs }
-        let weeks = weeksBetween(chore.startDate, day, calendar: calendar)
-        let index = ((weeks % chore.assigneeIDs.count) + chore.assigneeIDs.count) % chore.assigneeIDs.count
-        return [chore.assigneeIDs[index]]
+        return RotationMath.assignees(slot: chore.rotationSlot, on: day, members: chore.assigneeIDs, rule: chore.rotationRule, calendar: calendar)
     }
 
     static func weeksBetween(_ from: Date, _ to: Date, calendar: Calendar = .current) -> Int {

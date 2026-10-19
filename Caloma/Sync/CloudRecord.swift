@@ -22,7 +22,7 @@ protocol CloudRecord: PersistentModel {
 /// Every synced model, in an order where things referred to come first.
 enum SyncSchema {
     static let types: [any CloudRecord.Type] = [
-        Member.self, Room.self, Chore.self, ChoreCompletion.self, Reward.self, Redemption.self,
+        Member.self, Room.self, ChoreGroup.self, Chore.self, ChoreCompletion.self, Reward.self, Redemption.self,
         PointEntry.self, HomeTask.self, HomeTaskLog.self, FamilyEvent.self, EventPacking.self,
         FamilySetting.self, Whiteboard.self, WallNote.self, DeviceStyle.self, FamilyList.self, FamilyListItem.self, FamilyListCheck.self,
     ]
@@ -135,6 +135,13 @@ extension Chore: CloudRecord {
         record.setUUID(roomID, for: "roomID")
         record.setUUID(eventID, for: "eventID")
         record["priorityRaw"] = priorityRaw
+        record.setUUID(groupID, for: "groupID")
+        record["rotationModeRaw"] = rotationModeRaw
+        record["rotationPeriodRaw"] = rotationPeriodRaw
+        record["rotationWeekday"] = rotationWeekday
+        record.setObject(rotationAnchor.map { $0 as NSDate }, forKey: "rotationAnchor")
+        record["rotationAdjustRaw"] = rotationAdjustRaw
+        record["rotationSlot"] = rotationSlot
         record["isArchived"] = isArchived
         record["sortOrder"] = sortOrder
         record["createdAt"] = createdAt
@@ -157,6 +164,13 @@ extension Chore: CloudRecord {
         roomID = record.uuid("roomID")
         eventID = record.uuid("eventID")
         priorityRaw = record.int("priorityRaw") ?? priorityRaw
+        groupID = record.uuid("groupID")
+        rotationModeRaw = record.string("rotationModeRaw") ?? rotationModeRaw
+        rotationPeriodRaw = record.string("rotationPeriodRaw") ?? rotationPeriodRaw
+        rotationWeekday = record.int("rotationWeekday") ?? rotationWeekday
+        rotationAnchor = record.date("rotationAnchor")
+        rotationAdjustRaw = record.string("rotationAdjustRaw") ?? rotationAdjustRaw
+        rotationSlot = record.int("rotationSlot") ?? rotationSlot
         isArchived = record.bool("isArchived") ?? isArchived
         sortOrder = record.int("sortOrder") ?? sortOrder
         createdAt = record.date("createdAt") ?? createdAt
