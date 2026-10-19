@@ -16,8 +16,13 @@ final class HearthLink {
     /// When the family eats (set here or in BigTable), for meals on the calendar.
     private(set) var mealTimes = HearthMealTimes.standard
 
+    /// Hearken's reading plan on this device: each day's reading, for the calendar.
+    private(set) var reading: HearthReading?
+
     /// BigTable's red, for its meals on the calendar.
     static let bigTableColor = Color(hex: 0xD9472B)
+    /// Hearken's blue, for its reading on the calendar.
+    static let hearkenColor = Color(hex: 0x3B74D9)
 
     @ObservationIgnored private var changeObserver: NSObjectProtocol?
 
@@ -39,11 +44,24 @@ final class HearthLink {
         HearthPhotos.shared.reset()
         let times = HearthMealTimes.current
         if times != mealTimes { mealTimes = times }
+        let reading = Hearth.read(HearthReading.self, from: .hearken, maxAge: 14 * 24 * 60 * 60)?.value
+        if reading != self.reading { self.reading = reading }
         let plan = Hearth.read(HearthMealPlan.self, from: .bigtable, maxAge: 14 * 24 * 60 * 60)?.value
         guard plan != mealPlan else { return }
         mealPlan = plan
         // Tonight's dinner is on the widgets and the watch.
         WatchBridge.shared.setNeedsUpdate()
+    }
+
+    /// The day's reading from Hearken's plan.
+    func readings(on day: Date) -> [HearthReading.Reading] {
+        reading?.day(day)?.readings ?? []
+    }
+
+    /// When the reading goes on the calendar: Hearken's reminder time, or nil when it's off.
+    func readingStart(on day: Date, calendar: Calendar = .current) -> Date? {
+        guard let minutes = reading?.reminderMinutes else { return nil }
+        return calendar.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: day)
     }
 
     func dinner(on day: Date) -> HearthMealPlan.Meal? {
@@ -121,6 +139,35 @@ final class HearthLink {
         }
         let ids = Set(members.map(\.id))
         sharedPhotoFiles = sharedPhotoFiles.filter { ids.contains($0.key) }
+    }
+
+    // MARK: Sharing allowance
+
+    /// Shares the last 90 days of allowance paid out on payday, so Suffice can record each
+    /// payout as an expense. Unchanged payouts aren't rewritten.
+    static func publishAllowance(in context: ModelContext, now: Date = .now) {
+        guard !ScreenshotMode.isOn else { return }
+        let since = Calendar.current.date(byAdding: .day, value: -90, to: now) ?? now
+        let cashOut = PointKind.cashOut.rawValue
+        let descriptor = FetchDescriptor<PointEntry>(
+            predicate: #Predicate { $0.kindRaw == cashOut && $0.date >= since },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        let entries = (try? context.fetch(descriptor)) ?? []
+        let names = Dictionary(
+            Persistence.fetchAll(Member.self, in: context).map { ($0.id, $0.name) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let rate = UserDefaults.standard.object(forKey: SettingsKey.centsPer100) as? Int ?? 500
+        let payouts = entries.compactMap { entry -> HearthAllowance.Payout? in
+            guard let memberID = entry.memberID, let name = names[memberID] else { return nil }
+            // Payouts from before `cents` was kept: the points at today's rate.
+            let cents = entry.cents ?? RewardMath.cents(for: -entry.points, centsPer100: rate)
+            guard cents > 0 else { return nil }
+            return HearthAllowance.Payout(id: entry.id.uuidString, name: name, cents: cents, date: entry.date)
+        }
+        let currency = Locale.current.currency?.identifier ?? "USD"
+        Hearth.publish(HearthAllowance(currencyCode: currency, payouts: payouts), from: .caloma)
     }
 
     /// The member's photo in the shared folder (a JPEG of at most 512 px), and whether it was

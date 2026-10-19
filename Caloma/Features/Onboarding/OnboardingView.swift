@@ -1,15 +1,14 @@
 import SwiftData
 import SwiftUI
 
-/// First run, from the canvas's onboarding flow: Welcome, start or join, who's in the family,
-/// what chores earn, a few starter chores, the extras (calendar, home care, Apple Home, Family
-/// Board), notifications, inviting the other parent, and "Welcome home".
+/// First run, from the canvas's onboarding flow: Welcome, the household (set one up or join the
+/// family's: the people come from it), what chores earn, a few starter chores, the extras
+/// (calendar, home care, Apple Home, Family Board), notifications, inviting the other parent to
+/// the household, and "Welcome home".
 ///
-/// Nothing is saved until the family is complete: leaving "Make it your home" (or skipping
-/// past it) saves everyone at once, since the invite needs the family in iCloud. After that
-/// there's no going back, so nobody is added twice. Signing in is optional, after Hearken's
-/// App Review rejection: everything works without it, and Sign in with Apple just fills in
-/// your name.
+/// The chores and settings are saved on leaving "Make it your home" (or skipping past it).
+/// After that there's no going back, so nothing is added twice. Joining a family that already
+/// uses Caloma skips straight to the app.
 struct OnboardingView: View {
     @State private var flow = OnboardingFlow()
     @State private var size = CGSize(width: 390, height: 844)
@@ -39,13 +38,12 @@ struct OnboardingView: View {
     @ViewBuilder private var stepView: some View {
         switch flow.step {
         case 0: WelcomeStep()
-        case 1: StartOrJoinStep()
-        case 2: FamilyStep()
-        case 3: PointsStep()
-        case 4: ChoresStep()
-        case 5: HomeExtrasStep()
-        case 6: NotificationsStep()
-        case 7: InviteStep()
+        case 1: HouseholdStep()
+        case 2: PointsStep()
+        case 3: ChoresStep()
+        case 4: HomeExtrasStep()
+        case 5: NotificationsStep()
+        case 6: InviteStep()
         default: AllSetStep()
         }
     }
@@ -70,8 +68,6 @@ struct OnboardingView: View {
 /// Where onboarding is, and everything it's collected so far.
 @Observable
 final class OnboardingFlow {
-    enum Path { case start, join }
-
     /// The extras on "Make it your home".
     struct Extras {
         var calendar = false
@@ -80,22 +76,19 @@ final class OnboardingFlow {
         var familyBoard = false
     }
 
-    static let lastStep = 8
+    static let lastStep = 7
     /// The steps with a progress bar: everything between Welcome and "Welcome home".
-    static let progressSteps = 1...7
+    static let progressSteps = 1...6
     /// The first step with Skip.
-    static let firstSkippable = 5
+    static let firstSkippable = 4
 
     private(set) var step = 0
     /// Which way the last move went, for the slide.
     private(set) var forward = true
-    var path: Path = .start
     var draft = FamilyDraft()
     var extras = Extras()
     /// The family is saved; there's no going back past this.
     private(set) var committed = false
-    /// The parent who set it up, once saved.
-    private(set) var meID: UUID?
     var notificationsAllowed: Bool?
     var invited = false
 
@@ -121,18 +114,37 @@ final class OnboardingFlow {
     func next() { go(to: step + 1) }
     func back() { go(to: step - 1) }
 
-    /// Saves the family: parents, kids, the chores picked for them, the store, home care and
-    /// the points settings. Once only. Returns false, and goes to "Join my family" instead, when
-    /// a family arrived from iCloud in the meantime, so nobody's added twice.
+    /// The household's kids, by first name (Caloma's members mirror them).
+    var kidNames: [String] { HearthHouseholdStore.shared.kids.map(\.firstName).filter { !$0.isEmpty } }
+    var firstKidName: String? { kidNames.first }
+
+    /// The family is already in Caloma: this account joined someone else's household (their
+    /// Caloma comes down by itself), or this account's family is already in iCloud.
+    func familyIsAlreadySetUp(in context: ModelContext) -> Bool {
+        HearthHouseholdStore.shared.isMember || Self.hasFamilyData(in: context)
+    }
+
+    /// Chores, rewards or events already here, from iCloud.
+    static func hasFamilyData(in context: ModelContext) -> Bool {
+        ((try? context.fetchCount(FetchDescriptor<Chore>())) ?? 0) > 0
+            || ((try? context.fetchCount(FetchDescriptor<Reward>())) ?? 0) > 0
+            || ((try? context.fetchCount(FetchDescriptor<FamilyEvent>())) ?? 0) > 0
+    }
+
+    /// Straight into the app with the family that's already there.
+    func finishWithExistingFamily(defaults: UserDefaults = .standard) {
+        committed = true
+        // Starter home care came with the family, so nothing to add.
+        defaults.set(true, forKey: SettingsKey.seeded)
+        defaults.set(true, forKey: SettingsKey.onboarded)
+    }
+
+    /// Saves the chores picked for the household's kids, the store, home care and the points
+    /// settings. Once only. The people are the household's (Caloma's members mirror it), and a
+    /// family that arrived from iCloud in the meantime gets no second set of starters.
     @discardableResult
     func commit(in context: ModelContext, defaults: UserDefaults = .standard) -> Bool {
         guard !committed else { return true }
-        let existing = (try? context.fetch(FetchDescriptor<Member>())) ?? []
-        if existing.contains(where: { !$0.isArchived && !$0.isKid }) {
-            path = .join
-            go(to: 1)
-            return false
-        }
         committed = true
         // The points screen's choices, written out even when left as they were, so every
         // screen agrees with what onboarding showed.
@@ -144,32 +156,21 @@ final class OnboardingFlow {
         for (key, value) in pointDefaults where defaults.object(forKey: key) == nil {
             defaults.set(value, forKey: key)
         }
-        draft.addPendingKid()
+        CalomaHousehold.sync(in: context)
+        let alreadyThere = Self.hasFamilyData(in: context)
+        if !alreadyThere {
+            let kids = Persistence.fetchAll(Member.self, in: context)
+                .filter { $0.isKid && !$0.isArchived }
+                .sorted { $0.sortOrder < $1.sortOrder }
+            if !kids.isEmpty {
+                let picked = StarterData.chores.filter { draft.pickedChores.contains($0.title) }
+                StarterData.insertChores(picked, kids: kids, into: context)
+            }
+            if draft.addRewards { StarterData.insertRewards(into: context) }
+            Persistence.save(context)
+        }
 
-        let me = Member(name: draft.myName.trimmingCharacters(in: .whitespaces), role: .parent, color: .teal, sortOrder: 0)
-        me.photoData = draft.myPhoto
-        context.insert(me)
-        let partner = draft.partnerName.trimmingCharacters(in: .whitespaces)
-        if !partner.isEmpty {
-            let member = Member(name: partner, role: .parent, color: .pink, sortOrder: 1)
-            member.photoData = draft.partnerPhoto
-            context.insert(member)
-        }
-        var kids: [Member] = []
-        for (index, person) in draft.namedKids.enumerated() {
-            let kid = Member(name: person.name.trimmingCharacters(in: .whitespaces), role: .kid, color: person.color, sortOrder: 2 + index)
-            kid.photoData = person.photo
-            context.insert(kid)
-            kids.append(kid)
-        }
-        if !kids.isEmpty {
-            let picked = StarterData.chores.filter { draft.pickedChores.contains($0.title) }
-            StarterData.insertChores(picked, kids: kids, into: context)
-        }
-        if draft.addRewards { StarterData.insertRewards(into: context) }
-        Persistence.save(context)
-
-        if extras.homeCare {
+        if extras.homeCare && !alreadyThere {
             StarterData.seedIfNeeded(in: context, defaults: defaults)
         } else {
             // No starter list, and don't add one on the next launch either.
@@ -178,46 +179,16 @@ final class OnboardingFlow {
         if extras.appleHome {
             Task { await HomeRoomImport.run(in: context) }
         }
-        meID = me.id
-        defaults.set(me.id.uuidString, forKey: SettingsKey.currentMember)
         return true
     }
 }
 
 /// What onboarding collects before anything is saved.
 struct FamilyDraft {
-    struct Person: Identifiable {
-        var id = UUID()
-        var name = ""
-        var color: KidColor = .blue
-        var photo: Data?
-    }
-
-    var myName = ""
-    var myPhoto: Data?
-    var partnerName = ""
-    var partnerPhoto: Data?
-    var kids: [Person] = []
-    /// The "Kid's name" field, not added yet.
-    var newKidName = ""
-    var newKidColor: KidColor = .blue
     var pickedChores: Set<String> = Set(StarterData.chores.prefix(6).map(\.title))
     var addRewards = true
 
-    var namedKids: [Person] { kids.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty } }
-    /// Kids, counting a name typed but not added.
-    var kidCount: Int { namedKids.count + (newKidName.trimmingCharacters(in: .whitespaces).isEmpty ? 0 : 1) }
-    var firstKidName: String? { namedKids.first?.name.trimmingCharacters(in: .whitespaces) }
     var pickedCount: Int { StarterData.chores.filter { pickedChores.contains($0.title) }.count }
-
-    /// Adds the kid in the "Kid's name" field, and picks a different color for the next one.
-    mutating func addPendingKid() {
-        let name = newKidName.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty else { return }
-        kids.append(Person(name: name, color: newKidColor))
-        newKidName = ""
-        newKidColor = KidColor.next(after: kids.map(\.color))
-    }
 }
 
 // MARK: - Top bar

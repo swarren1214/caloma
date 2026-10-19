@@ -80,6 +80,11 @@ final class CalendarFilter {
         didSet { UserDefaults.standard.set(showMeals, forKey: "calendar.showMeals") }
     }
 
+    /// Hearken's daily reading (only offered when Hearken shares a plan).
+    var showReading: Bool = UserDefaults.standard.object(forKey: "calendar.showReading") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showReading, forKey: "calendar.showReading") }
+    }
+
     func isShown(_ key: String) -> Bool { !hidden.contains(key) }
 
     func toggle(_ key: String) {

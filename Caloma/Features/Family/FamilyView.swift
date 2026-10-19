@@ -23,7 +23,8 @@ struct FamilyView: View {
     @AppStorage(SettingsKey.homeReminders) private var homeReminders = false
     @AppStorage(SettingsKey.approvalAlerts) private var approvalAlerts = true
 
-    @State private var addingRole: MemberRole?
+    @State private var addingPerson = false
+    @State private var household = HearthHouseholdStore.shared
     @State private var payingOut = false
     @State private var confirmsErase = false
 
@@ -31,7 +32,30 @@ struct FamilyView: View {
 
     var body: some View {
         Form {
-            // iPad only: the wall screen comes first, since it's set up once and opened often.
+            if case .waiting = CloudSync.shared.location {
+                Section {
+                    Label {
+                        Text(waitingText)
+                    } icon: {
+                        Image(systemName: "hourglass")
+                    }
+                } footer: {
+                    Text("Changes you make here are kept on this \(UIDevice.current.localizedModel) until then.")
+                }
+            }
+
+            // The family every Hearth app shares: people, invitations, birthdays and allergies.
+            Section {
+                NavigationLink {
+                    HearthHouseholdView(accent: accent)
+                } label: {
+                    HearthHouseholdLabel()
+                }
+            } footer: {
+                Text("The same people in every Hearth app. Invite your family here: one invitation shares Caloma too.")
+            }
+
+            // iPad only: the wall screen comes next, since it's set up once and opened often.
             if UIDevice.current.userInterfaceIdiom == .pad {
                 Section {
                     NavigationLink {
@@ -46,49 +70,26 @@ struct FamilyView: View {
 
             Section {
                 ForEach(members) { member in
-                    NavigationLink {
-                        MemberEditor(member: member, role: member.role)
-                    } label: {
-                        HStack(spacing: 12) {
-                            MemberAvatar(member, size: 38)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(member.name)
-                                Text(member.role.label)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if member.isKid {
-                                PointsLabel(points: ChoreMath.balance(of: member.id, entries: points.map(\.record)))
-                                    .foregroundStyle(.secondary)
-                            }
+                    // People are edited in the household, for every app.
+                    if let person = CalomaHousehold.person(for: member) {
+                        NavigationLink {
+                            HearthPersonView(memberID: person.id, accent: accent)
+                        } label: {
+                            memberRow(member)
                         }
+                    } else {
+                        memberRow(member)
                     }
                 }
-                Menu {
-                    Button("Add a Kid", menuIcon: "figure.child") { addingRole = .kid }
-                    Button("Add a Parent", menuIcon: "person") { addingRole = .parent }
-                } label: {
-                    Label("Add Family Member", systemImage: "plus.circle.fill")
+                if household.canEditEveryone {
+                    Button { addingPerson = true } label: {
+                        Label("Add Family Member", systemImage: "plus.circle.fill")
+                    }
                 }
             } header: {
                 Text("Members")
             } footer: {
                 Text("Kids can use Kid View on a parent's phone or on a shared iPad.")
-            }
-
-            Section {
-                NavigationLink {
-                    FamilySharingView()
-                } label: {
-                    LabeledContent {
-                        Text(sharingSummary)
-                    } label: {
-                        Label("Family Sharing", systemImage: "person.2.badge.gearshape")
-                    }
-                }
-            } footer: {
-                Text("Share with your partner so you both run the same family from your own phones.")
             }
 
             Section {
@@ -243,8 +244,8 @@ struct FamilyView: View {
                 Button("Close", systemImage: "xmark") { dismiss() }
             }
         }
-        .sheet(item: $addingRole) { role in
-            NavigationStack { MemberEditor(member: nil, role: role) }
+        .sheet(isPresented: $addingPerson) {
+            HearthPersonEditor(member: nil, accent: accent)
         }
         .sheet(isPresented: $payingOut) {
             PayOutSheet()
@@ -256,8 +257,8 @@ struct FamilyView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(CloudSync.shared.role == .participant
-                 ? "This iPhone leaves the family and Caloma starts over here. The family's data stays with everyone else."
+            Text(CloudSync.shared.isJoined
+                 ? "Caloma starts over on this \(UIDevice.current.localizedModel) and downloads the family's data again. The family's data stays with everyone else."
                  : "Every chore, reward, point, event and home care task is deleted from this device and iCloud\(CloudSync.shared.isShared ? ", for everyone in the family" : ""), and Caloma starts over. This can't be undone.")
         }
     }
@@ -273,11 +274,31 @@ struct FamilyView: View {
         )
     }
 
-    private var sharingSummary: String {
-        switch CloudSync.shared.role {
-        case .solo: "Not shared"
-        case .owner: "Shared"
-        case .participant: "Joined"
+    /// Waiting for the household's owner to share the family's Caloma.
+    private var waitingText: String {
+        guard household.isMember else {
+            // From before the Hearth household: another family's Caloma, kept until this
+            // account joins their household.
+            return "This \(UIDevice.current.localizedModel) has another family's Caloma. It syncs again once you join their household."
+        }
+        let name = household.organizer?.firstName ?? ""
+        return "Waiting for \(name.isEmpty ? "the person who set up your household" : name) to open Caloma to share the family's chores, calendar and rewards."
+    }
+
+    private func memberRow(_ member: Member) -> some View {
+        HStack(spacing: 12) {
+            MemberAvatar(member, size: 38)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(member.name)
+                Text(member.role.label)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if member.isKid {
+                PointsLabel(points: ChoreMath.balance(of: member.id, entries: points.map(\.record)))
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 

@@ -143,7 +143,9 @@ enum Family {
     static func payOut(_ points: Int, to memberID: UUID, cents: Int, in context: ModelContext) {
         guard points > 0 else { return }
         let money = (Double(cents) / 100).formatted(.currency(code: Locale.current.currency?.identifier ?? "USD"))
-        context.insert(PointEntry(memberID: memberID, points: -points, kind: .cashOut, note: "Paid \(money)"))
+        let entry = PointEntry(memberID: memberID, points: -points, kind: .cashOut, note: "Paid \(money)")
+        entry.cents = cents
+        context.insert(entry)
         Persistence.save(context)
     }
 

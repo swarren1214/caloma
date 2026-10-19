@@ -1,197 +1,31 @@
+import SwiftData
 import SwiftUI
 
-// MARK: - 3 · Who's in the family?
+// MARK: - 2 · Your household
 
-struct FamilyStep: View {
+/// The family is the Hearth household, the same in every Hearth app: set one up (a household
+/// of one is fine), or join the family's from their invitation. Caloma's members come from it
+/// (`CalomaHousehold`), so there's no Caloma-only family to fill in.
+struct HouseholdStep: View {
     @Environment(OnboardingFlow.self) private var flow
     @Environment(\.accent) private var accent
-    @FocusState private var focus: Field?
-
-    private enum Field: Hashable { case me, partner, newKid }
-
-    private var canContinue: Bool { !flow.draft.myName.trimmingCharacters(in: .whitespaces).isEmpty }
-
-    private var continueTitle: String {
-        switch flow.draft.kidCount {
-        case 0: "No Kids Yet: Continue"
-        case 1: "Continue with 1 Kid"
-        case let count: "Continue with \(count) Kids"
-        }
-    }
+    @Environment(\.modelContext) private var context
 
     var body: some View {
-        @Bindable var flow = flow
-        OnboardingScreen(title: "Who's in the family?", subtitle: "Kids each get a color. It's theirs on the chore board, the calendar and in Kid View.") {
-            OnboardingSymbolIcon(symbol: "person.3.fill")
-        } content: {
-            VStack(alignment: .leading, spacing: 8) {
-                OnboardingSectionLabel(text: "Parents")
-                VStack(spacing: 0) {
-                    HStack(spacing: 12) {
-                        PhotoPickerAvatar(name: flow.draft.myName, color: KidColor.teal.color, photo: $flow.draft.myPhoto, size: 42)
-                        TextField("Your name", text: $flow.draft.myName)
-                            .font(.body.weight(.semibold))
-                            .textContentType(.givenName)
-                            .textInputAutocapitalization(.words)
-                            .submitLabel(.next)
-                            .focused($focus, equals: .me)
-                            .onSubmit { focus = .partner }
-                        Text("You")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 62)
-                    Divider().padding(.leading, 68)
-                    HStack(spacing: 12) {
-                        PhotoPickerAvatar(name: flow.draft.partnerName, color: KidColor.pink.color, photo: $flow.draft.partnerPhoto, size: 42)
-                        VStack(alignment: .leading, spacing: 1) {
-                            TextField("Another parent (optional)", text: $flow.draft.partnerName)
-                                .textInputAutocapitalization(.words)
-                                .submitLabel(.next)
-                                .focused($focus, equals: .partner)
-                                .onSubmit { focus = .newKid }
-                            Text("You'll invite them in a moment")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 62)
-                }
-                .onboardingCard()
-
-                OnboardingSectionLabel(text: "Kids")
-                    .padding(.top, 14)
-                VStack(spacing: 0) {
-                    ForEach($flow.draft.kids) { $kid in
-                        kidRow($kid)
-                        Divider().padding(.leading, 68)
-                    }
-                    addKidRow
-                }
-                .onboardingCard()
-                .animation(.smooth(duration: 0.3), value: flow.draft.kids.map(\.id))
-            }
-        } controls: {
-            OnboardingPrimaryButton(title: continueTitle) {
-                flow.draft.addPendingKid()
-                focus = nil
+        HearthHouseholdOnboarding(accent: accent) {
+            CalomaHousehold.sync(in: context)
+            if flow.familyIsAlreadySetUp(in: context) {
+                // Someone else's household (their Caloma comes down by itself), or a family
+                // already in iCloud: nothing to set up here.
+                flow.finishWithExistingFamily()
+            } else {
                 flow.next()
             }
-            .disabled(!canContinue)
         }
-        .onAppear {
-            if flow.draft.kids.isEmpty && flow.draft.newKidName.isEmpty {
-                flow.draft.newKidColor = KidColor.next(after: [])
-            }
-            if flow.draft.myName.isEmpty { focus = .me }
-        }
-    }
-
-    private func kidRow(_ kid: Binding<FamilyDraft.Person>) -> some View {
-        HStack(spacing: 12) {
-            PhotoPickerAvatar(name: kid.wrappedValue.name, color: kid.wrappedValue.color.color, photo: kid.photo, size: 42)
-            TextField("Kid's name", text: kid.name)
-                .font(.body.weight(.semibold))
-                .textInputAutocapitalization(.words)
-            Menu {
-                Picker("Color", selection: kid.color) {
-                    ForEach(KidColor.allCases) { color in
-                        Label { Text(color.name) } icon: { Image.menuSwatch(color.color) }.tag(color)
-                    }
-                }
-            } label: {
-                ColorDot(color: kid.wrappedValue.color.color)
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("\(kid.wrappedValue.name.isEmpty ? "Kid" : kid.wrappedValue.name)'s color, \(kid.wrappedValue.color.name)")
-            Button {
-                let id = kid.wrappedValue.id
-                flow.draft.kids.removeAll { $0.id == id }
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.title3)
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 32, height: 44)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Remove \(kid.wrappedValue.name.isEmpty ? "kid" : kid.wrappedValue.name)")
-        }
-        .padding(.leading, 14)
-        .padding(.trailing, 8)
-        .frame(minHeight: 62)
-    }
-
-    private var addKidRow: some View {
-        @Bindable var flow = flow
-        let name = flow.draft.newKidName.trimmingCharacters(in: .whitespaces)
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Text(name.isEmpty ? "+" : String(name.prefix(1)).uppercased())
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 42, height: 42)
-                    .background(flow.draft.newKidColor.color.gradient, in: Circle())
-                    .accessibilityHidden(true)
-                TextField("Kid's name", text: $flow.draft.newKidName)
-                    .textInputAutocapitalization(.words)
-                    .submitLabel(.done)
-                    .focused($focus, equals: .newKid)
-                    .onSubmit(addKid)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 44)
-                    .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 12, style: .continuous))
-                Button("Add", action: addKid)
-                    .buttonStyle(.glassProminent)
-                    .disabled(name.isEmpty)
-            }
-            HStack(spacing: 0) {
-                ForEach(KidColor.allCases) { color in
-                    let selected = flow.draft.newKidColor == color
-                    Button {
-                        flow.draft.newKidColor = color
-                    } label: {
-                        ColorDot(color: color.color, selected: selected)
-                            .frame(maxWidth: .infinity, minHeight: 36)
-                            .contentShape(.rect)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(color.name)
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                }
-            }
-            .padding(.leading, 54)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-
-    private func addKid() {
-        withAnimation(.smooth(duration: 0.3)) { flow.draft.addPendingKid() }
-        focus = .newKid
     }
 }
 
-/// A kid's color: a dot in a ring of the card's color, outlined in the color itself.
-private struct ColorDot: View {
-    var color: Color
-    var selected = true
-    var size: CGFloat = 26
-
-    var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: size, height: size)
-            .padding(3)
-            .overlay(Circle().strokeBorder(color, lineWidth: selected ? 2 : 0))
-            .scaleEffect(selected ? 1 : 0.82)
-            .animation(.snappy(duration: 0.2), value: selected)
-    }
-}
-
-// MARK: - 4 · What do chores earn?
+// MARK: - 3 · What do chores earn?
 
 struct PointsStep: View {
     @Environment(OnboardingFlow.self) private var flow
@@ -439,13 +273,13 @@ struct PointsStep: View {
     }
 }
 
-// MARK: - 5 · Pick a few chores
+// MARK: - 4 · Pick a few chores
 
 struct ChoresStep: View {
     @Environment(OnboardingFlow.self) private var flow
     @Environment(\.accent) private var accent
 
-    private var hasKids: Bool { !flow.draft.namedKids.isEmpty }
+    private var hasKids: Bool { !flow.kidNames.isEmpty }
 
     private var continueTitle: String {
         guard hasKids else { return "Continue" }
@@ -462,7 +296,7 @@ struct ChoresStep: View {
             title: hasKids ? "Pick a few chores" : "Chores come later",
             subtitle: hasKids
                 ? "Every kid gets these to start. Change who does what, and what each is worth, any time."
-                : "Add kids any time from Family, then pick their chores."
+                : "Add kids any time in Family › Household, then pick their chores."
         ) {
             OnboardingSymbolIcon(symbol: "checklist")
         } content: {
@@ -534,7 +368,7 @@ struct ChoresStep: View {
         case .once: parts.append("Once")
         }
         parts.append(PointWords.current().count(chore.points))
-        if chore.rotates && flow.draft.namedKids.count > 1 { parts.append("Kids take turns") }
+        if chore.rotates && flow.kidNames.count > 1 { parts.append("Kids take turns") }
         if chore.upForGrabs { parts.append("Up for grabs") }
         return parts.joined(separator: " · ")
     }

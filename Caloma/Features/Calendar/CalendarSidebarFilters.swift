@@ -35,6 +35,11 @@ struct CalendarSidebarFilters: View {
                     filter.showMeals.toggle()
                 }
             }
+            if HearthLink.shared.reading != nil {
+                checkRow("Reading", on: filter.showReading) {
+                    filter.showReading.toggle()
+                }
+            }
             checkRow("Apple Calendar", on: apple.showsAppleEvents && apple.hasAccess) {
                 // The first time, it needs setting up (access and which calendars).
                 if apple.hasAccess && apple.showsAppleEvents {

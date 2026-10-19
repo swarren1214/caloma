@@ -121,7 +121,7 @@ struct NotificationsStep: View {
 
     var body: some View {
         OnboardingScreen(title: "Know when it's your turn", subtitle: "A chore waiting for your OK, a filter due Thursday, someone at the door. Never ads, never streaks.") {
-            NotificationStack(kidName: flow.draft.firstKidName ?? "Ella", word: PointWords.current().plural)
+            NotificationStack(kidName: flow.firstKidName ?? "Ella", word: PointWords.current().plural)
                 .frame(maxWidth: layout.isWide ? 380 : .infinity)
         } content: {
             if let answer = flow.notificationsAllowed {
@@ -220,23 +220,27 @@ private struct NotificationStack: View {
 
 // MARK: - 8 · Run it together
 
+/// Inviting the other parent to the household: one invitation for every Hearth app. Caloma's
+/// family is shared with them by itself once they join.
 struct InviteStep: View {
     @Environment(OnboardingFlow.self) private var flow
     @Environment(\.accent) private var accent
     @AppStorage(SettingsKey.familyName) private var familyName = ""
+    @State private var household = HearthHouseholdStore.shared
     @State private var sending = false
     @State private var error: String?
 
     private var title: String {
         let name = familyName.trimmingCharacters(in: .whitespaces)
         if !name.isEmpty { return name }
-        let me = flow.draft.myName.trimmingCharacters(in: .whitespaces)
+        if let householdName = household.info?.name.trimmingCharacters(in: .whitespaces), !householdName.isEmpty { return householdName }
+        let me = household.me?.firstName ?? ""
         return me.isEmpty ? "Our Family" : "\(me)'s Family"
     }
 
+    /// Another parent already in the household, by first name.
     private var partner: String? {
-        let name = flow.draft.partnerName.trimmingCharacters(in: .whitespaces)
-        return name.isEmpty ? nil : name
+        household.parents.first { $0.id != household.me?.id }.map(\.firstName)
     }
 
     var body: some View {
@@ -303,7 +307,7 @@ struct InviteStep: View {
                     Text("Join \(title)")
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
-                    Text("Caloma · Shared with iCloud")
+                    Text("Household · Shared with iCloud")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -322,12 +326,14 @@ struct InviteStep: View {
         error = nil
         Task {
             defer { sending = false }
-            do {
-                if familyName.trimmingCharacters(in: .whitespaces).isEmpty { familyName = title }
-                try await CloudSync.shared.presentInvite(familyName: title)
+            if familyName.trimmingCharacters(in: .whitespaces).isEmpty { familyName = title }
+            // The household's invitation: Apple's sharing screen, from the household store.
+            let earlier = household.problem
+            await household.presentInvite(as: .parent)
+            if let problem = household.problem, problem != earlier {
+                self.error = problem
+            } else {
                 flow.invited = true
-            } catch {
-                self.error = (error as? CKError).map { CloudSync.describe($0) } ?? error.localizedDescription
             }
         }
     }
@@ -358,7 +364,7 @@ struct AllSetStep: View {
 
     private var summary: String {
         let draft = flow.draft
-        let kids = draft.namedKids.count
+        let kids = flow.kidNames.count
         var parts = [kids == 1 ? "1 kid" : "\(kids) kids"]
         if kids > 0 { parts.append(draft.pickedCount == 1 ? "1 chore" : "\(draft.pickedCount) chores") }
         var points = PointWords.current().plural
@@ -380,10 +386,10 @@ struct AllSetStep: View {
 
     private var nextUp: [NextUp] {
         var rows: [NextUp] = []
-        if let kid = flow.draft.firstKidName {
+        if let kid = flow.firstKidName {
             rows.append(NextUp(symbol: "figure.child", color: accent, title: "Hand \(isPad ? "an iPad" : "a phone") to \(kid)", detail: "Kid View shows just their day, with big buttons."))
         } else {
-            rows.append(NextUp(symbol: "person.badge.plus", color: accent, title: "Add your kids", detail: "Family › Add Someone, then pick their chores."))
+            rows.append(NextUp(symbol: "person.badge.plus", color: accent, title: "Add your kids", detail: "Family › Household › Add Person, then pick their chores."))
         }
         if approvalsByDefault {
             rows.append(NextUp(symbol: "checkmark.seal.fill", color: Color(hex: 0x1E9E6A), title: "Check Needs Your OK", detail: "Finished chores wait there for a tap."))

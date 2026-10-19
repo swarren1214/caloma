@@ -3,42 +3,49 @@ import Foundation
 import OSLog
 import SwiftData
 
-/// Keeps the family's data in step through CloudKit, so both parents (on their own Apple
-/// Accounts), and every phone and iPad on them, see the same family.
+/// Keeps the family's data in step through CloudKit, so everyone in the Hearth household (each
+/// on their own Apple Account), and every phone and iPad on them, sees the same family.
 ///
 /// How it works:
 /// - Everything is saved on the device with SwiftData, as before.
-/// - SwiftData's history says what changed locally; those changes are queued on a
-///   `CKSyncEngine`, which sends them when it can and fetches everyone else's.
-/// - The family lives in one record zone, "Family". It's in the private database of the parent
-///   who set the family up (the owner). Sharing the whole zone lets the other parent join:
-///   their phone then syncs the same zone through its shared database.
+/// - The family lives in one record zone, "Caloma", in the Hearth container
+///   (`iCloud.com.stephenwarren.hearth`), beside the household. Caloma has no engine of its own:
+///   it syncs on the household's CKSyncEngines as a `HearthZoneParticipant`, so the family accepts
+///   one invitation (the household's) for every Hearth app.
+/// - SwiftData's history says what changed locally; those changes are queued on the household's
+///   engine for the zone's database, which asks for each record (`zoneRecord(for:)`) when it sends.
+/// - Where the zone is (`Location`):
+///   - `.personal`: this account's private database. The household's owner shares it with
+///     everyone in the household (`HearthAppSharing`, audience everyone: kids edit in Kid View).
+///   - `.waiting`: this account joined someone else's household, and their Caloma hasn't shared
+///     the family's zone with it yet. Nothing goes up, so this device's data never lands in the
+///     wrong family.
+///   - `.shared`: the household owner's zone, through the shared database. What was on this
+///     device is replaced by the family's (as joining a family always did).
 /// - Changes from iCloud are saved by a context whose author is "sync", so they aren't sent
 ///   back up.
 @MainActor
 @Observable
-final class CloudSync {
+final class CloudSync: HearthZoneParticipant {
     static let shared = CloudSync()
+    static let familyZoneName = "Caloma"
+    let zoneName = CloudSync.familyZoneName
 
-    nonisolated enum Role: String, Codable, Sendable {
-        /// Syncing through this Apple Account's private database. Not shared (yet).
-        case solo
-        /// Shared this family with others.
-        case owner
-        /// Joined someone else's family.
-        case participant
+    nonisolated enum Location: Hashable, Codable, Sendable {
+        /// This account's own zone, in its private database.
+        case personal
+        /// In someone else's household; their family's zone isn't shared with this account yet.
+        case waiting(ownerName: String)
+        /// The household owner's zone, shared with this account.
+        case shared(ownerName: String)
+
+        var isShared: Bool {
+            if case .shared = self { return true }
+            return false
+        }
     }
 
-    enum Status: Equatable {
-        case off
-        case noAccount
-        case syncing
-        case upToDate
-        case failed(String)
-    }
-
-    private(set) var role: Role = .solo
-    private(set) var status: Status = .off
+    private(set) var location: Location = .personal
     /// When a sync last finished without an error. Kept between launches, for the iCloud Sync
     /// card's "Last synced".
     private(set) var lastSynced: Date? = UserDefaults.standard.object(forKey: CloudSync.lastSyncedKey) as? Date {
@@ -47,154 +54,332 @@ final class CloudSync {
     /// The last sync's error in words a person can act on, for the iCloud Sync card; nil once a
     /// sync succeeds, and for errors the engine retries by itself (offline, signed out).
     private(set) var errorMessage: String?
-    /// iCloud's answer at the last account check, to tell "signed out" from "restricted".
-    private(set) var accountStatus: CKAccountStatus?
-    /// An invitation someone tapped, waiting for them to say Join.
-    var pendingInvite: CKShare.Metadata?
-    /// Something to tell the person, like "You left the family."
+    /// Something to tell the person, like "The family isn't shared with you anymore."
     var notice: String?
 
-    let ckContainer = CKContainer(identifier: AppConfig.cloudKitContainerID)
     private(set) var modelContainer: ModelContainer?
-    private var engine: CKSyncEngine?
-    private let delegate = SyncEngineDelegate()
     private var state = SyncState()
-    /// Each record's CloudKit system fields (its change tag), by record name.
+    @ObservationIgnored private var started = false
+    /// Each record's CloudKit system fields (its change tag), by record name, for the zone in
+    /// `location` only.
     @ObservationIgnored private var systemFields: [String: Data] = [:]
     /// Each model's id by its SwiftData identifier, for sending deletes and finding records.
-    @ObservationIgnored private var idsByModel: [PersistentIdentifier: UUID] = [:]
+    @ObservationIgnored private var idsByModel: [PersistentIdentifier: UUID] = [:] {
+        didSet { identifierCache = nil }
+    }
+    @ObservationIgnored private var identifierCache: [UUID: PersistentIdentifier]?
     @ObservationIgnored private var mapsChanged = false
     /// Failed sends per record this session.
     @ObservationIgnored private var retries: [String: Int] = [:]
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var lastRestart: Date?
-    /// `syncNow` is starting the engine after a sign-in, so a second call doesn't start another.
-    @ObservationIgnored private var isStarting = false
+    /// Erase All Data is deleting everything locally: those deletes don't go anywhere.
+    @ObservationIgnored private var isErasing = false
+    /// Joining a family's zone with this device's own data: nothing goes up until it's decided.
+    @ObservationIgnored private var holdsUploads = false
+    /// A context reused while the engine asks for a burst of records.
+    @ObservationIgnored private var sendContext: ModelContext?
     /// Why iCloud refused the last records sent, if it did.
     @ObservationIgnored private var sendError: String?
-    private var scanTask: Task<Void, Never>?
-    private var observers: [NSObjectProtocol] = []
+    @ObservationIgnored private var scanTask: Task<Void, Never>?
+    @ObservationIgnored private var observers: [NSObjectProtocol] = []
     private let log = Logger(subsystem: "com.stephenwarren.caloma", category: "sync")
 
     static let author = "sync"
     /// Raise to have every device send everything again once (after records were refused,
     /// like before the CloudKit schema was in Production).
-    /// 3: Lists, device styles, wall notes and handwriting, once their record types were
-    /// deployed (October 2026).
-    static let uploadGeneration = 3
-    static let zoneName = "Family"
+    static let uploadGeneration = 1
     nonisolated static let lastSyncedKey = "sync.lastSynced"
 
-    var zoneID: CKRecordZone.ID { CKRecordZone.ID(zoneName: state.zoneName, ownerName: state.zoneOwner) }
-    var database: CKDatabase { role == .participant ? ckContainer.sharedCloudDatabase : ckContainer.privateCloudDatabase }
-    var isShared: Bool { role != .solo }
+    var household: HearthHouseholdStore { .shared }
+
+    /// The family's zone where it is now, or nil while waiting for the family's.
+    var zoneLocation: (zoneID: CKRecordZone.ID, isShared: Bool)? {
+        switch location {
+        case .personal: (CKRecordZone.ID(zoneName: zoneName), false)
+        case .waiting: nil
+        case .shared(let ownerName): (CKRecordZone.ID(zoneName: zoneName, ownerName: ownerName), true)
+        }
+    }
+
+    /// In another family's Caloma (or waiting for it).
+    var isJoined: Bool { location != .personal }
+    /// Shared with others: joined someone's, or the household has other people in it.
+    var isShared: Bool { isJoined || !household.participants.isEmpty }
+    /// Whether this device may add Caloma members for household people now: not while its data
+    /// is about to be replaced by a family's, and in a family's zone only once the first full
+    /// fetch of it finished (so nobody is added twice).
+    var canAddPeople: Bool {
+        switch location {
+        case .personal: !household.isMember
+        case .waiting: false
+        case .shared: state.hasFamilyData
+        }
+    }
 
     private init() {}
 
     // MARK: Starting
 
-    /// Starts syncing, once, at launch.
+    /// At launch, before the household store starts (it registers Caloma's zone with it).
     func start(with container: ModelContainer) {
-        guard AppConfig.cloudSyncEnabled, modelContainer == nil else { return }
+        guard AppConfig.cloudSyncEnabled, !started else { return }
+        started = true
         modelContainer = container
+        let migrating = !SyncState.exists
         state = SyncState.load()
-        let maps = SyncMaps.load()
-        systemFields = maps.systemFields
-        // Model ids aren't loaded from disk: identifiers read back from a file don't hash like
-        // live ones, and mixing the two in one dictionary crashed at launch. They're rebuilt
-        // from the store in `rememberAllIDs()`.
-        role = state.role
+        if migrating {
+            // The first launch on the Hearth container. A family that lived in Caloma's own
+            // container goes up again from this device, unless it was someone else's family
+            // (that family's owner uploads it; this device gets it when it joins).
+            if SyncState.legacyRoleWasParticipant() {
+                // Until this account is in that family's household and its zone, nothing here
+                // goes up (`expectedLocation` keeps it waiting).
+                state.legacyParticipant = true
+                state.didInitialUpload = true
+                state.uploadGeneration = Self.uploadGeneration
+            }
+            // Saved now, before the old files go, so a quit can't lose what they said.
+            state.save()
+            SyncState.removeLegacyFiles()
+        }
+        location = state.location
+        systemFields = SyncMaps.load().systemFields
         SyncMaps.removeOldAssetFiles()
+        household.register(self)
         observeSaves()
-        Task { await startEngine() }
+        rememberAllIDs()
+        saveState()
     }
 
-    private func startEngine() async {
-        do {
-            let account = try await ckContainer.accountStatus()
-            accountStatus = account
-            guard account == .available else {
-                status = .noAccount
-                return
-            }
-        } catch {
-            status = .noAccount
-            return
-        }
-        // A build that adds record types (Lists, say) fetches the whole family again once.
-        // Older builds skipped records of types they didn't know yet, and the engine's change
-        // token had moved past them, so without this they'd never arrive on this device.
+    /// Right after `HearthHouseholdStore.shared.start(app:)`: the engines exist now.
+    func householdStarted() {
+        guard started else { return }
+        refreshLocation()
         let typeNames = SyncSchema.types.map { $0.recordType }.sorted()
-        if state.knownTypes.map({ !Set(typeNames).isSubset(of: Set($0)) }) ?? true, state.engineState != nil {
-            log.info("New record types since last launch: fetching everything again")
-            state.engineState = nil
-            state.didInitialUpload = false
-        }
+        let newTypes = state.knownTypes.map { !Set(typeNames).isSubset(of: Set($0)) } ?? false
         state.knownTypes = typeNames
-        let configuration = CKSyncEngine.Configuration(database: database, stateSerialization: state.engineState, delegate: delegate)
-        let engine = CKSyncEngine(configuration)
-        self.engine = engine
-        status = .syncing
-        if role != .participant {
-            engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
-        }
-        rememberAllIDs()
-        if !state.didInitialUpload || (state.uploadGeneration ?? 1) < Self.uploadGeneration {
+        if !state.didInitialUpload || (state.uploadGeneration ?? 0) < Self.uploadGeneration {
+            // Once only (`queueEverything` marks it done); not while waiting for the family's.
             queueEverything()
-            state.didInitialUpload = true
-            state.uploadGeneration = Self.uploadGeneration
+        } else {
+            // What this device changed that iCloud doesn't have yet (kept between launches).
+            queueUnsent()
         }
         scanHistory()
         saveState()
+        // A build that adds record types fetches the whole family again once: older builds
+        // skipped records of types they didn't know yet.
+        if newTypes { Task { await fetchWholeZone() } }
     }
 
-    /// Stops the engine (to switch families or start over).
-    private func stopEngine() {
-        engine = nil
-        status = .off
-    }
-
-    /// Queues every record, for the first sync or after starting over.
-    private func queueEverything() {
-        guard let engine, let context = makeContext() else { return }
-        var ids: [CKRecord.ID] = []
-        for type in SyncSchema.types {
-            ids += allModels(of: type, in: context).map { recordID(for: $0.id) }
+    /// Shares the family's zone with the household (owner) or joins it (everyone else). Call on
+    /// launch, coming to the foreground and when the household changes.
+    func updateSharing() async {
+        guard started, !ScreenshotMode.isOn else { return }
+        refreshLocation()
+        var joinedOwner: String?
+        await HearthAppSharing.update(app: .caloma, zoneName: zoneName, title: "Caloma", audience: .everyone) { owner in
+            joinedOwner = owner
         }
-        engine.state.add(pendingRecordZoneChanges: ids.map { .saveRecord($0) })
-        // Everything is queued, so history up to now has been handled.
-        state.historyToken = latestHistoryToken(in: context)
-        saveState()
+        if let joinedOwner, location != .shared(ownerName: joinedOwner) {
+            markJoined(joinedOwner)
+        }
     }
 
     /// Fetches and sends now (pull to refresh, coming back to the app).
     func syncNow() async {
-        // Signed in to iCloud since launch (or signed back in): start syncing now, not at the
-        // next launch. Without an account this is just one quick account check.
-        if engine == nil, modelContainer != nil, status == .noAccount, !isStarting {
-            isStarting = true
-            await startEngine()
-            isStarting = false
+        guard started else { return }
+        if household.account != .available { await household.refreshAccount() }
+        scanHistory()
+        guard let zone = zoneLocation else {
+            await household.refresh()
+            return
         }
-        guard let engine else { return }
-        status = .syncing
-        // iCloud refused records earlier (an undeployed schema, say): try them all again now,
-        // not only at the next launch, so a fix in the CloudKit Console takes effect as soon
-        // as the app comes back to the front.
         if !state.didInitialUpload {
             queueEverything()
-            state.didInitialUpload = true
-            saveState()
+        } else if state.needsResend {
+            // iCloud refused records earlier: try this device's unsent changes again now.
+            state.needsResend = false
+            queueUnsent()
         }
+        await household.syncZoneNow(isShared: zone.isShared)
+        if sendError == nil, household.account == .available {
+            markSynced()
+        }
+    }
+
+    // MARK: Where the family is
+
+    /// Which family's zone this device should use now.
+    private var expectedLocation: Location {
+        guard case .member(let ownerName) = household.mode else {
+            // Data from another family's Caloma (before the Hearth container) never goes into
+            // this account's own zone: it waits until this account joins that family.
+            return state.legacyParticipant ? .waiting(ownerName: "") : .personal
+        }
+        return state.joinedOwner == ownerName ? .shared(ownerName: ownerName) : .waiting(ownerName: ownerName)
+    }
+
+    /// Follows the household: joined, left, or the family's zone accepted.
+    func refreshLocation() {
+        guard started else { return }
+        let next = expectedLocation
+        guard next != location else { return }
+        move(to: next)
+    }
+
+    private func move(to next: Location) {
+        let previous = location
+        log.notice("Family moves from \(String(describing: previous), privacy: .public) to \(String(describing: next), privacy: .public)")
+        scanTask?.cancel()
+        scanHistory()
+        let leavesFamily = previous.isShared
+        let joinsFamily = next.isShared
+        // Joining from waiting with data this device never uploaded anywhere (an old Caloma
+        // family whose owner isn't the household's): it's kept until the family's zone turns out
+        // to be empty, and then goes up into it instead of being lost.
+        var waiting = false
+        if case .waiting = previous { waiting = true }
+        let keepsLocal = joinsFamily && waiting && !state.hasUploaded && !state.legacyParticipant
+            && !leavesFamily && hasLocalData()
+        if joinsFamily {
+            state.legacyParticipant = false
+            state.hasFamilyData = false
+            // Nothing goes up until it's clear whose data stays (it stays in `unsent`).
+            holdsUploads = keepsLocal
+            // The family's data comes down; nothing here is re-sent wholesale.
+            state.didInitialUpload = true
+            state.uploadGeneration = Self.uploadGeneration
+        }
+        if (leavesFamily || joinsFamily) && !keepsLocal {
+            // What's here belongs to the family being left (or to this account, when joining a
+            // family): it never goes into the next zone. Joining replaces it with the family's.
+            eraseLocalData()
+            systemFields = [:]
+            retries = [:]
+            mapsChanged = true
+            state.hasFamilyData = false
+            UserDefaults.standard.removeObject(forKey: SettingsKey.currentMember)
+            if joinsFamily {
+                // Starter home care comes with the family.
+                UserDefaults.standard.set(true, forKey: SettingsKey.seeded)
+            }
+        }
+        location = next
+        state.location = next
+        saveState()
+        switch next {
+        case .shared where keepsLocal:
+            Task { await joinKeepingLocalData() }
+        case .shared:
+            Task { await fetchWholeZone() }
+        case .personal where leavesFamily:
+            // This account's own family is still in its private database: bring it back.
+            Task { await fetchWholeZone() }
+        case .personal:
+            // Back from waiting: what changed meanwhile goes up now.
+            queueUnsent()
+        case .waiting:
+            break
+        }
+    }
+
+    private func markJoined(_ ownerName: String) {
+        state.joinedOwner = ownerName
+        saveState()
+        refreshLocation()
+    }
+
+    /// The family stopped sharing Caloma with this account, or removed it.
+    private func lostFamilyZone() {
+        guard location.isShared else { return }
+        state.joinedOwner = nil
+        notice = "The family’s Caloma isn’t shared with you anymore."
+        errorMessage = Self.removedFromFamilyMessage
+        refreshLocation()
+    }
+
+    /// Downloads every record in the family's zone, from the start. For a zone this device
+    /// hasn't had (joining a family, coming back to its own), and after new record types.
+    private func fetchWholeZone() async {
+        guard let zone = zoneLocation, let container = household.cloudContainer, household.account == .available else { return }
+        let database = zone.isShared ? container.sharedCloudDatabase : container.privateCloudDatabase
+        var token: CKServerChangeToken?
+        var moreComing = true
         do {
-            try await engine.fetchChanges()
-            try await engine.sendChanges()
-            status = .upToDate
-            lastSynced = .now
-            errorMessage = nil
+            while moreComing {
+                let changes = try await database.recordZoneChanges(inZoneWith: zone.zoneID, since: token)
+                // Moved somewhere else meanwhile: these aren't this location's.
+                guard zoneLocation?.zoneID == zone.zoneID else { return }
+                let records = changes.modificationResultsByID.values.compactMap { try? $0.get().record }
+                apply(modifications: records, deletions: changes.deletions.map(\.recordID))
+                token = changes.changeToken
+                moreComing = changes.moreComing
+            }
+            if zone.isShared { state.hasFamilyData = true }
+            markSynced()
+            saveState()
+        } catch let error as CKError where error.code == .zoneNotFound || error.code == .userDeletedZone {
+            if zone.isShared {
+                lostFamilyZone()
+            }
         } catch {
             fail(error)
         }
+    }
+
+    /// Joining a family's zone with data this device never uploaded: if the family's zone is
+    /// empty, this device's family goes up into it; otherwise the family's replaces it.
+    private func joinKeepingLocalData() async {
+        guard let zone = zoneLocation, zone.isShared else {
+            holdsUploads = false
+            return
+        }
+        guard let container = household.cloudContainer, household.account == .available else {
+            backToWaiting(zone.zoneID.ownerName)
+            return
+        }
+        defer { holdsUploads = false }
+        do {
+            let changes = try await container.sharedCloudDatabase.recordZoneChanges(inZoneWith: zone.zoneID, since: nil, desiredKeys: [], resultsLimit: 1)
+            guard zoneLocation?.zoneID == zone.zoneID else { return }
+            if changes.modificationResultsByID.isEmpty {
+                log.notice("The family's Caloma is empty: this device's family goes up into it")
+                holdsUploads = false
+                queueEverything()
+                state.hasFamilyData = true
+                saveState()
+                return
+            }
+        } catch {
+            log.error("Couldn't look in the family's Caloma: \(Self.detail(error), privacy: .public)")
+            backToWaiting(zone.zoneID.ownerName)
+            return
+        }
+        eraseLocalData()
+        systemFields = [:]
+        retries = [:]
+        mapsChanged = true
+        UserDefaults.standard.removeObject(forKey: SettingsKey.currentMember)
+        UserDefaults.standard.set(true, forKey: SettingsKey.seeded)
+        await fetchWholeZone()
+    }
+
+    /// Not sure yet whose data stays: keep what's here, wait again, and look next time
+    /// `updateSharing` (or the zone appearing) joins.
+    private func backToWaiting(_ ownerName: String) {
+        holdsUploads = false
+        location = .waiting(ownerName: ownerName)
+        state.location = location
+        state.joinedOwner = nil
+        saveState()
+    }
+
+    private func hasLocalData() -> Bool {
+        guard let context = makeContext() else { return false }
+        for type in SyncSchema.types where !allModels(of: type, in: context).isEmpty { return true }
+        return false
     }
 
     // MARK: Local changes
@@ -221,9 +406,9 @@ final class CloudSync {
     }
 
     /// Reads SwiftData's history since last time and queues what changed (not counting what
-    /// came from iCloud).
+    /// came from iCloud). Waits until the household's engines exist.
     private func scanHistory() {
-        guard let engine, let context = makeContext() else { return }
+        guard started, !isErasing, household.cloudContainer != nil, let context = makeContext() else { return }
         var descriptor = HistoryDescriptor<DefaultHistoryTransaction>()
         if let token = state.historyToken {
             descriptor.predicate = #Predicate { $0.token > token }
@@ -268,10 +453,23 @@ final class CloudSync {
             pending.append(.saveRecord(recordID(for: model.id)))
         }
         pending += deleted.map { .deleteRecord(recordID(for: $0)) }
-        if !pending.isEmpty {
-            engine.state.add(pendingRecordZoneChanges: pending)
-            mapsChanged = true
+        for change in pending {
+            switch change {
+            case .saveRecord(let recordID):
+                state.unsentDeletes.remove(recordID.recordName)
+                state.unsentSaves.insert(recordID.recordName)
+            case .deleteRecord(let recordID):
+                systemFields[recordID.recordName] = nil
+                state.unsentSaves.remove(recordID.recordName)
+                state.unsentDeletes.insert(recordID.recordName)
+            @unknown default:
+                break
+            }
         }
+        // Kept in `unsent` until iCloud has them. While waiting for the family's zone nothing
+        // goes up (`queue` drops it); they go when this device has a zone again.
+        queue(pending)
+        mapsChanged = true
         state.historyToken = last.token
         // The history has been handled; keep it from growing forever.
         let handled = last.token
@@ -279,90 +477,221 @@ final class CloudSync {
         saveState()
     }
 
-    // MARK: The engine's events
+    private func queue(_ changes: [CKSyncEngine.PendingRecordZoneChange]) {
+        guard !changes.isEmpty, !holdsUploads, let zone = zoneLocation else { return }
+        if !zone.isShared { household.ensurePrivateZone(zone.zoneID) }
+        household.queueZoneChanges(changes, isShared: zone.isShared)
+    }
 
-    func handle(_ event: CKSyncEngine.Event, from engine: CKSyncEngine) async {
-        guard engine === self.engine else { return }
-        switch event {
-        case .stateUpdate(let update):
-            state.engineState = update.stateSerialization
-            saveState()
+    /// Queues this device's changes iCloud doesn't have yet (after an engine started over,
+    /// coming back from waiting, or after iCloud refused records). Never everything: that would
+    /// put stale copies over other devices' newer edits.
+    private func queueUnsent() {
+        guard zoneLocation != nil, household.cloudContainer != nil else { return }
+        let saves = state.unsentSaves.compactMap(UUID.init(uuidString:)).map { CKSyncEngine.PendingRecordZoneChange.saveRecord(recordID(for: $0)) }
+        let deletes = state.unsentDeletes.compactMap(UUID.init(uuidString:)).map { CKSyncEngine.PendingRecordZoneChange.deleteRecord(recordID(for: $0)) }
+        queue(saves + deletes)
+    }
 
-        case .accountChange(let change):
-            handleAccountChange(change)
-
-        case .fetchedDatabaseChanges(let changes):
-            if changes.deletions.contains(where: { $0.zoneID == zoneID }) {
-                zoneWasDeleted()
+    /// Everything on the device counts as unsent: for a zone that doesn't have it (the first
+    /// upload, a new account, a deleted zone).
+    private func markAllUnsent() {
+        guard let context = makeContext() else { return }
+        for type in SyncSchema.types {
+            for model in allModels(of: type, in: context) {
+                state.unsentSaves.insert(model.id.uuidString)
             }
-
-        case .fetchedRecordZoneChanges(let changes):
-            apply(modifications: changes.modifications.map(\.record), deletions: changes.deletions.map(\.recordID))
-
-        case .sentRecordZoneChanges(let sent):
-            handleSent(sent)
-
-        case .sentDatabaseChanges(let sent):
-            for failure in sent.failedZoneSaves {
-                log.error("Couldn't save the family zone: \(failure.error.localizedDescription, privacy: .public)")
-            }
-
-        case .willFetchChanges, .willSendChanges:
-            status = .syncing
-
-        case .didFetchChanges, .didSendChanges:
-            if let sendError {
-                status = .failed(sendError)
-            } else {
-                status = .upToDate
-                lastSynced = .now
-                errorMessage = nil
-            }
-
-        case .willFetchRecordZoneChanges, .didFetchRecordZoneChanges:
-            break
-
-        @unknown default:
-            break
         }
     }
 
-    func nextBatch(_ context: CKSyncEngine.SendChangesContext, for engine: CKSyncEngine) async -> CKSyncEngine.RecordZoneChangeBatch? {
-        guard engine === self.engine, let modelContext = makeContext() else { return nil }
-        let scope = context.options.scope
-        let changes = engine.state.pendingRecordZoneChanges.filter { scope.contains($0) }.prefix(250)
-        guard !changes.isEmpty else { return nil }
-
-        // Build the records up front, from the store as it is now, looking up only these.
-        let identifiers = identifiersByID()
-        var records: [CKRecord.ID: CKRecord] = [:]
-        var missing: [CKSyncEngine.PendingRecordZoneChange] = []
-        for change in changes {
-            guard case .saveRecord(let recordID) = change else { continue }
-            if let id = UUID(uuidString: recordID.recordName), let model = model(id, identifiers: identifiers, in: modelContext) {
-                records[recordID] = makeRecord(for: model)
-            } else {
-                // Deleted since it was queued; the delete is (or will be) queued too.
-                missing.append(change)
+    /// Queues every record, for a zone that doesn't have them yet (the first upload, a deleted
+    /// zone, a new account). Each counts as unsent until iCloud has it.
+    private func queueEverything() {
+        guard zoneLocation != nil, household.cloudContainer != nil, let context = makeContext() else { return }
+        var ids: [CKRecord.ID] = []
+        for type in SyncSchema.types {
+            for model in allModels(of: type, in: context) {
+                idsByModel[model.persistentModelID] = model.id
+                ids.append(recordID(for: model.id))
+                state.unsentSaves.insert(model.id.uuidString)
             }
         }
-        if !missing.isEmpty {
-            engine.state.remove(pendingRecordZoneChanges: missing)
+        queue(ids.map { .saveRecord($0) })
+        mapsChanged = true
+        // Everything is queued, so history up to now has been handled.
+        state.historyToken = latestHistoryToken(in: context)
+        state.didInitialUpload = true
+        state.uploadGeneration = Self.uploadGeneration
+        saveState()
+    }
+
+    // MARK: HearthZoneParticipant
+
+    func zoneRecord(for recordID: CKRecord.ID) -> CKRecord? {
+        guard recordID.zoneID == zoneLocation?.zoneID, let id = UUID(uuidString: recordID.recordName),
+              let context = senderContext(),
+              let model = model(id, identifiers: identifiersByID(), in: context) else {
+            // Deleted since it was queued (the delete is queued too), or from a zone this
+            // device has left: nothing to send.
+            return nil
         }
-        let ready = Array(changes).filter { change in
-            if case .saveRecord(let recordID) = change { return records[recordID] != nil }
-            return true
+        return makeRecord(for: model)
+    }
+
+    func zoneFetched(modifications: [CKRecord], deletions: [CKDatabase.RecordZoneChange.Deletion]) {
+        apply(modifications: modifications, deletions: deletions.map(\.recordID))
+        if !(modifications.isEmpty && deletions.isEmpty) { markSynced() }
+    }
+
+    func zoneSent(saved: [CKRecord], deleted: [CKRecord.ID], failedSaves: [CKSyncEngine.Event.SentRecordZoneChanges.FailedRecordSave], isShared: Bool) -> [CKSyncEngine.PendingRecordZoneChange] {
+        for record in saved {
+            systemFields[record.recordID.recordName] = Self.encodeSystemFields(of: record)
+            retries[record.recordID.recordName] = nil
+            state.unsentSaves.remove(record.recordID.recordName)
         }
-        let provided = records
-        return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: ready) { recordID in
-            provided[recordID]
+        for recordID in deleted {
+            systemFields[recordID.recordName] = nil
+            state.unsentDeletes.remove(recordID.recordName)
         }
+        if !saved.isEmpty || !deleted.isEmpty { state.hasUploaded = true }
+        mapsChanged = true
+        var retry: [CKSyncEngine.PendingRecordZoneChange] = []
+        var rejected: CKError?
+        var rejectedType: String?
+        for failure in failedSaves {
+            let recordID = failure.record.recordID
+            // Give up on a record after a few tries this session, so one bad record can't
+            // keep sync busy forever.
+            let tries = retries[recordID.recordName, default: 0] + 1
+            retries[recordID.recordName] = tries
+            if tries > 3 {
+                rejected = failure.error
+                rejectedType = failure.record.recordType
+                log.error("Gave up sending \(recordID.recordName, privacy: .public): \(failure.error.localizedDescription, privacy: .public)")
+                continue
+            }
+            switch failure.error.code {
+            case .serverRecordChanged:
+                guard let server = failure.error.serverRecord else {
+                    retry.append(.saveRecord(recordID))
+                    break
+                }
+                if state.unsentSaves.contains(recordID.recordName) {
+                    // Changed here too: take their version's change tag and send ours again
+                    // on top.
+                    systemFields[recordID.recordName] = Self.encodeSystemFields(of: server)
+                    retry.append(.saveRecord(recordID))
+                } else {
+                    // Not changed here since it last came down: theirs is newer.
+                    apply(modifications: [server], deletions: [])
+                }
+            case .zoneNotFound:
+                if isShared {
+                    // Their zone is gone: the family isn't shared anymore.
+                    lostFamilyZone()
+                    saveState()
+                    return []
+                }
+                household.ensurePrivateZone(recordID.zoneID)
+                systemFields[recordID.recordName] = nil
+                retry.append(.saveRecord(recordID))
+            case .unknownItem:
+                systemFields[recordID.recordName] = nil
+                retry.append(.saveRecord(recordID))
+            case .batchRequestFailed:
+                retry.append(.saveRecord(recordID))
+            case .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable, .notAuthenticated, .operationCancelled, .requestRateLimited, .accountTemporarilyUnavailable:
+                // The engine tries these again by itself.
+                break
+            default:
+                rejected = failure.error
+                rejectedType = failure.record.recordType
+                log.error("Couldn't send \(recordID.recordName, privacy: .public): \(failure.error.localizedDescription, privacy: .public)")
+            }
+        }
+        // Shown on the iCloud Sync card, rather than "Up to date" while iCloud refuses the
+        // records (an undeployed schema on a TestFlight build, say).
+        sendError = rejected.map { "iCloud didn't accept \(failedSaves.count) change\(failedSaves.count == 1 ? "" : "s"): \($0.localizedDescription)" }
+        if sendError == nil, !(saved.isEmpty && deleted.isEmpty) {
+            markSynced()
+        }
+        if sendError != nil {
+            errorMessage = rejected.flatMap { syncErrorMessage(for: $0) }.map { message in
+                rejectedType.map { "\(message) [\($0) records]" } ?? message
+            }
+            // Refused records aren't queued anymore (they stay in `unsent`); send them again
+            // next time, once whatever iCloud objected to may be fixed.
+            state.needsResend = true
+        }
+        saveState()
+        return retry
+    }
+
+    func zoneDatabaseChanged(added: [CKRecordZone.ID], deleted: [CKDatabase.DatabaseChange.Deletion], isShared: Bool) {
+        guard isShared else {
+            // The family's own zone was deleted (iCloud data deleted in Settings, or the keys
+            // reset): send everything up again.
+            if location == .personal, deleted.contains(where: { $0.zoneID.zoneName == zoneName }) {
+                resendOnce()
+            }
+            return
+        }
+        if case .member(let ownerName) = household.mode, added.contains(where: { $0.ownerName == ownerName }) {
+            // Accepted on another device, or by `updateSharing`.
+            markJoined(ownerName)
+        }
+        if case .shared(let ownerName) = location, deleted.contains(where: { $0.zoneID.ownerName == ownerName }) {
+            lostFamilyZone()
+        }
+    }
+
+    func zoneEngineReset(isShared: Bool) {
+        refreshLocation()
+        // The zone's records are as they were; the new engine just needs to know what this
+        // device hasn't sent yet.
+        guard let zone = zoneLocation, zone.isShared == isShared else { return }
+        queueUnsent()
+    }
+
+    func zoneAccountDidChange() {
+        state.joinedOwner = nil
+        if location != .personal {
+            // Someone else's family never stays on a device after its account leaves.
+            if location.isShared {
+                eraseLocalData()
+                UserDefaults.standard.removeObject(forKey: SettingsKey.currentMember)
+            }
+            location = .personal
+            state.location = .personal
+            state.hasFamilyData = false
+        }
+        // This account's own family stays on the device and goes up to the new account's
+        // iCloud (`zoneEngineReset` queues it), as it always has.
+        markAllUnsent()
+        state.hasUploaded = false
+        systemFields = [:]
+        retries = [:]
+        mapsChanged = true
+        saveState()
+    }
+
+    /// Sends everything again, but never more than once every ten minutes, so nothing can keep
+    /// sync starting over.
+    private func resendOnce() {
+        if let last = lastRestart, Date.now.timeIntervalSince(last) < 600 {
+            log.error("Skipped resending everything; it did \(Int(Date.now.timeIntervalSince(last)))s ago")
+            return
+        }
+        lastRestart = .now
+        systemFields = [:]
+        mapsChanged = true
+        queueEverything()
     }
 
     // MARK: Applying iCloud's changes
 
     private func apply(modifications: [CKRecord], deletions: [CKRecord.ID]) {
-        guard let context = makeContext(), !(modifications.isEmpty && deletions.isEmpty) else { return }
+        guard let zoneID = zoneLocation?.zoneID, let context = makeContext(), !(modifications.isEmpty && deletions.isEmpty) else { return }
         let identifiers = identifiersByID()
         var inserted: [any CloudRecord] = []
         var settingsChanged = false
@@ -416,238 +745,47 @@ final class CloudSync {
             Reminders.reschedule(in: context)
         }
         ApprovalAlerts.update(newCompletions: newCompletions, newRedemptions: newRedemptions, handled: handled, in: context)
-    }
-
-    private func handleSent(_ sent: CKSyncEngine.Event.SentRecordZoneChanges) {
-        guard let engine else { return }
-        for record in sent.savedRecords {
-            systemFields[record.recordID.recordName] = Self.encodeSystemFields(of: record)
-            retries[record.recordID.recordName] = nil
-        }
-        for recordID in sent.deletedRecordIDs {
-            systemFields[recordID.recordName] = nil
-        }
-        mapsChanged = true
-        var retry: [CKSyncEngine.PendingRecordZoneChange] = []
-        var needsZone = false
-        var rejected: CKError?
-        for failure in sent.failedRecordSaves {
-            let recordID = failure.record.recordID
-            // Give up on a record after a few tries this session, so one bad record can't
-            // keep sync busy forever.
-            let tries = retries[recordID.recordName, default: 0] + 1
-            retries[recordID.recordName] = tries
-            if tries > 3 {
-                rejected = failure.error
-                log.error("Gave up sending \(recordID.recordName, privacy: .public): \(failure.error.localizedDescription, privacy: .public)")
-                continue
-            }
-            switch failure.error.code {
-            case .serverRecordChanged:
-                // Someone else changed it first. Take their version's change tag and send
-                // ours again on top.
-                if let server = failure.error.serverRecord {
-                    systemFields[recordID.recordName] = Self.encodeSystemFields(of: server)
-                }
-                retry.append(.saveRecord(recordID))
-            case .zoneNotFound:
-                needsZone = true
-                systemFields[recordID.recordName] = nil
-                retry.append(.saveRecord(recordID))
-            case .unknownItem:
-                systemFields[recordID.recordName] = nil
-                retry.append(.saveRecord(recordID))
-            case .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable, .notAuthenticated, .operationCancelled, .requestRateLimited:
-                // The engine tries these again by itself.
-                break
-            default:
-                rejected = failure.error
-                log.error("Couldn't send \(recordID.recordName, privacy: .public): \(failure.error.localizedDescription, privacy: .public)")
-            }
-        }
-        // Shown in Family › Family Sharing, rather than "Up to date" while iCloud refuses
-        // the records (an undeployed schema on a TestFlight build, say).
-        sendError = rejected.map { "iCloud didn't accept \(sent.failedRecordSaves.count) change\(sent.failedRecordSaves.count == 1 ? "" : "s"): \($0.localizedDescription)" }
-        if let sendError {
-            status = .failed(sendError)
-            errorMessage = rejected.flatMap { syncErrorMessage(for: $0) }
-            // Refused records aren't queued anymore; send everything again next launch, once
-            // whatever iCloud objected to may be fixed.
-            state.didInitialUpload = false
-        }
-        if needsZone && role == .participant {
-            // Their zone is gone: the family isn't shared anymore.
-            errorMessage = Self.removedFromFamilyMessage
-            zoneWasDeleted()
-            return
-        }
-        if needsZone {
-            engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
-        }
-        if !retry.isEmpty {
-            engine.state.add(pendingRecordZoneChanges: retry)
-        }
-        saveState()
-    }
-
-    private func handleAccountChange(_ change: CKSyncEngine.Event.AccountChange) {
-        switch change.changeType {
-        case .signIn:
-            // A new engine reports this on its first run too, so it's no reason to start over
-            // (doing that made a new engine, which reported it again, forever). Everything is
-            // already queued from the first sync.
-            break
-        case .signOut:
-            if role == .participant {
-                Task { await leaveLocally(message: "iCloud signed out, so this iPhone left the family.") }
-            } else {
-                // Keep everything on the device; sync picks up again after signing back in.
-                stopEngine()
-                status = .noAccount
-            }
-        case .switchAccounts:
-            if role == .participant {
-                // The family was on the other account. This phone goes back to its own.
-                Task { await leaveLocally(message: "iCloud changed accounts, so this iPhone left the family.") }
-            } else {
-                restartOnce()
-            }
-        @unknown default:
-            break
+        if !inserted.isEmpty, let main = modelContainer?.mainContext {
+            // New people from the family: link them to the household.
+            CalomaHousehold.sync(in: main)
         }
     }
 
-    /// The family's zone is gone from iCloud: the owner stopped sharing or erased it.
-    private func zoneWasDeleted() {
-        if role == .participant {
-            Task { await leaveLocally(message: "The family isn't shared with you anymore.") }
-        } else {
-            // Someone deleted Caloma's iCloud data in Settings: send everything up again.
-            restartOnce()
-        }
-    }
-
-    /// Starts over and sends everything again, but never more than once every ten minutes,
-    /// so nothing can keep sync starting over.
-    private func restartOnce() {
-        if let last = lastRestart, Date.now.timeIntervalSince(last) < 600 {
-            log.error("Skipped restarting sync; it restarted \(Int(Date.now.timeIntervalSince(last)))s ago")
-            return
-        }
-        lastRestart = .now
-        Task { await restart(resetting: true) }
-    }
-
-    // MARK: Switching families
-
-    /// Starts over with a fresh engine. Resetting sends everything up again.
-    func restart(resetting: Bool) async {
-        stopEngine()
-        if resetting {
-            state.engineState = nil
-            systemFields = [:]
-            state.didInitialUpload = false
-            mapsChanged = true
-        }
-        saveState()
-        await startEngine()
-    }
-
-    /// Becomes part of another family: everything here is replaced by what's in their zone.
-    func join(zoneID: CKRecordZone.ID) async {
-        stopEngine()
-        eraseLocalData()
-        role = .participant
-        state = SyncState()
-        systemFields = [:]
-        idsByModel = [:]
-        mapsChanged = true
-        state.role = .participant
-        state.zoneName = zoneID.zoneName
-        state.zoneOwner = zoneID.ownerName
-        state.didInitialUpload = true
-        if let context = makeContext() {
-            state.historyToken = latestHistoryToken(in: context)
-        }
-        saveState()
-        UserDefaults.standard.removeObject(forKey: SettingsKey.currentMember)
-        UserDefaults.standard.set(true, forKey: SettingsKey.onboarded)
-        UserDefaults.standard.set(true, forKey: SettingsKey.seeded)
-        await startEngine()
-        await syncNow()
-    }
-
-    /// After leaving (or being removed from) a family: this device starts fresh on its own.
-    func leaveLocally(message: String?) async {
-        stopEngine()
-        eraseLocalData()
-        role = .solo
-        state = SyncState()
-        systemFields = [:]
-        idsByModel = [:]
-        mapsChanged = true
-        if let context = makeContext() {
-            state.historyToken = latestHistoryToken(in: context)
-        }
-        state.didInitialUpload = true
-        saveState()
-        UserDefaults.standard.set(false, forKey: SettingsKey.onboarded)
-        notice = message
-        await startEngine()
-    }
-
-    func becameOwner() {
-        role = .owner
-        state.role = .owner
-        saveState()
-    }
-
-    func stoppedSharing() {
-        role = .solo
-        state.role = .solo
-        saveState()
-    }
+    // MARK: Erase All Data
 
     /// Stops sending right away, before Erase All Data deletes everything locally.
     func pauseForErase() {
         scanTask?.cancel()
-        stopEngine()
+        isErasing = true
     }
 
-    /// Erase All Data: the family's zone is deleted from iCloud too (or, for someone who
-    /// joined, they leave). Call before the local data is deleted.
+    /// Erase All Data: this account's family zone is deleted from iCloud too. Someone in
+    /// another family's Caloma only erases this device; the family's data comes back down.
+    /// Call after the local data is deleted.
     func eraseEverywhere() async {
-        stopEngine()
-        let wasParticipant = role == .participant
-        let zone = zoneID
-        do {
-            if wasParticipant {
-                try await ckContainer.sharedCloudDatabase.deleteRecord(withID: CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zone))
-            } else {
-                try await ckContainer.privateCloudDatabase.deleteRecordZone(withID: zone)
+        if location == .personal, let container = household.cloudContainer {
+            do {
+                _ = try await container.privateCloudDatabase.modifyRecordZones(saving: [], deleting: [CKRecordZone.ID(zoneName: zoneName)])
+            } catch let error as CKError where error.code == .zoneNotFound || error.code == .unknownItem {
+            } catch {
+                log.error("Couldn't erase iCloud data: \(error.localizedDescription, privacy: .public)")
             }
-        } catch {
-            log.error("Couldn't erase iCloud data: \(error.localizedDescription, privacy: .public)")
         }
-        role = .solo
-        state = SyncState()
-        systemFields = [:]
-        idsByModel = [:]
-        mapsChanged = true
-        saveState()
     }
 
     /// After Erase All Data deleted everything locally: skip that history and start fresh.
     func didEraseLocally() async {
         idsByModel = [:]
         systemFields = [:]
+        retries = [:]
         mapsChanged = true
         if let context = makeContext() {
             state.historyToken = latestHistoryToken(in: context)
         }
         state.didInitialUpload = true
+        isErasing = false
         saveState()
-        await startEngine()
+        if location.isShared { await fetchWholeZone() }
     }
 
     /// Deletes every model on this device without sending the deletes anywhere.
@@ -659,13 +797,18 @@ final class CloudSync {
             }
         }
         try? context.save()
+        idsByModel = [:]
+        // Those deletes were this device's own business, and nothing here is unsent any more.
+        state.historyToken = latestHistoryToken(in: context)
+        state.unsentSaves = []
+        state.unsentDeletes = []
+        state.needsResend = false
     }
 
     // MARK: Helpers
 
     /// Remembers every model's id by its SwiftData identifier, so a delete found in the history
-    /// can be sent (the deleted model itself can't be read anymore). Keeps entries for models
-    /// deleted since last time until the history scan sends them.
+    /// can be sent (the deleted model itself can't be read anymore).
     private func rememberAllIDs() {
         guard let context = makeContext() else { return }
         for type in SyncSchema.types {
@@ -673,14 +816,15 @@ final class CloudSync {
                 idsByModel[model.persistentModelID] = model.id
             }
         }
-        mapsChanged = true
     }
 
     /// Each model's SwiftData identifier by its id.
     private func identifiersByID() -> [UUID: PersistentIdentifier] {
+        if let identifierCache { return identifierCache }
         var result: [UUID: PersistentIdentifier] = [:]
         result.reserveCapacity(idsByModel.count)
         for (identifier, id) in idsByModel { result[id] = identifier }
+        identifierCache = result
         return result
     }
 
@@ -693,13 +837,13 @@ final class CloudSync {
     }
 
     func recordID(for id: UUID) -> CKRecord.ID {
-        CKRecord.ID(recordName: id.uuidString, zoneID: zoneID)
+        CKRecord.ID(recordName: id.uuidString, zoneID: zoneLocation?.zoneID ?? CKRecordZone.ID(zoneName: zoneName))
     }
 
     private func makeRecord(for model: any CloudRecord) -> CKRecord {
         let recordID = recordID(for: model.id)
         let record: CKRecord
-        if let data = systemFields[recordID.recordName], let cached = Self.decodeSystemFields(data), cached.recordID.zoneID == zoneID {
+        if let data = systemFields[recordID.recordName], let cached = Self.decodeSystemFields(data), cached.recordID.zoneID == recordID.zoneID {
             record = cached
         } else {
             record = CKRecord(recordType: type(of: model).recordType, recordID: recordID)
@@ -716,6 +860,15 @@ final class CloudSync {
         return context
     }
 
+    /// One context for a burst of records the engine asks for, dropped right after.
+    private func senderContext() -> ModelContext? {
+        if let sendContext { return sendContext }
+        let context = makeContext()
+        sendContext = context
+        Task { @MainActor [weak self] in self?.sendContext = nil }
+        return context
+    }
+
     private func fetchModels<T: CloudRecord>(_ type: T.Type, in context: ModelContext) -> [any CloudRecord] {
         ((try? context.fetch(FetchDescriptor<T>())) ?? []).map { $0 as any CloudRecord }
     }
@@ -729,11 +882,15 @@ final class CloudSync {
         return transactions.last?.token
     }
 
+    /// Records really went up or came down.
+    private func markSynced() {
+        lastSynced = .now
+        errorMessage = nil
+    }
+
     private func fail(_ error: Error) {
-        let message = (error as? CKError).map { Self.describe($0) } ?? error.localizedDescription
-        status = .failed(message)
         errorMessage = syncErrorMessage(for: error)
-        log.error("Sync failed: \(error.localizedDescription, privacy: .public)")
+        log.error("Sync failed: \(Self.detail(error), privacy: .public)")
     }
 
     static func describe(_ error: CKError) -> String {
@@ -755,24 +912,25 @@ final class CloudSync {
         if !AppConfig.cloudSyncEnabled {
             account = .unavailable(nil)
         } else {
-            switch status {
+            switch household.account {
+            case .checking: account = .checking
+            case .available: account = .available
             case .noAccount:
-                account = .unavailable(accountStatus == .restricted
-                    ? "iCloud is restricted on this device."
-                    : "Sign in to iCloud in Settings to keep the family’s chores, calendar and rewards on every device.")
-            case .off:
-                // Not started yet (or starting over): still asking iCloud.
-                account = .checking
-            case .syncing, .upToDate, .failed:
-                account = .available
+                account = .unavailable("Sign in to iCloud in Settings to keep the family’s chores, calendar and rewards on every device.")
+            case .unavailable:
+                account = .unavailable("iCloud isn’t available on this device right now.")
             }
+        }
+        var message = errorMessage
+        if message == nil, case .waiting = location {
+            message = "Waiting for your household’s Caloma to be shared with you. It happens the next time the person who set up the household opens Caloma."
         }
         return HearthSyncSnapshot(
             account: account,
-            isSyncing: status == .syncing,
+            isSyncing: household.isSyncing,
             lastSynced: lastSynced,
-            pendingChanges: engine?.state.pendingRecordZoneChanges.count,
-            errorMessage: errorMessage
+            pendingChanges: nil,
+            errorMessage: message
         )
     }
 
@@ -780,24 +938,35 @@ final class CloudSync {
     /// (offline, signed out: the card says those itself).
     private func syncErrorMessage(for error: Error) -> String? {
         guard let error = error as? CKError else {
-            return "iCloud couldn’t sync right now. Caloma will try again on its own."
+            return "iCloud couldn’t sync: \(Self.detail(error))"
         }
         switch error.code {
         case .quotaExceeded:
             return "iCloud storage is full, so new changes can’t be saved there. Free up space in Settings › [your name] › iCloud."
         case .networkUnavailable, .networkFailure, .notAuthenticated:
             return nil
-        case .zoneNotFound where role == .participant:
-            return Self.removedFromFamilyMessage
         default:
-            return "iCloud couldn’t sync right now. Caloma will try again on its own."
+            return "iCloud couldn’t sync: \(Self.detail(error))"
         }
     }
 
+    /// iCloud's own reason, with its error code, so a refusal can be tracked down. A partial
+    /// failure names the first record error inside it.
+    static func detail(_ error: Error) -> String {
+        guard let error = error as? CKError else {
+            let ns = error as NSError
+            return "\(ns.localizedDescription) (\(ns.domain) \(ns.code))"
+        }
+        if error.code == .partialFailure, let inner = error.partialErrorsByItemID?.values.first {
+            return detail(inner)
+        }
+        return "\(error.localizedDescription) (CKError \(error.code.rawValue))"
+    }
+
     /// Saves what sync remembers a moment later, off the main thread, so a burst of events
-    /// writes once. The big maps (change tags and ids) are written only when they changed.
+    /// writes once. The big map (change tags) is written only when it changed.
     private func saveState() {
-        state.role = role
+        state.location = location
         saveTask?.cancel()
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1))
@@ -828,38 +997,60 @@ final class CloudSync {
     }
 }
 
-/// The engine's delegate. It holds nothing and hands every call to `CloudSync` on the main
-/// actor, where the store is.
-nonisolated final class SyncEngineDelegate: CKSyncEngineDelegate {
-    func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
-        await CloudSync.shared.handle(event, from: syncEngine)
-    }
-
-    func nextRecordZoneChangeBatch(_ context: CKSyncEngine.SendChangesContext, syncEngine: CKSyncEngine) async -> CKSyncEngine.RecordZoneChangeBatch? {
-        await CloudSync.shared.nextBatch(context, for: syncEngine)
-    }
-}
-
-/// What sync remembers between launches, in Application Support.
+/// What sync remembers between launches, in Application Support/Sync. Only ever about the zone
+/// in `location`: moving to another family's zone erases what's on the device and starts over.
 nonisolated struct SyncState: Codable, @unchecked Sendable {
-    var role: CloudSync.Role = .solo
-    var zoneName: String = "Family"
-    var zoneOwner: String = CKCurrentUserDefaultName
+    var location: CloudSync.Location = .personal
+    /// The household owner whose family zone this account is in, once it was shared with it.
+    var joinedOwner: String?
     var historyToken: DefaultHistoryToken?
-    var engineState: CKSyncEngine.State.Serialization?
     var didInitialUpload = false
-    /// Which full resend this device has done (see `CloudSync.uploadGeneration`). Optional so
-    /// older saved states still load.
+    /// Which full resend this device has done (see `CloudSync.uploadGeneration`).
     var uploadGeneration: Int?
     /// The record types this device knew when it last started; a new one means fetching
-    /// everything again (see `CloudSync.startEngine`). nil: saved by a build before this.
+    /// everything again (see `CloudSync.householdStarted`).
     var knownTypes: [String]?
+    /// In a family's zone: the first full fetch of it finished, so people can be added here.
+    var hasFamilyData = false
+    /// This device had joined another family in Caloma's own container: its data is that
+    /// family's and never goes into this account's own zone.
+    var legacyParticipant = false
+    /// Records this device has had accepted by iCloud since the move to the Hearth container.
+    var hasUploaded = false
+    /// This device's changes iCloud doesn't have yet, by record name (a model's UUID).
+    var unsentSaves: Set<String> = []
+    var unsentDeletes: Set<String> = []
+    /// iCloud refused some: send the unsent ones again on the next sync.
+    var needsResend = false
 
-    private static var url: URL {
+    init() {}
+
+    /// Missing keys (a file from an earlier build) take their defaults.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        location = try container.decodeIfPresent(CloudSync.Location.self, forKey: .location) ?? .personal
+        joinedOwner = try container.decodeIfPresent(String.self, forKey: .joinedOwner)
+        historyToken = try container.decodeIfPresent(DefaultHistoryToken.self, forKey: .historyToken)
+        didInitialUpload = try container.decodeIfPresent(Bool.self, forKey: .didInitialUpload) ?? false
+        uploadGeneration = try container.decodeIfPresent(Int.self, forKey: .uploadGeneration)
+        knownTypes = try container.decodeIfPresent([String].self, forKey: .knownTypes)
+        hasFamilyData = try container.decodeIfPresent(Bool.self, forKey: .hasFamilyData) ?? false
+        legacyParticipant = try container.decodeIfPresent(Bool.self, forKey: .legacyParticipant) ?? false
+        hasUploaded = try container.decodeIfPresent(Bool.self, forKey: .hasUploaded) ?? false
+        unsentSaves = try container.decodeIfPresent(Set<String>.self, forKey: .unsentSaves) ?? []
+        unsentDeletes = try container.decodeIfPresent(Set<String>.self, forKey: .unsentDeletes) ?? []
+        needsResend = try container.decodeIfPresent(Bool.self, forKey: .needsResend) ?? false
+    }
+
+    private static var folder: URL {
         let folder = URL.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder.appendingPathComponent("state.json")
+        return folder
     }
+
+    private static var url: URL { folder.appendingPathComponent("hearth-state.json") }
+
+    static var exists: Bool { FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) }
 
     static func load() -> SyncState {
         guard let data = try? Data(contentsOf: url), let state = try? JSONDecoder().decode(SyncState.self, from: data) else {
@@ -872,18 +1063,38 @@ nonisolated struct SyncState: Codable, @unchecked Sendable {
         guard let data = try? JSONEncoder().encode(self) else { return }
         try? data.write(to: Self.url, options: .atomic)
     }
+
+    // MARK: Before the Hearth container
+
+    /// Builds before the move kept their own engine's state here, for Caloma's own container.
+    private struct Legacy: Decodable {
+        var role: String?
+    }
+
+    /// Whether this device had joined someone else's family in Caloma's own container.
+    static func legacyRoleWasParticipant() -> Bool {
+        guard let data = try? Data(contentsOf: folder.appendingPathComponent("state.json")),
+              let legacy = try? JSONDecoder().decode(Legacy.self, from: data) else { return false }
+        return legacy.role == "participant"
+    }
+
+    /// The old container's engine state and change tags mean nothing in the Hearth container.
+    static func removeLegacyFiles() {
+        for name in ["state.json", "maps.plist"] {
+            try? FileManager.default.removeItem(at: folder.appendingPathComponent(name))
+        }
+    }
 }
 
-/// The big part of what sync remembers: every record's change tag and every model's id. Kept
-/// in its own file so the small state can be saved often without rewriting these.
+/// The big part of what sync remembers: every record's change tag. Kept in its own file so the
+/// small state can be saved often without rewriting it.
 nonisolated struct SyncMaps: Codable, @unchecked Sendable {
     var systemFields: [String: Data] = [:]
-    // Older versions also saved model ids here; that key is now ignored when loading.
 
     private static var url: URL {
         let folder = URL.applicationSupportDirectory.appendingPathComponent("Sync", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder.appendingPathComponent("maps.plist")
+        return folder.appendingPathComponent("hearth-maps.plist")
     }
 
     static func load() -> SyncMaps {

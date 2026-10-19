@@ -21,10 +21,11 @@ struct DayAgenda: View {
         let appleAllDay = appleEvents.filter(\.isAllDay)
         let appleTimed = appleEvents.filter { !$0.isAllDay }
         let meals = CalendarFilter.shared.showMeals ? HearthLink.shared.meals(on: day) : []
-        let isEmpty = occurrences.isEmpty && appleEvents.isEmpty && chores.isEmpty && homeTasks.isEmpty && meals.isEmpty
+        let readings = CalendarFilter.shared.showReading ? HearthLink.shared.readings(on: day) : []
+        let isEmpty = occurrences.isEmpty && appleEvents.isEmpty && chores.isEmpty && homeTasks.isEmpty && meals.isEmpty && readings.isEmpty
 
         VStack(alignment: .leading, spacing: 8) {
-            if !allDay.isEmpty || !appleAllDay.isEmpty || !homeTasks.isEmpty || !meals.isEmpty {
+            if !allDay.isEmpty || !appleAllDay.isEmpty || !homeTasks.isEmpty || !meals.isEmpty || !readings.isEmpty {
                 VStack(spacing: 6) {
                     // The day's meals from BigTable, with their photos; tapping opens them there.
                     ForEach(meals) { meal in
@@ -36,6 +37,23 @@ struct DayAgenda: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(meal.slotLabel): \(meal.isDineOut ? (meal.placeName ?? meal.title) : meal.title)")
                         .accessibilityHint("Opens in BigTable")
+                    }
+                    // The day's reading from Hearken's plan; tapping opens it there.
+                    ForEach(readings) { reading in
+                        Button {
+                            if let link = reading.link, let url = URL(string: link) { openURL(url) }
+                        } label: {
+                            AllDayStrip(
+                                title: reading.title,
+                                symbol: reading.isDone ? "checkmark.circle.fill" : "book.fill",
+                                detail: reading.isDone ? "Read" : readingDetail(reading),
+                                color: HearthLink.hearkenColor,
+                                dashed: !reading.isDone
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(reading.planName): \(reading.title)\(reading.isDone ? ", read" : "")")
+                        .accessibilityHint("Opens in Hearken")
                     }
                     ForEach(allDay) { occurrence in
                         Button {
@@ -101,6 +119,18 @@ struct DayAgenda: View {
                 .disabled(onNew == nil)
             }
         }
+    }
+
+    /// "Hearken · 7:00 AM", or the plan's name when there's no reminder.
+    private func readingDetail(_ reading: HearthReading.Reading) -> String {
+        // Whose reading, when it's someone in the Hearth household: "Hearken · Steve · 7:00 AM".
+        let reader = HearthLink.shared.reading?.readerID
+            .flatMap { HearthHouseholdStore.shared.member($0)?.firstName }
+            .map { " · " + $0 } ?? ""
+        if let start = HearthLink.shared.readingStart(on: day) {
+            return "Hearken" + reader + " · " + start.formatted(date: .omitted, time: .shortened)
+        }
+        return reading.planName + reader
     }
 
     private enum Entry {

@@ -142,6 +142,9 @@ struct CalendarView: View {
                         if HearthLink.shared.mealPlan != nil {
                             LayerChip(title: "Meals", isOn: filter.showMeals) { filter.showMeals.toggle() }
                         }
+                        if HearthLink.shared.reading != nil {
+                            LayerChip(title: "Reading", isOn: filter.showReading) { filter.showReading.toggle() }
+                        }
                     }
                     .padding(.horizontal, 16)
                 }

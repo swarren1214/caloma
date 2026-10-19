@@ -22,6 +22,7 @@ struct CalomaApp: App {
             StarterData.seedIfNeeded(in: container.mainContext)
         }
         Upgrades.run(in: container.mainContext)
+        // Registers Caloma's zone with the household store, which starts in AppRoot's task.
         CloudSync.shared.start(with: container)
         SharedSettings.shared.start(with: container)
         WatchBridge.shared.start(with: container)
@@ -167,9 +168,22 @@ struct AppRoot: View {
     @Environment(\.modelContext) private var context
     @AppStorage(SettingsKey.onboarded) private var onboarded = false
     @Environment(\.scenePhase) private var scenePhase
+    @State private var household = HearthHouseholdStore.shared
     private var sync: CloudSync { CloudSync.shared }
 
     private var accent: Color { Brand.defaultAccent }
+
+    /// What decides who Caloma's zone is shared with: the household, who's joined it, and the
+    /// family zone's link.
+    private var sharingKey: String {
+        let joined = household.participants.filter { $0.acceptanceStatus == .accepted }.count
+        return "\(household.exists)|\(household.mode)|\(household.account)|\(joined)|\(household.info?.appShareURLs[HearthApp.caloma.rawValue] ?? "")"
+    }
+
+    /// Caloma's part of a person's page in Household.
+    private var personExtras: @MainActor (HearthMember) -> AnyView {
+        { person in AnyView(CalomaPersonExtras(person: person)) }
+    }
 
     var body: some View {
         @Bindable var router = router
@@ -199,6 +213,7 @@ struct AppRoot: View {
             }
             .tint(accent)
             .environment(\.accent, accent)
+            .environment(\.hearthPersonExtras, personExtras)
         }
         .fullScreenCover(isPresented: Binding(get: { onboarded && router.kidViewOpen }, set: { router.kidViewOpen = $0 })) {
             KidModeView()
@@ -209,92 +224,41 @@ struct AppRoot: View {
             EventAlerts.reschedule(in: context)
             AppleCalendar.shared.pushFamilyEvents(in: context)
             HearthLink.shared.start()
+            // The family every Hearth app shares. Caloma's zone syncs on its engines, so
+            // CloudSync registered before this.
+            household.start(app: .caloma)
+            sync.householdStarted()
+            CalomaHousehold.sync(in: context)
+            await sync.updateSharing()
         }
+        .onChange(of: household.snapshot) { _, _ in
+            sync.refreshLocation()
+            CalomaHousehold.sync(in: context)
+        }
+        .onChange(of: sharingKey) { _, _ in
+            Task { await sync.updateSharing() }
+        }
+        .hearthHouseholdInvitations()
+        // Every Hearth app works inside a household (a household of one is fine).
+        .hearthHouseholdRequired(isActive: onboarded && !ScreenshotMode.isOn, accent: Brand.defaultAccent)
+        .environment(\.hearthPersonExtras, personExtras)
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { await CloudSync.shared.syncNow() }
+            Task {
+                await sync.syncNow()
+                await sync.updateSharing()
+            }
             FamilyLists.clearFinished(in: context)
             EventAlerts.reschedule(in: context)
             // "Coming up" and today's chores move on with the clock.
             WatchBridge.shared.setNeedsUpdate()
             HearthLink.shared.reload()
-        }
-        .sheet(item: Binding(get: { sync.pendingInvite.map(InviteRef.init) }, set: { if $0 == nil { sync.pendingInvite = nil } })) { invite in
-            JoinFamilySheet(metadata: invite.metadata)
-                .tint(accent)
-                .environment(\.accent, accent)
+            CalomaHousehold.sync(in: context)
         }
         .alert(sync.notice ?? "", isPresented: Binding(get: { sync.notice != nil }, set: { if !$0 { sync.notice = nil } })) {
             Button("OK") { sync.notice = nil }
         }
         // Notifications open caloma://homecare, caloma://chores, caloma://rewards.
         .onOpenURL { url in router.open(url) }
-    }
-}
-
-/// An invitation waiting for an answer, for `.sheet(item:)`.
-struct InviteRef: Identifiable {
-    var metadata: CKShare.Metadata
-    var id: String { metadata.share.recordID.recordName + metadata.share.recordID.zoneID.ownerName }
-}
-
-/// "Join the family?" after tapping an invitation. Joining replaces what's on this device.
-struct JoinFamilySheet: View {
-    var metadata: CKShare.Metadata
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.accent) private var accent
-    @State private var joining = false
-
-    private var familyName: String {
-        metadata.share[CKShare.SystemFieldKey.title] as? String ?? "a family"
-    }
-
-    private var ownerName: String {
-        metadata.ownerIdentity.nameComponents.map { $0.formatted(.name(style: .short)) } ?? "Someone"
-    }
-
-    var body: some View {
-        VStack(spacing: 18) {
-            Image(systemName: "person.2.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(accent)
-                .padding(.top, 28)
-            Text("Join \(familyName)?")
-                .font(.title.bold())
-                .multilineTextAlignment(.center)
-            Text("\(ownerName) invited you. You'll both see and change the same chores, rewards, points, home care and calendar.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-            Label("Anything already in Caloma on this iPhone is replaced by the family's.", systemImage: "exclamationmark.triangle.fill")
-                .font(.footnote)
-                .foregroundStyle(Brand.waiting)
-                .padding(12)
-                .background(Brand.waiting.opacity(0.12), in: .rect(cornerRadius: 14))
-            Spacer()
-            Button {
-                joining = true
-                Task {
-                    await CloudSync.shared.acceptInvite()
-                    dismiss()
-                }
-            } label: {
-                HStack {
-                    if joining { ProgressView().tint(.white) }
-                    Text(joining ? "Joining…" : "Join Family")
-                }
-                .font(.headline)
-                .frame(maxWidth: .infinity, minHeight: 50)
-            }
-            .buttonStyle(.glassProminent)
-            .disabled(joining)
-            Button("Not Now") {
-                CloudSync.shared.pendingInvite = nil
-                dismiss()
-            }
-            .disabled(joining)
-        }
-        .padding(24)
-        .presentationDetents([.medium, .large])
-        .interactiveDismissDisabled(joining)
     }
 }

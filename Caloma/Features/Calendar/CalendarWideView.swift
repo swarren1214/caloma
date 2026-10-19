@@ -179,6 +179,9 @@ struct CalendarWideView: View {
             if HearthLink.shared.mealPlan != nil {
                 Toggle("Meals", isOn: Binding(get: { filter.showMeals }, set: { filter.showMeals = $0 }))
             }
+            if HearthLink.shared.reading != nil {
+                Toggle("Reading", isOn: Binding(get: { filter.showReading }, set: { filter.showReading = $0 }))
+            }
         } label: {
             Image(systemName: filter.hidden.isEmpty ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
                 .font(.body.weight(.semibold))
@@ -514,6 +517,12 @@ struct WeekGrid: View {
             items += HearthLink.shared.meals(on: date).map { meal in
                 let start = meal.start(on: date)
                 return Placed(id: "meal-\(meal.slot)", title: meal.isDineOut ? (meal.placeName ?? meal.title) : meal.title, subtitle: meal.slotLabel, start: start, end: start.addingTimeInterval(Double(meal.calendarMinutes) * 60), color: HearthLink.bigTableColor, ref: nil, meal: meal)
+            }
+        }
+        // Hearken's reading, at its reminder time (without one, it shows in the day's list only).
+        if CalendarFilter.shared.showReading, let start = HearthLink.shared.readingStart(on: date) {
+            items += HearthLink.shared.readings(on: date).map { reading in
+                Placed(id: "reading-\(reading.id)", title: reading.title, subtitle: reading.isDone ? "Read · Hearken" : "Hearken", start: start, end: start.addingTimeInterval(1800), color: HearthLink.hearkenColor, ref: nil)
             }
         }
         let placed = lay(items.sorted { $0.start < $1.start })

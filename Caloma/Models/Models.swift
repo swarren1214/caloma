@@ -404,6 +404,9 @@ final class PointEntry {
     var refID: UUID?
     var date: Date = Date.now
     var note: String = ""
+    /// For allowance paid out (`cashOut`): the money paid, in cents, at the rate that day.
+    /// Nil for everything else, and for payouts from before this was kept.
+    var cents: Int?
 
     init(memberID: UUID, points: Int, kind: PointKind, refID: UUID? = nil, note: String = "", date: Date = .now) {
         self.memberID = memberID

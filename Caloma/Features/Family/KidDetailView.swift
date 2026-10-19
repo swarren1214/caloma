@@ -103,12 +103,15 @@ struct KidDetailView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Group {
-                    Button("Edit") { editingMember = true }
+            // People are edited in the household, for every app.
+            if let person = CalomaHousehold.person(for: kid), HearthHouseholdStore.shared.canEdit(person) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Group {
+                        Button("Edit") { editingMember = true }
+                    }
+                    // White over the color header.
+                    .tint(.white)
                 }
-                // White over the color header.
-                .tint(.white)
             }
         }
         .sheet(isPresented: $adjusting) {
@@ -116,7 +119,9 @@ struct KidDetailView: View {
                 .presentationDetents([.medium])
         }
         .sheet(isPresented: $editingMember) {
-            NavigationStack { MemberEditor(member: kid, role: .kid, showsCancel: true) }
+            if let person = CalomaHousehold.person(for: kid) {
+                HearthPersonEditor(member: person, accent: Brand.defaultAccent)
+            }
         }
     }
 

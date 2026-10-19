@@ -72,6 +72,7 @@ final class WatchBridge: NSObject {
         Task { await DrivingLiveActivity.refresh(in: container.mainContext) }
         // The other Hearth apps on this device see the family too.
         HearthLink.publishFamily(in: container.mainContext)
+        HearthLink.publishAllowance(in: container.mainContext)
 
         guard let session, session.activationState == .activated, session.isPaired, session.isWatchAppInstalled,
               let data = snapshot.encoded(), fingerprint != lastSent else { return }

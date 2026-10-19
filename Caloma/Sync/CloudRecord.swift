@@ -273,10 +273,12 @@ extension PointEntry: CloudRecord {
         record.setUUID(refID, for: "refID")
         record["date"] = date
         record["note"] = note
+        record["cents"] = cents.map { NSNumber(value: $0) }
     }
 
     func read(from record: CKRecord) {
         memberID = record.uuid("memberID")
+        cents = record.int("cents")
         points = record.int("points") ?? points
         kindRaw = record.string("kindRaw") ?? kindRaw
         refID = record.uuid("refID")
