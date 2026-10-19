@@ -130,7 +130,7 @@ struct MoreView: View {
 
     private var homeCareDetail: String {
         guard CalomaPlus.isUnlocked else { return "Filters, smoke detectors and gutters, on time." }
-        switch dueSoon {
+        return switch dueSoon {
         case 0: homeTasks.isEmpty ? "Filters, smoke detectors and gutters, on time." : "Nothing due this week."
         case 1: "1 task due this week."
         case let count: "\(count) tasks due this week."
