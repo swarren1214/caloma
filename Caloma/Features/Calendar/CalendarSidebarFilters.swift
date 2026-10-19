@@ -27,8 +27,10 @@ struct CalendarSidebarFilters: View {
             checkRow("Chores", on: filter.showChores) {
                 filter.showChores.toggle()
             }
-            checkRow("Home Care", on: filter.showHomeCare) {
-                filter.showHomeCare.toggle()
+            if CalomaPlus.isUnlocked {
+                checkRow("Home Care", on: filter.showHomeCare) {
+                    filter.showHomeCare.toggle()
+                }
             }
             if HearthLink.shared.mealPlan != nil {
                 checkRow("Meals", on: filter.showMeals) {
@@ -52,6 +54,15 @@ struct CalendarSidebarFilters: View {
             }
             .contextMenu {
                 Button("Choose Calendars…", menuIcon: "calendar") { showsAppleSettings = true }
+            }
+
+            // BigTable's meals and Hearken's reading would show on the calendar with Hearth+.
+            if HearthLink.shared.hasLockedMealPlan || HearthLink.shared.hasLockedReading {
+                VStack(spacing: 8) {
+                    CalendarHearthPlusTeasers()
+                }
+                .padding(.horizontal, 4)
+                .padding(.top, 10)
             }
 
             let visible = events.map(\.record).filter { self.filter.shows($0) }

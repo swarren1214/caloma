@@ -27,6 +27,8 @@ struct KioskSettingsView: View {
     @State private var settingPIN = false
     @State private var startsAfterPIN = false
     @State private var guidedAccess = false
+    /// Starting the Family Board without Caloma Plus or Hearth+.
+    @State private var showsPaywall = false
 
     private let idleChoices = [15, 20, 30, 60, 120]
 
@@ -46,6 +48,15 @@ struct KioskSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 6)
+            }
+
+            // The Family Board is part of Caloma Plus and Hearth+.
+            if !CalomaPlus.isUnlocked {
+                Section {
+                    HearthLockedCard(feature: CalomaPlus.familyBoard)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
             }
 
             Section {
@@ -211,6 +222,7 @@ struct KioskSettingsView: View {
             }
         }
         .navigationTitle("Family Board")
+        .hearthPaywall(isPresented: $showsPaywall, feature: CalomaPlus.familyBoard)
         .onAppear {
             guidedAccess = UIAccessibility.isGuidedAccessEnabled
             pinIsSet = ParentPIN.isSet
@@ -255,6 +267,10 @@ struct KioskSettingsView: View {
 
     /// Kiosk Mode needs a PIN first, so there's always a way back out.
     private func start() {
+        guard CalomaPlus.isUnlocked else {
+            showsPaywall = true
+            return
+        }
         if ParentPIN.isSet {
             router.openKiosk()
         } else {

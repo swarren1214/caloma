@@ -196,10 +196,11 @@ final class WatchBridge: NSObject {
             }
         }
 
-        // Home care that's late or due within three days.
+        // Home care that's late or due within three days (Caloma Plus or Hearth+).
         let soon = calendar.date(byAdding: .day, value: 3, to: today) ?? today
+        let homeCareOn = CalomaPlus.isUnlocked
         snapshot.homeCare = Persistence.fetchAll(HomeTask.self, in: context)
-            .filter { !$0.isArchived && calendar.startOfDay(for: $0.nextDue) <= soon }
+            .filter { homeCareOn && !$0.isArchived && calendar.startOfDay(for: $0.nextDue) <= soon }
             .sorted { $0.nextDue < $1.nextDue }
             .prefix(6)
             .map { WatchSnapshot.HomeCareItem(id: $0.id, name: $0.name, symbol: $0.symbol, due: $0.nextDue, location: $0.location, details: $0.details.isEmpty ? nil : $0.details) }

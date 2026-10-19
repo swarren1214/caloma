@@ -5,19 +5,33 @@ import SwiftUI
 import UIKit
 
 /// Caloma's side of sharing with the other Hearth apps on this device (see `HearthShared.swift`):
-/// it shares the family, and shows BigTable's planned meals on Home and the calendar.
+/// it shares the family, and shows BigTable's planned meals on Home and the calendar (with Hearth+).
 @MainActor
 @Observable
 final class HearthLink {
     static let shared = HearthLink()
 
-    /// BigTable's plan, when BigTable is on this device and has shared one recently.
-    private(set) var mealPlan: HearthMealPlan?
+    /// BigTable's plan, when BigTable is on this device and has shared one recently, whether or
+    /// not Caloma may show it.
+    private(set) var sharedMealPlan: HearthMealPlan?
     /// When the family eats (set here or in BigTable), for meals on the calendar.
     private(set) var mealTimes = HearthMealTimes.standard
 
-    /// Hearken's reading plan on this device: each day's reading, for the calendar.
-    private(set) var reading: HearthReading?
+    /// Hearken's reading plan on this device, whether or not Caloma may show it.
+    private(set) var sharedReading: HearthReading?
+
+    /// BigTable's plan, for Home, the calendar, the wall, the watch and widgets. Showing another
+    /// app's data is Hearth+ (the apps working together), so it's nil without it.
+    var mealPlan: HearthMealPlan? { CalomaPlus.hasHearthPlus ? sharedMealPlan : nil }
+
+    /// Hearken's reading plan: each day's reading, for the calendar. Hearth+ only, like meals.
+    var reading: HearthReading? { CalomaPlus.hasHearthPlus ? sharedReading : nil }
+
+    /// BigTable has shared a plan that Hearth+ would put on the calendar (for the teaser).
+    var hasLockedMealPlan: Bool { sharedMealPlan != nil && !CalomaPlus.hasHearthPlus }
+
+    /// Hearken has shared a reading plan that Hearth+ would put on the calendar (for the teaser).
+    var hasLockedReading: Bool { sharedReading != nil && !CalomaPlus.hasHearthPlus }
 
     /// BigTable's red, for its meals on the calendar.
     static let bigTableColor = Color(hex: 0xD9472B)
@@ -45,10 +59,10 @@ final class HearthLink {
         let times = HearthMealTimes.current
         if times != mealTimes { mealTimes = times }
         let reading = Hearth.read(HearthReading.self, from: .hearken, maxAge: 14 * 24 * 60 * 60)?.value
-        if reading != self.reading { self.reading = reading }
+        if reading != sharedReading { sharedReading = reading }
         let plan = Hearth.read(HearthMealPlan.self, from: .bigtable, maxAge: 14 * 24 * 60 * 60)?.value
-        guard plan != mealPlan else { return }
-        mealPlan = plan
+        guard plan != sharedMealPlan else { return }
+        sharedMealPlan = plan
         // Tonight's dinner is on the widgets and the watch.
         WatchBridge.shared.setNeedsUpdate()
     }

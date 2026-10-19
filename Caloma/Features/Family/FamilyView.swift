@@ -160,14 +160,17 @@ struct FamilyView: View {
             }
 
             Section {
-                Toggle(isOn: Binding(get: { homeReminders }, set: { on in
-                    homeReminders = on
-                    Task {
-                        if on { _ = await Reminders.requestPermission() }
-                        Reminders.reschedule(in: context)
+                // Home Care is part of Caloma Plus and Hearth+.
+                if CalomaPlus.isUnlocked {
+                    Toggle(isOn: Binding(get: { homeReminders }, set: { on in
+                        homeReminders = on
+                        Task {
+                            if on { _ = await Reminders.requestPermission() }
+                            Reminders.reschedule(in: context)
+                        }
+                    })) {
+                        settingLabel("Home Care Reminders", "A notification before each task is due")
                     }
-                })) {
-                    settingLabel("Home Care Reminders", "A notification before each task is due")
                 }
                 Toggle(isOn: Binding(get: { approvalAlerts }, set: { on in
                     approvalAlerts = on
@@ -211,6 +214,17 @@ struct FamilyView: View {
                     HearthAppsView(current: .caloma)
                 } label: {
                     HearthAppsRowLabel(current: .caloma)
+                }
+            }
+
+            // Caloma Plus or Hearth+: what you have, or how to get it.
+            Section {
+                HearthMembershipRow()
+            } header: {
+                HStack {
+                    Text("Membership")
+                    Spacer(minLength: 8)
+                    HearthMemberBadge()
                 }
             }
 

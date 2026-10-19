@@ -44,19 +44,19 @@ struct RootTabView: View {
 
             if sizeClass == .regular {
                 Tab(value: AppTab.control) {
-                    NavigationStack { ControlView() }
+                    NavigationStack { CalomaPlusGate(CalomaPlus.homeControl, title: "Control") { ControlView() } }
                 } label: {
                     tabLabel("Control", "lightswitch.on")
                 }
 
                 Tab(value: AppTab.homeCare) {
-                    NavigationStack(path: $homeCarePath) { HomeCareView().screenshotDestinations() }
+                    NavigationStack(path: $homeCarePath) { CalomaPlusGate(CalomaPlus.homeCare, title: "Home Care") { HomeCareView() }.screenshotDestinations() }
                 } label: {
                     tabLabel("Home Care", "wrench.and.screwdriver")
                 }
 
                 Tab(value: AppTab.whiteboard) {
-                    NavigationStack { WhiteboardView() }
+                    NavigationStack { CalomaPlusGate(CalomaPlus.whiteboard, title: "Whiteboard") { WhiteboardView() } }
                 } label: {
                     tabLabel("Whiteboard", "applepencil.and.scribble")
                 }

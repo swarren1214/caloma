@@ -175,7 +175,9 @@ struct CalendarWideView: View {
                 }
             }
             Toggle("Chores", isOn: Binding(get: { filter.showChores }, set: { filter.showChores = $0 }))
-            Toggle("Home Care", isOn: Binding(get: { filter.showHomeCare }, set: { filter.showHomeCare = $0 }))
+            if CalomaPlus.isUnlocked {
+                Toggle("Home Care", isOn: Binding(get: { filter.showHomeCare }, set: { filter.showHomeCare = $0 }))
+            }
             if HearthLink.shared.mealPlan != nil {
                 Toggle("Meals", isOn: Binding(get: { filter.showMeals }, set: { filter.showMeals = $0 }))
             }

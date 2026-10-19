@@ -25,6 +25,8 @@ struct CalendarView: View {
     @State private var creating: NewEventRequest?
     /// "Write an Event" with the Apple Pencil.
     @State private var writing: NewEventRequest?
+    /// "Write an Event" without Caloma Plus or Hearth+: the paywall.
+    @State private var showsWritePaywall = false
     /// A repeating event that was dragged, waiting on "Only this one" or "All of them".
     @State private var pendingMove: EventMove?
 
@@ -40,7 +42,8 @@ struct CalendarView: View {
             members: members.filter { !$0.isArchived },
             events: events.map(\.record),
             family: FamilySnapshot(members: members, chores: chores, completions: completions, points: []),
-            homeTasks: homeTasks,
+            // Home Care is part of Caloma Plus and Hearth+.
+            homeTasks: CalomaPlus.isUnlocked ? homeTasks : [],
             accent: accent
         )
     }
@@ -57,7 +60,7 @@ struct CalendarView: View {
         let data = data
         Group {
             if sizeClass == .regular {
-                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { if !readOnly { creating = $0 } }, onOpen: { open = $0 }, onMove: { if !readOnly { move($0) } }, onWrite: { writing = NewEventRequest(day: $0) }, canCreate: !readOnly)
+                CalendarWideView(data: data, day: $day, mode: $mode, visible: visible, onNew: { if !readOnly { creating = $0 } }, onOpen: { open = $0 }, onMove: { if !readOnly { move($0) } }, onWrite: { write($0) }, canCreate: !readOnly)
                     .refreshesFromICloud()
             } else {
                 compact(data)
@@ -92,6 +95,7 @@ struct CalendarView: View {
         .fullScreenCover(item: $writing) { request in
             WriteEventSheet(day: request.day, onTheWall: readOnly)
         }
+        .hearthPaywall(isPresented: $showsWritePaywall, feature: CalomaPlus.handwriting)
         .sheet(item: $open) { ref in
             NavigationStack {
                 EventDetailView(eventID: ref.eventID, day: ref.day)
@@ -138,7 +142,9 @@ struct CalendarView: View {
                             }
                         }
                         LayerChip(title: "Chores", isOn: filter.showChores) { filter.showChores.toggle() }
-                        LayerChip(title: "Home Care", isOn: filter.showHomeCare) { filter.showHomeCare.toggle() }
+                        if CalomaPlus.isUnlocked {
+                            LayerChip(title: "Home Care", isOn: filter.showHomeCare) { filter.showHomeCare.toggle() }
+                        }
                         if HearthLink.shared.mealPlan != nil {
                             LayerChip(title: "Meals", isOn: filter.showMeals) { filter.showMeals.toggle() }
                         }
@@ -150,6 +156,11 @@ struct CalendarView: View {
                 }
                 .scrollIndicators(.hidden)
                 .padding(.horizontal, -16)
+            }
+
+            // BigTable's meals and Hearken's reading would show here with Hearth+.
+            if !readOnly {
+                CalendarHearthPlusTeasers()
             }
 
             if let countdown = CalendarMath.nextCountdown(data.events.filter(visible)) {
@@ -181,6 +192,15 @@ struct CalendarView: View {
     }
 
     @State private var moved = 0
+
+    /// "Write an Event" with the Apple Pencil: Caloma Plus or Hearth+.
+    private func write(_ day: Date) {
+        if CalomaPlus.isUnlocked {
+            writing = NewEventRequest(day: day)
+        } else {
+            showsWritePaywall = true
+        }
+    }
 
     /// An event was dragged to a new day or time. Repeating events ask first.
     private func move(_ move: EventMove) {
@@ -466,4 +486,19 @@ struct MonthGrid: View {
 #Preview {
     NavigationStack { CalendarView() }
         .previewEnvironment()
+}
+
+/// Another Hearth app has shared something Hearth+ would put on the calendar: BigTable's planned
+/// meals, Hearken's daily reading. One teaser for each, only while it's locked.
+struct CalendarHearthPlusTeasers: View {
+    private var link: HearthLink { HearthLink.shared }
+
+    var body: some View {
+        if link.hasLockedMealPlan {
+            HearthPlusTeaser(from: .bigtable, title: "BigTable's meals on your calendar", detail: "See what's for dinner next to the family's day, here and on the wall.")
+        }
+        if link.hasLockedReading {
+            HearthPlusTeaser(from: .hearken, title: "Hearken's reading on your calendar", detail: "Each day's reading from your Hearken plan, at its reminder time.")
+        }
+    }
 }

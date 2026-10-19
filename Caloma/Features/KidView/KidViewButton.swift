@@ -10,6 +10,8 @@ struct KidViewButton: View {
     @Query(sort: \Member.sortOrder) private var members: [Member]
     /// The Family Board needs a parent PIN first, so there's always a way back out.
     @State private var settingPIN = false
+    /// The Family Board without Caloma Plus or Hearth+.
+    @State private var showsPaywall = false
 
     private var kids: [Member] { members.filter { $0.isKid && !$0.isArchived } }
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
@@ -55,9 +57,14 @@ struct KidViewButton: View {
             }
             .tint(accent)
         }
+        .hearthPaywall(isPresented: $showsPaywall, feature: CalomaPlus.familyBoard)
     }
 
     private func startBoard() {
+        guard CalomaPlus.isUnlocked else {
+            showsPaywall = true
+            return
+        }
         if ParentPIN.isSet {
             router.openKiosk()
         } else {

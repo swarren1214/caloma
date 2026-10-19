@@ -10,7 +10,8 @@ struct PinnedDevicesCard: View {
     private let home = HomeBridge.shared
 
     var body: some View {
-        if !pinned.isEmpty {
+        // Home Control is part of Caloma Plus and Hearth+.
+        if !pinned.isEmpty && CalomaPlus.isUnlocked {
             let book = StyleBook(styles)
             let controls = home.allControls.filter { control in
                 guard let style = book.style(serviceID: control.id.uuidString, matchKey: control.matchKey) else { return false }

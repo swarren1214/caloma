@@ -21,6 +21,8 @@ struct HomeView: View {
     var body: some View {
         let family = family
         CalomaScreen(title: "Home") {
+            // Only when a Caloma Plus or Hearth+ renewal failed.
+            HearthBillingBanner()
             kidsToday(family)
             PinnedDevicesCard()
             DinnerTonightCard()
@@ -29,7 +31,10 @@ struct HomeView: View {
             if family.needsOKCount > 0 {
                 needsOK(family)
             }
-            homeCare
+            // Home Care is part of Caloma Plus and Hearth+; locked, it's only under its tab.
+            if CalomaPlus.isUnlocked {
+                homeCare
+            }
             if let goal = goals.first {
                 FamilyGoalCard(goal: goal, family: family)
             }

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9B69FBC9007FE0E2F859C9B2 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 0811FE67CE46FA96B97E5E90 /* RevenueCat */; };
 		D86EE127307FE4A300CD31B7 /* CalomaWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = D86EE11D307FE4A000CD31B7 /* CalomaWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D86EE133307FE52F00CD31B7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D86EE132307FE52F00CD31B7 /* WidgetKit.framework */; };
 		D86EE135307FE52F00CD31B7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D86EE134307FE52F00CD31B7 /* SwiftUI.framework */; };
@@ -134,6 +135,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9B69FBC9007FE0E2F859C9B2 /* RevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,6 +223,7 @@
 			);
 			name = Caloma;
 			packageProductDependencies = (
+				0811FE67CE46FA96B97E5E90 /* RevenueCat */,
 			);
 			productName = Caloma;
 			productReference = 7C4A00000000000000000006 /* Caloma.app */;
@@ -329,6 +332,9 @@
 			);
 			mainGroup = 7C4A00000000000000000002;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				1FADF91409298B1CFC47ABE6 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7C4A00000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -909,6 +915,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		1FADF91409298B1CFC47ABE6 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0811FE67CE46FA96B97E5E90 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1FADF91409298B1CFC47ABE6 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7C4A00000000000000000001 /* Project object */;
 }

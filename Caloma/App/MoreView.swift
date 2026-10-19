@@ -49,7 +49,7 @@ struct MoreView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     VStack(spacing: 12) {
                         card(.control, symbol: "lightswitch.on.fill", color: KidColor.teal.color, title: "Control", detail: "Lights, locks, climate and cameras from Apple Home.")
-                        card(.homeCare, symbol: "wrench.and.screwdriver.fill", color: Brand.waiting, title: "Home Care", detail: homeCareDetail, badge: dueSoon > 0 ? "\(dueSoon)" : nil)
+                        card(.homeCare, symbol: "wrench.and.screwdriver.fill", color: Brand.waiting, title: "Home Care", detail: homeCareDetail, badge: CalomaPlus.isUnlocked && dueSoon > 0 ? "\(dueSoon)" : nil)
                         card(.whiteboard, symbol: "applepencil.and.scribble", color: Color(hex: 0x5E5CE6), title: "Whiteboard", detail: "Draw, plan and leave notes for the family.")
                         NavigationLink {
                             ListsView()
@@ -106,9 +106,10 @@ struct MoreView: View {
     @ViewBuilder
     private func destination(_ item: MoreItem) -> some View {
         switch item {
-        case .control: ControlView()
-        case .homeCare: HomeCareView()
-        case .whiteboard: WhiteboardView()
+        // Paid: Caloma Plus or Hearth+. Locked, each shows its card instead.
+        case .control: CalomaPlusGate(CalomaPlus.homeControl, title: "Control") { ControlView() }
+        case .homeCare: CalomaPlusGate(CalomaPlus.homeCare, title: "Home Care") { HomeCareView() }
+        case .whiteboard: CalomaPlusGate(CalomaPlus.whiteboard, title: "Whiteboard") { WhiteboardView() }
         }
     }
 
@@ -128,6 +129,7 @@ struct MoreView: View {
     }
 
     private var homeCareDetail: String {
+        guard CalomaPlus.isUnlocked else { return "Filters, smoke detectors and gutters, on time." }
         switch dueSoon {
         case 0: homeTasks.isEmpty ? "Filters, smoke detectors and gutters, on time." : "Nothing due this week."
         case 1: "1 task due this week."

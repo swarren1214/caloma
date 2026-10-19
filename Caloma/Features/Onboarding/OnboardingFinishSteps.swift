@@ -355,6 +355,8 @@ struct AllSetStep: View {
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     @State private var settingPIN = false
+    /// Starting the Family Board without Caloma Plus or Hearth+.
+    @State private var showsBoardPaywall = false
     @State private var celebrated = false
 
     private var welcome: String {
@@ -445,9 +447,15 @@ struct AllSetStep: View {
             }
             .tint(accent)
         }
+        .hearthPaywall(isPresented: $showsBoardPaywall, feature: CalomaPlus.familyBoard)
     }
 
     private func startBoard() {
+        // The Family Board is part of Caloma Plus and Hearth+.
+        guard CalomaPlus.isUnlocked else {
+            showsBoardPaywall = true
+            return
+        }
         if ParentPIN.isSet {
             finish(openBoard: true)
         } else {

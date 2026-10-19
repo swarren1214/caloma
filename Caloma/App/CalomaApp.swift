@@ -15,6 +15,8 @@ struct CalomaApp: App {
         let container = Persistence.makeContainer(inMemory: ScreenshotMode.isOn)
         self.container = container
         AppRouter.shared.container = container
+        // What's paid for (Caloma Plus or Hearth+). Screenshot mode shows everything unlocked.
+        CalomaPlus.configure()
         guard !ScreenshotMode.isOn else { return }
         // Starter home care is added at the end of onboarding, so a device that picks up a
         // family already in iCloud doesn't add a second copy.
@@ -180,6 +182,11 @@ struct AppRoot: View {
         return "\(household.exists)|\(household.mode)|\(household.account)|\(joined)|\(household.info?.appShareURLs[HearthApp.caloma.rawValue] ?? "")"
     }
 
+    /// What's paid for: Caloma Plus or Hearth+, and Hearth+ for the other apps' data.
+    private var planKey: String {
+        "\(CalomaPlus.isUnlocked)|\(CalomaPlus.hasHearthPlus)"
+    }
+
     /// Caloma's part of a person's page in Household.
     private var personExtras: @MainActor (HearthMember) -> AnyView {
         { person in AnyView(CalomaPersonExtras(person: person)) }
@@ -192,8 +199,15 @@ struct AppRoot: View {
                 RootTabView()
                     // The wall iPad: the family calendar and everyone's screens, nothing else.
                     .fullScreenCover(isPresented: Binding(get: { router.kioskOpen }, set: { router.kioskOpen = $0 })) {
-                        KioskRootView()
-                            .environment(\.accent, accent)
+                        // The Family Board is part of Caloma Plus and Hearth+.
+                        Group {
+                            if CalomaPlus.isUnlocked {
+                                KioskRootView()
+                            } else {
+                                KioskLockedView()
+                            }
+                        }
+                        .environment(\.accent, accent)
                     }
             } else {
                 OnboardingView()
@@ -237,6 +251,12 @@ struct AppRoot: View {
         }
         .onChange(of: sharingKey) { _, _ in
             Task { await sync.updateSharing() }
+        }
+        // A plan starting or ending: Home Care reminders, and Home Care and BigTable's dinner
+        // on the watch and widgets, follow it.
+        .onChange(of: planKey) { _, _ in
+            Reminders.reschedule(in: context)
+            WatchBridge.shared.setNeedsUpdate()
         }
         .hearthHouseholdInvitations()
         // Every Hearth app works inside a household (a household of one is fine).
