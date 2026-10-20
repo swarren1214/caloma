@@ -60,7 +60,7 @@ struct DoorbellCard: View {
                 .padding(24)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { unlocking = false }
+                        SheetCancelButton { unlocking = false }
                     }
                 }
             }

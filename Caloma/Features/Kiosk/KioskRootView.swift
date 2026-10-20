@@ -600,7 +600,7 @@ struct LeaveKioskSheet: View {
             .frame(maxWidth: .infinity)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
             }
         }

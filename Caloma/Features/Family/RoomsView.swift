@@ -10,6 +10,11 @@ struct RoomsView: View {
 
     @State private var editing: Room?
     @State private var adding = false
+    @State private var bridge = HomeBridge.shared
+    /// Waiting for Apple Home to answer (the permission prompt, or the homes loading).
+    @State private var importing = false
+    @State private var importNotice: ImportNotice?
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         List {
@@ -60,6 +65,16 @@ struct RoomsView: View {
                     Label("Add Room", systemImage: "plus.circle.fill")
                 }
                 Button {
+                    importFromHome()
+                } label: {
+                    HStack {
+                        Label("Import from Apple Home", systemImage: "homekit")
+                        Spacer()
+                        if importing { ProgressView() }
+                    }
+                }
+                .disabled(importing)
+                Button {
                     withAnimation {
                         StarterData.insertRooms(into: context, existing: rooms)
                         Persistence.save(context)
@@ -68,7 +83,7 @@ struct RoomsView: View {
                     Label("Add Common Rooms", systemImage: "house")
                 }
             } footer: {
-                Text("Kitchen, Living Room, Dining Room, Bathroom, Laundry Room, Garage, Yard and Playroom. Any you already have are skipped.")
+                Text("Import brings in the rooms from \(bridge.homeTitle ?? "the Home app"), each with an icon you can change. Common rooms are Kitchen, Living Room, Dining Room, Bathroom, Laundry Room, Garage, Yard and Playroom. Rooms you already have are skipped.")
             }
         }
         .refreshesFromICloud()
@@ -83,6 +98,78 @@ struct RoomsView: View {
         }
         .sheet(isPresented: $adding) {
             RoomEditor(room: nil)
+        }
+        // Apple Home answers after the permission prompt, or once the homes have loaded.
+        .onChange(of: bridge.homeNames) {
+            if importing { finishImport() }
+        }
+        .onChange(of: bridge.authorized) { _, allowed in
+            if importing && allowed != nil { finishImport() }
+        }
+        .alert(importNotice?.title ?? "", isPresented: Binding(get: { importNotice != nil }, set: { if !$0 { importNotice = nil } }), presenting: importNotice) { notice in
+            if notice.opensSettings {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                }
+                Button("Not Now", role: .cancel) {}
+            } else {
+                Button("OK", role: .cancel) {}
+            }
+        } message: { notice in
+            Text(notice.message)
+        }
+    }
+
+    // MARK: Import from Apple Home
+
+    private struct ImportNotice {
+        var title: String
+        var message: String
+        var opensSettings = false
+    }
+
+    private func importFromHome() {
+        bridge.start()
+        guard bridge.authorized == nil else {
+            finishImport()
+            return
+        }
+        // First time: HomeKit asks for permission, then hands over the homes.
+        importing = true
+        Task {
+            try? await Task.sleep(for: .seconds(10))
+            if importing { finishImport() }
+        }
+    }
+
+    private func finishImport() {
+        importing = false
+        guard bridge.authorized == true else {
+            importNotice = ImportNotice(
+                title: "Caloma can't see your home",
+                message: "Allow Caloma to use your Home data in Settings, then try again.",
+                opensSettings: true
+            )
+            return
+        }
+        let names = bridge.homeRoomNames
+        guard !names.isEmpty else {
+            importNotice = ImportNotice(
+                title: bridge.homeNames.isEmpty ? "No home set up yet" : "No rooms in \(bridge.homeTitle ?? "your home")",
+                message: "Add rooms in the Home app, and they can come into Caloma from here."
+            )
+            return
+        }
+        var added = 0
+        withAnimation {
+            added = HomeRoomImport.insert(names, into: context, existing: rooms)
+            Persistence.save(context)
+        }
+        if added == 0 {
+            importNotice = ImportNotice(
+                title: "Already up to date",
+                message: "Every room in \(bridge.homeTitle ?? "your home") is already here."
+            )
         }
     }
 

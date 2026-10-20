@@ -212,7 +212,7 @@ struct FaceEnrollmentView: View {
             .toolbar {
                 if model?.step != .done {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { dismiss() }
+                        SheetCancelButton { dismiss() }
                     }
                 }
             }

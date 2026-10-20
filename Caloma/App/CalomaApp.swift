@@ -33,6 +33,8 @@ struct CalomaApp: App {
     var body: some Scene {
         WindowGroup {
             AppRoot()
+                // The Hearth launch splash.
+                .hearthSplash(.caloma, isEnabled: !ScreenshotMode.isOn)
                 .environment(router)
         }
         .modelContainer(container)

@@ -158,10 +158,10 @@ struct DrawBackSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Send") { onSend(drawing) }
+                    SheetDoneButton("Send") { onSend(drawing) }
                         .disabled(!drawing.hasInk)
                 }
             }

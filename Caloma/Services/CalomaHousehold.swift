@@ -84,6 +84,23 @@ enum CalomaHousehold {
             ))
         }
 
+        // Left over from a person the household folded into one (`mergeDuplicates`): a member
+        // here with the same name as someone already linked to another member. Archive it, so
+        // Caloma shows them once; its chores and points history stays.
+        if store.canEditEveryone && CloudSync.shared.canAddPeople {
+            for member in members where !member.isArchived && !claimed.contains(member.id.uuidString) {
+                let key = HearthNames.normalized(member.name)
+                let taken = store.people.contains { person in
+                    HearthNames.normalized(person.name) == key
+                        && store.localID(of: person, app: .caloma, among: ids).map { $0 != member.id.uuidString } == true
+                }
+                if taken {
+                    member.isArchived = true
+                    changed = true
+                }
+            }
+        }
+
         UserDefaults.standard.set(photoNames, forKey: photoNamesKey)
         if changed { Persistence.save(context) }
         rememberMe(among: Persistence.fetchAll(Member.self, in: context))

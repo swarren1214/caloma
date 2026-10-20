@@ -550,10 +550,10 @@ struct WallNoteSendSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    SheetCancelButton { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Send") {
+                    SheetDoneButton("Send") {
                         onSend(people.map(\.id).filter { audience.contains($0) }, from, keep, pinned)
                     }
                     .disabled(audience.isEmpty)

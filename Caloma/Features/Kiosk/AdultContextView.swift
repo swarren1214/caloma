@@ -603,7 +603,7 @@ struct AdultContextView: View {
                     .padding(24)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") { homeSheet = nil }
+                            SheetCancelButton { homeSheet = nil }
                         }
                     }
                 }
@@ -613,7 +613,7 @@ struct AdultContextView: View {
                     ControlView()
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") { homeSheet = nil }
+                                SheetDoneButton { homeSheet = nil }
                             }
                         }
                 }

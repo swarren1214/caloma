@@ -146,7 +146,7 @@ struct KioskHomeControls: View {
             .padding(24)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { asking = nil }
+                    SheetCancelButton { asking = nil }
                 }
             }
         }

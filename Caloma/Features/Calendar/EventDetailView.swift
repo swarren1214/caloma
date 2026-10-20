@@ -32,7 +32,7 @@ struct EventDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Done", systemImage: "xmark") { dismiss() }
+                SheetCancelButton("Close") { dismiss() }
             }
             if event != nil && !readOnly {
                 ToolbarItem(placement: .primaryAction) {

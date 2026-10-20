@@ -90,7 +90,7 @@ struct LightDetailView: View {
                     Button("Edit", systemImage: "pencil", action: onEdit)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    SheetDoneButton { dismiss() }
                 }
             }
         }

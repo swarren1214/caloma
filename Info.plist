@@ -16,7 +16,7 @@
 	<key>CKSharingSupported</key>
 	<true/>
 	<key>NSHomeKitUsageDescription</key>
-	<string>On the Family Board, Caloma shows your doorbell camera and whether the doors are locked on the family's wall iPad.</string>
+	<string>Caloma brings in your home's rooms for chores, controls your lights, locks and climate, and shows your doorbell camera on the Family Board.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>On the Family Board, Talk lets you speak to whoever is at the door through the doorbell.</string>
 	<key>NSSupportsLiveActivities</key>
@@ -32,5 +32,10 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>Hearth/splash-caloma</string>
+	</dict>
 </dict>
 </plist>

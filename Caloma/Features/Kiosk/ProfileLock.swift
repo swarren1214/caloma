@@ -185,7 +185,7 @@ struct ProfileUnlockSheet: View {
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
+                    SheetCancelButton(action: onCancel)
                 }
             }
         }

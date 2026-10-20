@@ -77,7 +77,7 @@ struct CalendarSidebarFilters: View {
                 AppleCalendarSettingsView()
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Done", systemImage: "checkmark") { showsAppleSettings = false }
+                            SheetDoneButton { showsAppleSettings = false }
                         }
                     }
             }

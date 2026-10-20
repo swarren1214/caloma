@@ -1,13 +1,12 @@
 import SwiftData
 import SwiftUI
 
-/// Family: who's in it, how points work, allowance, reminders and data.
+/// Family: the household (people live there now), how points work, allowance, reminders and data.
 struct FamilyView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(\.accent) private var accent
     @Query(sort: \Member.sortOrder) private var allMembers: [Member]
-    @Query private var points: [PointEntry]
     @Query(filter: #Predicate<Room> { !$0.isArchived }) private var rooms: [Room]
 
     @AppStorage(SettingsKey.pointName) private var pointName = PointName.stars.rawValue
@@ -23,7 +22,6 @@ struct FamilyView: View {
     @AppStorage(SettingsKey.homeReminders) private var homeReminders = false
     @AppStorage(SettingsKey.approvalAlerts) private var approvalAlerts = true
 
-    @State private var addingPerson = false
     @State private var household = HearthHouseholdStore.shared
     @State private var payingOut = false
     @State private var confirmsErase = false
@@ -32,6 +30,19 @@ struct FamilyView: View {
 
     var body: some View {
         Form {
+            AccountSection()
+
+            // Caloma Plus or Hearth+: what you have, or how to get it.
+            Section {
+                HearthMembershipRow()
+            } header: {
+                HStack {
+                    Text("Membership")
+                    Spacer(minLength: 8)
+                    HearthMemberBadge()
+                }
+            }
+
             if case .waiting = CloudSync.shared.location {
                 Section {
                     Label {
@@ -42,6 +53,18 @@ struct FamilyView: View {
                 } footer: {
                     Text("Changes you make here are kept on this \(UIDevice.current.localizedModel) until then.")
                 }
+            }
+
+            Section("iCloud") {
+                HearthSyncCard(
+                    app: .caloma,
+                    snapshot: CloudSync.shared.syncSnapshot,
+                    summary: "The family’s chores, calendar and rewards",
+                    sharing: syncSharing
+                ) {
+                    await CloudSync.shared.syncNow()
+                }
+                .hearthSyncCardRow()
             }
 
             // The family every Hearth app shares: people, invitations, birthdays and allergies.
@@ -66,30 +89,6 @@ struct FamilyView: View {
                 } footer: {
                     Text("Turn this iPad into the family's wall screen: the calendar all day, and a tap on a face for chores.")
                 }
-            }
-
-            Section {
-                ForEach(members) { member in
-                    // People are edited in the household, for every app.
-                    if let person = CalomaHousehold.person(for: member) {
-                        NavigationLink {
-                            HearthPersonView(memberID: person.id, accent: accent)
-                        } label: {
-                            memberRow(member)
-                        }
-                    } else {
-                        memberRow(member)
-                    }
-                }
-                if household.canEditEveryone {
-                    Button { addingPerson = true } label: {
-                        Label("Add Family Member", systemImage: "plus.circle.fill")
-                    }
-                }
-            } header: {
-                Text("Members")
-            } footer: {
-                Text("Kids can use Kid View on a parent's phone or on a shared iPad.")
             }
 
             Section {
@@ -217,31 +216,6 @@ struct FamilyView: View {
                 }
             }
 
-            // Caloma Plus or Hearth+: what you have, or how to get it.
-            Section {
-                HearthMembershipRow()
-            } header: {
-                HStack {
-                    Text("Membership")
-                    Spacer(minLength: 8)
-                    HearthMemberBadge()
-                }
-            }
-
-            AccountSection()
-
-            Section("iCloud") {
-                HearthSyncCard(
-                    app: .caloma,
-                    snapshot: CloudSync.shared.syncSnapshot,
-                    summary: "The family’s chores, calendar and rewards",
-                    sharing: syncSharing
-                ) {
-                    await CloudSync.shared.syncNow()
-                }
-                .hearthSyncCardRow()
-            }
-
             Section {
                 LabeledContent("Version", value: AppConfig.version)
                 Button("Erase All Caloma Data", role: .destructive) { confirmsErase = true }
@@ -255,11 +229,8 @@ struct FamilyView: View {
         .navigationTitle("Family")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Close", systemImage: "xmark") { dismiss() }
+                SheetCancelButton("Close") { dismiss() }
             }
-        }
-        .sheet(isPresented: $addingPerson) {
-            HearthPersonEditor(member: nil, accent: accent)
         }
         .sheet(isPresented: $payingOut) {
             PayOutSheet()
@@ -297,23 +268,6 @@ struct FamilyView: View {
         }
         let name = household.organizer?.firstName ?? ""
         return "Waiting for \(name.isEmpty ? "the person who set up your household" : name) to open Caloma to share the family's chores, calendar and rewards."
-    }
-
-    private func memberRow(_ member: Member) -> some View {
-        HStack(spacing: 12) {
-            MemberAvatar(member, size: 38)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(member.name)
-                Text(member.role.label)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if member.isKid {
-                PointsLabel(points: ChoreMath.balance(of: member.id, entries: points.map(\.record)))
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 
     private func splitStepper(_ name: String, value: Int, set: @escaping (Int) -> Void) -> some View {
@@ -464,7 +418,7 @@ private struct PayOutSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done", systemImage: "checkmark", role: .confirm) { dismiss() }
+                    SheetDoneButton { dismiss() }
                 }
             }
         }

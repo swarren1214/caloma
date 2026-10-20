@@ -861,7 +861,7 @@ private struct SavingForPicker: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark") { dismiss() }
+                    SheetCancelButton("Close") { dismiss() }
                 }
             }
         }
