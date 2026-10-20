@@ -162,7 +162,7 @@ struct RoomsView: View {
         }
         var added = 0
         withAnimation {
-            added = HomeRoomImport.insert(names, into: context, existing: rooms)
+            added = HomeRoomImport.importNow(names, into: context, existing: rooms)
             Persistence.save(context)
         }
         if added == 0 {

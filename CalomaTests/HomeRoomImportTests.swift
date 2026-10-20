@@ -21,8 +21,12 @@ struct HomeRoomImportTests {
     @Test func iconsFitTheName() {
         #expect(HomeRoomImport.symbol(for: "Kitchen") == "fork.knife")
         #expect(HomeRoomImport.symbol(for: "Primary Bedroom") == "bed.double")
-        #expect(HomeRoomImport.symbol(for: "Kids' Bathroom") == "teddybear")
-        #expect(HomeRoomImport.symbol(for: "Back Patio") == "leaf")
-        #expect(HomeRoomImport.symbol(for: "Sunroom") == "door.left.hand.closed")
+        #expect(HomeRoomImport.symbol(for: "Kids' Bathroom") == "shower")
+        #expect(HomeRoomImport.symbol(for: "Guest Bath") == "shower")
+        #expect(HomeRoomImport.symbol(for: "Ella's Room") == "bed.double")
+        #expect(HomeRoomImport.symbol(for: "Family Room") == "sofa")
+        #expect(HomeRoomImport.symbol(for: "Back Patio") == "chair.lounge")
+        #expect(HomeRoomImport.symbol(for: "Garden") == "leaf")
+        #expect(HomeRoomImport.symbol(for: "Bonus Room") == "door.left.hand.closed")
     }
 }
