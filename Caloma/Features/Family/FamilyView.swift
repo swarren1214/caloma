@@ -222,7 +222,7 @@ struct FamilyView: View {
             } header: {
                 Text("Data")
             } footer: {
-                Text("Your family's data lives in your own iCloud. Caloma has no servers and can't see it.")
+                Text("Caloma keeps your family's information on your devices and in iCloud. Purchases are checked with RevenueCat.")
             }
         }
         .refreshesFromICloud()
