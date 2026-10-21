@@ -471,7 +471,7 @@ struct AdultContextView: View {
                         Text(no)
                             .font(.subheadline.weight(.bold))
                             .frame(maxWidth: .infinity, minHeight: 38)
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(Color.primary)
                             .background(Color(.secondarySystemGroupedBackground), in: Capsule())
                     }
                 }
@@ -559,20 +559,20 @@ struct AdultContextView: View {
             KioskHomeControls()
             Button(action: openAllControls) {
                 HStack(spacing: 10) {
+                    // The icon in the text's color (see AGENT.md › App color).
                     Image(systemName: "square.grid.2x2.fill")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0x30B0C7))
                     Text("All Home Controls")
                         .font(.subheadline.weight(.semibold))
                     Spacer(minLength: 6)
                     if !session.isUnlocked {
                         Image(systemName: "key.fill")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.secondary)
                     }
                     Image(systemName: "chevron.right")
                         .font(.footnote.weight(.bold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .padding(.horizontal, 14)
                 .frame(minHeight: 44)

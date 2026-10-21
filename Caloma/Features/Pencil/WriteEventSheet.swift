@@ -117,6 +117,8 @@ struct WriteEventSheet: View {
                             .font(.subheadline.weight(.semibold))
                     }
                     .accessibilityHint("Double-tap the Pencil to switch, too")
+                    // Not a confirm button: the text color, not the app's (AGENT.md).
+                    .tint(.primary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if saving {
@@ -248,6 +250,7 @@ struct WriteEventSheet: View {
                         if field == .when { timeUnreadable = false }
                     }
                     .font(.caption.weight(.semibold))
+                    .tint(.primary)
                 }
                 // Typing is the fallback in the app; the wall is for the Pencil.
                 if !onTheWall {
@@ -256,6 +259,7 @@ struct WriteEventSheet: View {
                     } label: {
                         Image(systemName: isTyping ? "applepencil.tip" : "keyboard")
                             .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
                     .accessibilityLabel(isTyping ? "Write instead" : "Type instead")
                 }

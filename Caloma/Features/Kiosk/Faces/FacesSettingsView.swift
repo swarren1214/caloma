@@ -57,6 +57,7 @@ struct FacesSettingsView: View {
                                         store.erase(person.id)
                                     }
                                 }
+                                .tint(.primary)
                             } else {
                                 Button("Set Up") { settingUp = person }
                                     .buttonStyle(.borderedProminent)
@@ -105,7 +106,7 @@ struct FacesSettingsView: View {
             }
         } icon: {
             Image(systemName: symbol)
-                .foregroundStyle(accent)
+                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
     }

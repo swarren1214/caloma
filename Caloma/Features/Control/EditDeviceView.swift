@@ -376,8 +376,8 @@ private struct RoomPicker: View {
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 12)
                     .frame(minHeight: 34)
-                    .foregroundStyle(accent)
-                    .overlay { Capsule().strokeBorder(accent.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])) }
+                    .foregroundStyle(.primary)
+                    .overlay { Capsule().strokeBorder(Color.primary.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])) }
             }
             .buttonStyle(.plain)
         }

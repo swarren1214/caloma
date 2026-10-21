@@ -198,10 +198,10 @@ struct FamilyGoalCard: View {
             HStack {
                 Label("FAMILY GOAL", systemImage: "flag.fill")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(accent)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 if progress >= goal.cost {
-                    TagLabel(text: "Reached!", color: accent)
+                    TagLabel(text: "Reached!", color: .secondary)
                 }
             }
             HStack(alignment: .firstTextBaseline) {

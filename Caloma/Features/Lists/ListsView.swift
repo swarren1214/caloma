@@ -138,6 +138,7 @@ struct ListProgressCard: View {
                             .frame(width: 44, height: 44)
                             .contentShape(.rect)
                     }
+                    .tint(.primary)
                     .accessibilityLabel("List options")
                 }
                 ProgressBar(value: overall.total == 0 ? 0 : Double(overall.done) / Double(overall.total), color: overall.done == overall.total && overall.total > 0 ? Brand.done : accent)
@@ -153,6 +154,7 @@ struct ListProgressCard: View {
                         .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
                         .padding(.horizontal, 16)
                 }
+                .tint(.primary)
                 .overlay(alignment: .top) { Divider() }
             }
 
@@ -192,7 +194,7 @@ struct ListProgressCard: View {
                         .frame(width: 72, height: 6)
                     Image(systemName: "chevron.right")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color(.tertiaryLabel))
                         .rotationEffect(.degrees(isOpen ? 90 : 0))
                 }
                 .padding(.horizontal, 16)
@@ -222,7 +224,7 @@ struct ListProgressCard: View {
                                 if item.everyone {
                                     Text("Everyone")
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Color.secondary)
                                 }
                             }
                             .font(.subheadline)
@@ -353,12 +355,12 @@ struct ListsHomeCard: View {
                                 .font(.headline)
                             Text("Make a list and give everyone their part.")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.secondary)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Color(.tertiaryLabel))
                     }
                     .padding(16)
                     .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22))
@@ -379,13 +381,13 @@ struct ListsHomeCard: View {
                                     Spacer()
                                     Text("\(progress.done)/\(progress.total)")
                                         .font(.subheadline.weight(.semibold).monospacedDigit())
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Color.secondary)
                                 }
                                 ProgressBar(value: progress.total == 0 ? 0 : Double(progress.done) / Double(progress.total), color: progress.done == progress.total && progress.total > 0 ? Brand.done : accent)
                                     .frame(height: 6)
                                 Text(ListText.when(list))
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.secondary)
                             }
                         }
                         .padding(16)

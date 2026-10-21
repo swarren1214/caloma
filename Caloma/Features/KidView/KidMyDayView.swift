@@ -85,12 +85,12 @@ struct KidMyDayView: View {
                                 .font(.system(size: 19, weight: .heavy, design: .rounded))
                             Text("Go to My Jobs")
                                 .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.secondary)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Color(.tertiaryLabel))
                     }
                     .padding(14)
                     .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 24))

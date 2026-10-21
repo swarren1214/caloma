@@ -64,6 +64,8 @@ struct ControlView: View {
                     } label: {
                         Label("Choose Home", systemImage: "house")
                     }
+                    // Keeps the picker's checkmark the text color.
+                    .tint(.primary)
                 }
             }
         }
@@ -255,13 +257,13 @@ struct ControlView: View {
                             } label: {
                                 HStack {
                                     Text(control.name)
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(Color.primary)
                                     Spacer()
                                     Text(control.roomName)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Color.secondary)
                                     Image(systemName: "chevron.right")
                                         .font(.footnote.weight(.bold))
-                                        .foregroundStyle(.tertiary)
+                                        .foregroundStyle(Color(.tertiaryLabel))
                                 }
                                 .font(.subheadline)
                                 .padding(.vertical, 10)
@@ -273,7 +275,7 @@ struct ControlView: View {
                 } label: {
                     Text("Hidden (\(hidden.count))")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.secondary)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
@@ -598,6 +600,8 @@ struct DeviceAdjustSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Edit", systemImage: "pencil", action: onEdit)
+                        // Not a confirm button: the text color, not the app's (AGENT.md).
+                        .tint(.primary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     SheetDoneButton { dismiss() }

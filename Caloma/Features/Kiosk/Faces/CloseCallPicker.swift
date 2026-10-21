@@ -45,7 +45,7 @@ struct CloseCallPicker: View {
                     .overlay(Circle().strokeBorder(person.color.color, lineWidth: 5))
                 Text(person.name)
                     .font(.system(size: 20, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.primary)
             }
         }
         .buttonStyle(KidPressStyle())

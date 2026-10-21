@@ -183,7 +183,7 @@ struct OnboardingSecondaryButton: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.tint)
+        .foregroundStyle(.primary)
     }
 }
 

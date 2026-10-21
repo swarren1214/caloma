@@ -252,6 +252,7 @@ struct WhiteboardView: View {
                 withAnimation { self.cleared = nil }
             }
             .font(.subheadline.weight(.semibold))
+            .tint(.primary)
             .transition(.opacity)
             .fixedSize()
         } else {
@@ -262,6 +263,7 @@ struct WhiteboardView: View {
                 drawing = PKDrawing()
             }
             .font(.subheadline.weight(.semibold))
+            .tint(.primary)
             .disabled(!drawing.hasInk)
             .fixedSize()
         }
@@ -358,7 +360,7 @@ struct WhiteboardView: View {
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.secondary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Erase note")

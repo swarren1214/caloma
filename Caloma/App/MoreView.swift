@@ -189,11 +189,11 @@ struct MoreView: View {
             HStack(spacing: 14) {
                 IconTile(symbol: symbol, color: color, size: 34)
                 Text(title)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.primary)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Color(.tertiaryLabel))
             }
             .padding(.horizontal, 14)
             .frame(minHeight: 54)

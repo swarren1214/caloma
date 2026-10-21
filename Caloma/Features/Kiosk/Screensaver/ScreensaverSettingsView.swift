@@ -32,6 +32,7 @@ struct ScreensaverSettingsView: View {
                     Picker("Start When No One's Around For", selection: $minutes) {
                         ForEach([2, 5, 10, 15], id: \.self) { Text("\($0) minutes").tag($0) }
                     }
+                    .tint(.primary)
                 }
             } footer: {
                 if isOn && dims {
@@ -49,6 +50,7 @@ struct ScreensaverSettingsView: View {
                     Picker("Each Photo Shows For", selection: $photoSeconds) {
                         ForEach([8, 15, 30, 60], id: \.self) { Text($0 < 60 ? "\($0) seconds" : "1 minute").tag($0) }
                     }
+                    .tint(.primary)
                     Toggle("Shuffle", isOn: $shuffle)
                     Toggle(isOn: $slowZoom) {
                         settingLabel("Slow Zoom", "A gentle drift across each photo")
@@ -64,6 +66,7 @@ struct ScreensaverSettingsView: View {
                     Picker("Card Style", selection: $styleRaw) {
                         ForEach(ScreensaverStyle.allCases) { Text($0.title).tag($0.rawValue) }
                     }
+                    .tint(.primary)
                 } header: {
                     Text("Cards")
                 } footer: {
@@ -78,6 +81,7 @@ struct ScreensaverSettingsView: View {
                     Picker("Then Show", selection: $wakeToRaw) {
                         ForEach(ScreensaverWakeTo.allCases) { Text($0.title).tag($0.rawValue) }
                     }
+                    .tint(.primary)
                 } header: {
                     Text("Waking Up")
                 } footer: {
@@ -98,6 +102,7 @@ struct ScreensaverSettingsView: View {
                     } label: {
                         Label("Preview Screensaver", systemImage: "play.rectangle")
                     }
+                    .tint(.primary)
                 }
             }
         }
@@ -223,7 +228,7 @@ struct ScreensaverPhotosView: View {
                                     .overlay(alignment: .topTrailing) { check(on) }
                                 Text(wallpaper.title)
                                     .font(.footnote.weight(.semibold))
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(Color.primary)
                             }
                         }
                         .buttonStyle(.plain)
@@ -253,10 +258,10 @@ struct ScreensaverPhotosView: View {
                                 AlbumCover(assetID: album.coverID, scale: displayScale)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(album.title)
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(Color.primary)
                                     Text("\(album.count.formatted()) photos")
                                         .font(.footnote)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Color.secondary)
                                 }
                                 Spacer()
                                 Image(systemName: on ? "checkmark.circle.fill" : "circle")
@@ -275,6 +280,7 @@ struct ScreensaverPhotosView: View {
                     Button("Show My Albums") {
                         Task { await library.requestAccess() }
                     }
+                    .tint(.primary)
                 } else {
                     Text("Caloma doesn't have access to Photos. Turn it on in Settings › Apps › Caloma › Photos, or pick photos below instead.")
                         .font(.footnote)
@@ -319,6 +325,7 @@ struct ScreensaverPhotosView: View {
                         Label("Add Photos", systemImage: "plus")
                     }
                 }
+                .tint(.primary)
                 .disabled(importing)
             } header: {
                 Text("Photos You Pick")

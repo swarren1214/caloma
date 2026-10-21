@@ -277,7 +277,7 @@ private struct KidPicker: View {
                                 .shadow(color: kid.color.color.opacity(0.4), radius: 14, y: 8)
                             Text(kid.name)
                                 .font(.system(size: 26, weight: .bold, design: .rounded))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Color.primary)
                         }
                         .padding(.vertical, 12)
                         .frame(maxWidth: .infinity)

@@ -101,6 +101,7 @@ struct ChoreEditor: View {
                         } label: {
                             Label("Chore Group", systemImage: "square.stack.3d.up")
                         }
+                        .tint(.primary)
                     } header: {
                         Text("Group")
                     } footer: {
@@ -140,6 +141,8 @@ struct ChoreEditor: View {
                         } icon: {
                             Image(systemName: "hand.raised")
                         }
+                        // On the label only, so the switch keeps the app's color.
+                        .tint(.primary)
                     }
                     if assignees.count > 1 && !upForGrabs {
                         Toggle(isOn: $rotates) {
@@ -153,6 +156,7 @@ struct ChoreEditor: View {
                             } icon: {
                                 Image(systemName: "arrow.triangle.2.circlepath")
                             }
+                            .tint(.primary)
                         }
                     }
                     if rotates && assignees.count > 1 && !upForGrabs {
@@ -186,11 +190,13 @@ struct ChoreEditor: View {
                     } label: {
                         Label("Room", systemImage: "door.left.hand.open")
                     }
+                    .tint(.primary)
                     Button {
                         addingRoom = true
                     } label: {
                         Label("New Room", systemImage: "plus")
                     }
+                    .tint(.primary)
                 } header: {
                     Text("Room")
                 } footer: {
@@ -242,6 +248,7 @@ struct ChoreEditor: View {
                         } icon: {
                             Image(systemName: "camera")
                         }
+                        .tint(.primary)
                     }
                     Toggle(isOn: $requiresApproval) {
                         Label {
@@ -252,6 +259,7 @@ struct ChoreEditor: View {
                         } icon: {
                             Image(systemName: "checkmark.shield")
                         }
+                        .tint(.primary)
                     }
                 } header: {
                     Text("Reward")

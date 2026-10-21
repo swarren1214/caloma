@@ -999,7 +999,7 @@ final class HearthHouseholdStore: NSObject, CKSyncEngineDelegate {
     }
 
     private func note(_ error: Error) {
-        log.error("Household sync: \(error.localizedDescription, privacy: .public)")
+        log.error("Household sync: \(String(describing: error), privacy: .public)")
         if let error = error as? CKError {
             switch error.code {
             case .networkUnavailable, .networkFailure, .operationCancelled:
@@ -1011,11 +1011,22 @@ final class HearthHouseholdStore: NSObject, CKSyncEngineDelegate {
             case .participantMayNeedVerification:
                 problem = "Open the invitation in Messages or Mail on this device to verify it, then try again."
             default:
-                problem = error.localizedDescription
+                problem = Self.isUndeployedSchema(error)
+                    ? "Inviting isn't available yet. Your household is safe on this device; try again after the next update."
+                    : "Something went wrong with iCloud. Try again in a moment."
             }
         } else {
-            problem = error.localizedDescription
+            problem = "Something went wrong with iCloud. Try again in a moment."
         }
+    }
+
+    /// iCloud's Production database was never given a record type this build saves (like the
+    /// household's `cloudkit.share`). Only a developer can fix it, by deploying the
+    /// `iCloud.com.stephenwarren.hearth` schema to Production in the CloudKit Console; the log
+    /// above has the details.
+    nonisolated static func isUndeployedSchema(_ error: CKError) -> Bool {
+        let errors = [error] + (error.partialErrorsByItemID?.values.compactMap { $0 as? CKError } ?? [])
+        return errors.contains { $0.localizedDescription.localizedCaseInsensitiveContains("production schema") }
     }
 }
 

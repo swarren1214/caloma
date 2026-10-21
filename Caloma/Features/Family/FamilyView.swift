@@ -50,6 +50,8 @@ struct FamilyView: View {
                     } icon: {
                         Image(systemName: "hourglass")
                     }
+                    // The icon in the text color, not the app's.
+                    .tint(.primary)
                 } footer: {
                     Text("Changes you make here are kept on this \(UIDevice.current.localizedModel) until then.")
                 }
@@ -85,6 +87,8 @@ struct FamilyView: View {
                         KioskSettingsView()
                     } label: {
                         Label("Family Board", systemImage: "rectangle.inset.filled.and.person.filled")
+                            // The row's icon in its text color, not the app's.
+                            .tint(.primary)
                     }
                 } footer: {
                     Text("Turn this iPad into the family's wall screen: the calendar all day, and a tap on a face for chores.")
@@ -99,6 +103,7 @@ struct FamilyView: View {
                         Text(rooms.isEmpty ? "None yet" : "\(rooms.count)")
                     } label: {
                         Label("Rooms", systemImage: "door.left.hand.open")
+                            .tint(.primary)
                     }
                 }
             } header: {
@@ -111,6 +116,7 @@ struct FamilyView: View {
                 Picker("Call Them", selection: $pointName) {
                     ForEach(PointName.allCases) { Text($0.label).tag($0.rawValue) }
                 }
+                .tint(.primary)
                 if pointName == PointName.custom.rawValue {
                     TextField("Your word (acorns, gems)", text: $customPointName)
                         .textInputAutocapitalization(.never)
@@ -141,6 +147,7 @@ struct FamilyView: View {
                             Text(Calendar.current.weekdaySymbols[day - 1]).tag(day)
                         }
                     }
+                    .tint(.primary)
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Split Every Payday")
                         SplitBar(spend: splitSpend, save: splitSave, give: splitGive, accent: accent)
@@ -151,6 +158,7 @@ struct FamilyView: View {
                     splitStepper("Save", value: splitSave) { setSplit(save: $0) }
                     splitStepper("Give", value: splitGive) { setSplit(give: $0) }
                     Button("Pay Out Now") { payingOut = true }
+                        .tint(.primary)
                 }
             } header: {
                 Text("Allowance")
@@ -191,6 +199,7 @@ struct FamilyView: View {
                         Text(HearthLink.shared.mealTimes.summary)
                     } label: {
                         Label("Meal Times", systemImage: "fork.knife")
+                            .tint(.primary)
                     }
                 }
                 NavigationLink {
@@ -200,6 +209,7 @@ struct FamilyView: View {
                         Text(AppleCalendar.shared.showsAppleEvents || AppleCalendar.shared.addsFamilyEvents ? "On" : "Off")
                     } label: {
                         Label("Apple Calendar", systemImage: "calendar")
+                            .tint(.primary)
                     }
                 }
             } header: {
@@ -407,7 +417,7 @@ private struct PayOutSheet: View {
                             .buttonBorderShape(.capsule)
                         } else if paid.contains(kid.id) {
                             Label("Paid", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.tint)
+                                .foregroundStyle(.secondary)
                         }
                     }
                     .padding(.vertical, 6)

@@ -346,7 +346,7 @@ struct ChoresStep: View {
                         .multilineTextAlignment(.leading)
                     Text(detail(for: chore))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.secondary)
                 }
                 Spacer(minLength: 8)
                 OnboardingCheck(isOn: picked)

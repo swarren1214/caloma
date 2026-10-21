@@ -138,7 +138,7 @@ struct CalendarSidebarFilters: View {
                 if !on {
                     Text("Hidden")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.secondary)
                 }
             }
             .padding(.horizontal, 12)

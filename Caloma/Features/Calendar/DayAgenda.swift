@@ -105,10 +105,10 @@ struct DayAgenda: View {
                     VStack(spacing: 6) {
                         Text("Nothing planned")
                             .font(.headline)
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(Color.primary)
                         Text(onNew == nil ? "A free day." : "A free day. Tap to add something.")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 28)
@@ -330,11 +330,11 @@ struct ChoresOfTheDay: View {
                     Spacer()
                     Text("\(items.filter { $0.status.isDone }.count) of \(items.count) done")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.secondary)
                         .monospacedDigit()
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .padding(.horizontal, 14)
                 .frame(minHeight: 44)

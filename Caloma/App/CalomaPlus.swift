@@ -111,6 +111,7 @@ struct KioskLockedView: View {
                             .frame(maxWidth: 560)
                         Button("Leave the Family Board") { leaving = true }
                             .buttonStyle(.glass)
+                            .tint(.primary)
                             .controlSize(.large)
                     }
                     .padding(24)

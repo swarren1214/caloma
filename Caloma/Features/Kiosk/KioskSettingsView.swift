@@ -78,6 +78,7 @@ struct KioskSettingsView: View {
                         Text(seconds < 60 ? "\(seconds) seconds" : (seconds == 60 ? "1 minute" : "\(seconds / 60) minutes")).tag(seconds)
                     }
                 }
+                .tint(.primary)
                 Toggle(isOn: $showsFamily) {
                     settingLabel("Family Down the Side", "Tap a face for their chores, or a parent's own tasks")
                 }
@@ -93,6 +94,7 @@ struct KioskSettingsView: View {
                             Text("\(minutes) minutes").tag(minutes)
                         }
                     }
+                    .tint(.primary)
                 }
                 Toggle(isOn: $matchLight) {
                     settingLabel("Match the Room's Light", "About 50% in a dark room, up to 100% in a bright one")
@@ -113,6 +115,8 @@ struct KioskSettingsView: View {
                         Text(screensaverOn ? "After \(screensaverMinutes) min" : "Off")
                     } label: {
                         Label("Screensaver", systemImage: "photo.on.rectangle.angled")
+                            // The row's icon in its text color, not the app's.
+                            .tint(.primary)
                     }
                 }
             } footer: {
@@ -127,6 +131,7 @@ struct KioskSettingsView: View {
                         Text(facesOn ? "On" : "Off")
                     } label: {
                         Label("Faces", systemImage: "faceid")
+                            .tint(.primary)
                     }
                 }
             } footer: {
@@ -144,6 +149,7 @@ struct KioskSettingsView: View {
                             Text(entry.name).tag(entry.id)
                         }
                     }
+                    .tint(.primary)
                 }
             } header: {
                 Text("Doorbell")
@@ -182,6 +188,7 @@ struct KioskSettingsView: View {
                         if locked {
                             Button("Change Passcode") { passcodeFor = person }
                                 .buttonStyle(.borderless)
+                                .tint(.primary)
                                 .font(.subheadline)
                         }
                         Toggle("Lock \(person.name)'s screen", isOn: Binding(get: { locked }, set: { on in
@@ -209,6 +216,7 @@ struct KioskSettingsView: View {
                     startsAfterPIN = false
                     settingPIN = true
                 }
+                .tint(.primary)
             } header: {
                 Text("Parent PIN")
             } footer: {

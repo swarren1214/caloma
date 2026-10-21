@@ -423,6 +423,8 @@ struct IconPicker: View {
             IconLibraryView(selection: $selection, color: color)
         } label: {
             Label("More Icons", systemImage: "magnifyingglass")
+                // The row's icon in its text color, not the app's.
+                .tint(.primary)
         }
     }
 }

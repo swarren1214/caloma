@@ -37,6 +37,8 @@ struct EventDetailView: View {
             if event != nil && !readOnly {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Edit") { editing = true }
+                        // Not a confirm button: the text color, not the app's (AGENT.md).
+                        .tint(.primary)
                 }
             }
         }
@@ -81,18 +83,22 @@ struct EventDetailView: View {
                         Text(event.location)
                     } label: {
                         Label("Where", systemImage: "mappin.and.ellipse")
+                            // Icons in the text color, not the app's.
+                            .tint(.primary)
                     }
                 }
                 LabeledContent {
                     Text(event.repeatRule.summary(start: event.start, weekdayMask: event.weekdayMask))
                 } label: {
                     Label("Repeats", systemImage: "repeat")
+                        .tint(.primary)
                 }
                 if event.alertMinutes >= 0 {
                     LabeledContent {
                         Text(EventAlertChoice.label(event.alertMinutes))
                     } label: {
                         Label("Alert", systemImage: "bell")
+                            .tint(.primary)
                     }
                 }
             }
@@ -158,6 +164,7 @@ struct EventDetailView: View {
                             Family.skip(event, on: day, in: context)
                             dismiss()
                         }
+                        .tint(.primary)
                     }
                     Button("Delete Event", role: .destructive) { confirmsDelete = true }
                 } footer: {

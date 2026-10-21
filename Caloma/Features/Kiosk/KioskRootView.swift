@@ -109,7 +109,7 @@ struct KioskRootView: View {
                 } label: {
                     Image(systemName: "lock.fill")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.secondary)
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
@@ -436,7 +436,7 @@ struct KioskRail: View {
                     Text("Leave")
                         .font(.caption2.weight(.semibold))
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.secondary)
                 .frame(width: 56, height: 44)
             }
             .buttonStyle(.plain)
@@ -550,14 +550,14 @@ private struct IdleRing: View {
                                 .animation(.linear(duration: 0.5), value: left)
                             Image(systemName: "calendar")
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.secondary)
                         }
                         .frame(width: 40, height: 40)
                         Text("Calendar\nin \(Int(left.rounded(.up))) s")
                             .font(.caption2.weight(.semibold))
                             .monospacedDigit()
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.secondary)
                     }
                 }
             }

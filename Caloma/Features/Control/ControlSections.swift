@@ -182,15 +182,15 @@ struct AirSection: View {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(filter.level.map { "\(filter.accessoryName) filter at \(Int($0.rounded()))%" } ?? "\(filter.accessoryName) filter needs changing")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Color.primary)
                             Text("In Home Care")
                                 .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.secondary)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.footnote.weight(.bold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Color(.tertiaryLabel))
                     }
                     .padding(12)
                     .controlCard(cornerRadius: 20)
@@ -431,9 +431,9 @@ struct OtherAccessoriesSection: View {
                             Spacer(minLength: 2)
                             Image(systemName: "arrow.up.right")
                                 .font(.caption2.weight(.bold))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(Color(.tertiaryLabel))
                         }
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Color.primary)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 40)
                         .controlCard(cornerRadius: 20)
@@ -504,16 +504,16 @@ struct NotRespondingSection: View {
                         HStack(spacing: 12) {
                             Image(systemName: look.symbol(false))
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.secondary)
                                 .frame(width: 34, height: 34)
                                 .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 9, style: .continuous))
                                 .accessibilityHidden(true)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(control.name)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(Color.primary)
                                 Text(control.roomName.isEmpty ? control.kind.label : "\(control.roomName) · \(control.kind.label)")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.secondary)
                             }
                             Spacer()
                             Text("No Response")
@@ -521,7 +521,7 @@ struct NotRespondingSection: View {
                                 .foregroundStyle(Brand.late)
                             Image(systemName: "chevron.right")
                                 .font(.footnote.weight(.bold))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(Color(.tertiaryLabel))
                         }
                         .font(.subheadline)
                         .padding(.vertical, 8)
@@ -538,7 +538,7 @@ struct NotRespondingSection: View {
         } label: {
             Label("Not Responding (\(controls.count))", systemImage: "exclamationmark.circle")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.secondary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)

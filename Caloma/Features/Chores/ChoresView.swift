@@ -49,6 +49,8 @@ struct ChoresView: View {
                 .foregroundStyle(room == nil ? Color.primary : Color.white)
                 .background(room == nil ? AnyShapeStyle(Color(.secondarySystemGroupedBackground)) : AnyShapeStyle(accent), in: Capsule())
         }
+        // The picker's checkmarks are the text color, not the app's color.
+        .tint(.primary)
         .accessibilityLabel("Room filter")
     }
 
@@ -341,12 +343,12 @@ struct ChoreRow: View {
                             }
                             if let room {
                                 RoomLabel(room: room)
-                                    .foregroundStyle(.secondary)
-                                Text("·").font(.caption).foregroundStyle(.tertiary)
+                                    .foregroundStyle(Color.secondary)
+                                Text("·").font(.caption).foregroundStyle(Color(.tertiaryLabel))
                             }
                             Text(item.chore.repeatRule.label)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.secondary)
                             if item.status == .pending {
                                 TagLabel(text: "Waiting for OK", color: Brand.waiting)
                             } else if item.wasSentBack {
@@ -358,7 +360,7 @@ struct ChoreRow: View {
                     }
                     Spacer(minLength: 4)
                     PointsLabel(points: item.points, font: .footnote.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.secondary)
                 }
                 .contentShape(Rectangle())
             }
@@ -429,11 +431,11 @@ private struct UpForGrabsRow: View {
                         Text(item.chore.title)
                         Text("First to claim it gets the \(PointWords.current().plural)")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.secondary)
                     }
                     Spacer()
                     PointsLabel(points: item.points, font: .footnote.weight(.semibold))
-                    TagLabel(text: "Unclaimed", color: accent)
+                    TagLabel(text: "Unclaimed", color: .secondary)
                 }
                 .contentShape(Rectangle())
             }

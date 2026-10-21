@@ -38,6 +38,7 @@ struct HomeTaskEditor: View {
                     Picker("Area", selection: $area) {
                         ForEach(HomeArea.allCases) { Text($0.label).tag($0) }
                     }
+                    .tint(.primary)
                 }
 
                 Section {
@@ -68,6 +69,7 @@ struct HomeTaskEditor: View {
                         Text("1 week before").tag(7)
                         Text("2 weeks before").tag(14)
                     }
+                    .tint(.primary)
                 } header: {
                     Text("Schedule")
                 } footer: {

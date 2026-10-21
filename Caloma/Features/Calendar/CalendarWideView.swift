@@ -119,7 +119,7 @@ struct CalendarWideView: View {
                     .accessibilityLabel(mode == .week ? "Next week" : "Next month")
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(accent)
+                .foregroundStyle(.primary)
                 filterMenu
                 if let onWrite {
                     Button {
@@ -130,7 +130,7 @@ struct CalendarWideView: View {
                             .padding(.leading, 12)
                             .padding(.trailing, 16)
                             .frame(minHeight: 40)
-                            .foregroundStyle(canCreate ? accent : .white)
+                            .foregroundStyle(canCreate ? Color.primary : Color.white)
                             .glassEffect(canCreate ? Glass.regular.interactive() : Glass.regular.tint(accent).interactive(), in: Capsule())
                     }
                     .buttonStyle(.plain)
@@ -187,11 +187,13 @@ struct CalendarWideView: View {
         } label: {
             Image(systemName: filter.hidden.isEmpty ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(accent)
+                .foregroundStyle(.primary)
                 .frame(width: 40, height: 40)
                 .glassEffect(.regular.interactive(), in: Circle())
         }
         .buttonStyle(.plain)
+        // Keeps the menu's checkmarks the text color too.
+        .tint(.primary)
         .accessibilityLabel("Show on calendar")
     }
 

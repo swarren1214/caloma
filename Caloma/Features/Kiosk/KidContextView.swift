@@ -166,7 +166,7 @@ struct KioskNotMeButton: View {
                 Text("Not \(name)?")
             }
             .font(.system(size: 15, weight: .heavy, design: .rounded))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.secondary)
             .padding(.horizontal, 16)
             .frame(height: 52)
             .background(Color(.secondarySystemGroupedBackground), in: Capsule())
@@ -212,7 +212,7 @@ struct WhoIsHerePicker: View {
                                 }
                             Text(person.name)
                                 .font(.system(size: 17, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Color.primary)
                         }
                     }
                     .buttonStyle(KidPressStyle())

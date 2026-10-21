@@ -77,12 +77,13 @@ struct ChoreGroupEditor: View {
                             withAnimation(.smooth) { mode = option }
                         } label: {
                             HStack(spacing: 12) {
+                                // The icon in the title's color; the checkmark shows the choice.
                                 Image(systemName: option.symbol)
                                     .frame(width: 28)
-                                    .foregroundStyle(color.color)
+                                    .foregroundStyle(Color.primary)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(option.title).foregroundStyle(.primary)
-                                    Text(option.detail).font(.caption).foregroundStyle(.secondary)
+                                    Text(option.title).foregroundStyle(Color.primary)
+                                    Text(option.detail).font(.caption).foregroundStyle(Color.secondary)
                                 }
                                 Spacer()
                                 if mode == option {
@@ -176,18 +177,18 @@ struct ChoreGroupEditor: View {
                             .font(.title3)
                             .foregroundStyle(on ? color.color : Color(.tertiaryLabel))
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(chore.title).foregroundStyle(.primary)
+                            Text(chore.title).foregroundStyle(Color.primary)
                             if let elsewhere {
-                                Text("In \(elsewhere.name)").font(.caption).foregroundStyle(.secondary)
+                                Text("In \(elsewhere.name)").font(.caption).foregroundStyle(Color.secondary)
                             } else if let room = rooms.first(where: { $0.id == chore.roomID }) {
-                                Text(room.name).font(.caption).foregroundStyle(.secondary)
+                                Text(room.name).font(.caption).foregroundStyle(Color.secondary)
                             }
                         }
                         Spacer()
                         Text("\(chore.points)")
                             .font(.subheadline.weight(.semibold))
                             .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.secondary)
                         Image(systemName: PointWords.current().symbol)
                             .font(.caption)
                             .foregroundStyle(Brand.star)
@@ -197,6 +198,7 @@ struct ChoreGroupEditor: View {
             }
             if list.count > visible.count {
                 Button("Show All \(list.count) Chores") { withAnimation { showsAllChores = true } }
+                    .tint(.primary)
             }
         } header: {
             Text("Chores")
@@ -245,6 +247,7 @@ struct ChoreGroupEditor: View {
                                 } label: {
                                     Image(systemName: "arrow.up")
                                         .font(.body.weight(.semibold))
+                                        .foregroundStyle(.secondary)
                                         .frame(width: 36, height: 36)
                                 }
                                 .buttonStyle(.borderless)

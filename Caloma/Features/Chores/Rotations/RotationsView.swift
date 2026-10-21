@@ -77,6 +77,7 @@ struct RotationsView: View {
                 } label: {
                     Label("New Chore Group", systemImage: "plus.circle.fill")
                 }
+                .tint(.primary)
                 if !roomsWithChores.isEmpty {
                     Menu {
                         ForEach(roomsWithChores) { room in
@@ -85,6 +86,7 @@ struct RotationsView: View {
                     } label: {
                         Label("Group a Room’s Chores", systemImage: "door.left.hand.open")
                     }
+                    .tint(.primary)
                 }
             } footer: {
                 Text("A group passes its chores along together: one person has the whole kitchen this week, the next person has it next week.")
@@ -96,6 +98,8 @@ struct RotationsView: View {
                         RotationChartView()
                     } label: {
                         Label("Rotation Chart", systemImage: "tablecells")
+                            // The row's icon in its text color, not the app's.
+                            .tint(.primary)
                     }
                     Toggle(isOn: $makeUp) {
                         Label {
@@ -108,6 +112,8 @@ struct RotationsView: View {
                         } icon: {
                             Image(systemName: "arrow.uturn.backward")
                         }
+                        // On the label only, so the switch keeps the app's color.
+                        .tint(.primary)
                     }
                 } footer: {
                     Text(makeUp

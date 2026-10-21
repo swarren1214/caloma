@@ -80,6 +80,7 @@ struct RewardEditor: View {
                         Picker("Limit", selection: $limit) {
                             ForEach(RewardLimit.allCases) { Text($0.label).tag($0) }
                         }
+                        .tint(.primary)
                     }
                 } header: {
                     Text(isFamilyGoal ? "Goal" : "Cost and Limits")

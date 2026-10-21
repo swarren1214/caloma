@@ -41,13 +41,13 @@ struct RoomsView: View {
                         } label: {
                             HStack(spacing: 12) {
                                 IconTile(symbol: room.symbol, color: accent, size: 34)
-                                Text(room.name).foregroundStyle(.primary)
+                                Text(room.name).foregroundStyle(Color.primary)
                                 Spacer()
                                 let count = choreCount(room)
                                 if count > 0 {
                                     Text(count == 1 ? "1 chore" : "\(count) chores")
                                         .font(.subheadline)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Color.secondary)
                                 }
                             }
                         }
@@ -64,6 +64,7 @@ struct RoomsView: View {
                 } label: {
                     Label("Add Room", systemImage: "plus.circle.fill")
                 }
+                .tint(.primary)
                 Button {
                     importFromHome()
                 } label: {
@@ -73,6 +74,7 @@ struct RoomsView: View {
                         if importing { ProgressView() }
                     }
                 }
+                .tint(.primary)
                 .disabled(importing)
                 Button {
                     withAnimation {
@@ -82,6 +84,7 @@ struct RoomsView: View {
                 } label: {
                     Label("Add Common Rooms", systemImage: "house")
                 }
+                .tint(.primary)
             } footer: {
                 Text("Import brings in the rooms from \(bridge.homeTitle ?? "the Home app"), each with an icon you can change. Common rooms are Kitchen, Living Room, Dining Room, Bathroom, Laundry Room, Garage, Yard and Playroom. Rooms you already have are skipped.")
             }
@@ -91,6 +94,8 @@ struct RoomsView: View {
         .toolbar {
             if !rooms.isEmpty {
                 EditButton()
+                    // Not a confirm button: the text color, not the app's (AGENT.md).
+                    .tint(.primary)
             }
         }
         .sheet(item: $editing) { room in

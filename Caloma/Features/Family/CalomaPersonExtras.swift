@@ -34,12 +34,15 @@ struct CalomaPersonExtras: View {
                         KidDetailView(kidID: member.id)
                     } label: {
                         Label("Today, History and \(PointWords.current().title)", systemImage: "checklist")
+                            // The row's icon in its text color, not the app's.
+                            .tint(.primary)
                     }
                     Button {
                         openKidView(member.id)
                     } label: {
                         Label("Open Kid View for \(member.name)", systemImage: "figure.and.child.holdinghands")
                     }
+                    .tint(.primary)
                 }
             } header: {
                 Text("Caloma")

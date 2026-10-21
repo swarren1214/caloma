@@ -108,6 +108,7 @@ struct ListEditor: View {
                                 .tag(occurrence.id)
                         }
                     }
+                    .tint(.primary)
                     Toggle(isOn: $clears) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Clear When It's Over")
@@ -141,6 +142,7 @@ struct ListEditor: View {
                             FamilyLists.finish(existing, in: context)
                             dismiss()
                         }
+                        .tint(.primary)
                         Button("Delete List", role: .destructive) { confirmingDelete = true }
                     }
                 }

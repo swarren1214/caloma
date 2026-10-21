@@ -94,6 +94,7 @@ struct EventEditor: View {
                         } label: {
                             Label("Who's Driving", systemImage: "car.fill")
                         }
+                        .tint(.primary)
                     }
                 } header: {
                     Text("Who's Going")
@@ -108,6 +109,7 @@ struct EventEditor: View {
                     Picker("Repeat", selection: $repeatRule.animation(.snappy)) {
                         ForEach(EventRepeat.allCases) { Text($0.label).tag($0) }
                     }
+                    .tint(.primary)
                     if repeatRule == .weekly {
                         WeekdayPicker(mask: $weekdayMask, color: leadColor)
                     }
@@ -122,6 +124,7 @@ struct EventEditor: View {
                             Text(choice.label).tag(choice.minutes)
                         }
                     }
+                    .tint(.primary)
                 }
 
                 if !kidsGoing.isEmpty {
@@ -182,7 +185,7 @@ struct EventEditor: View {
                                 Text(item)
                                 Image(systemName: "xmark")
                                     .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.secondary)
                             }
                             .font(.subheadline)
                             .padding(.horizontal, 12)
@@ -198,6 +201,7 @@ struct EventEditor: View {
                         .submitLabel(.done)
                         .onSubmit(addItem)
                     Button("Add", action: addItem)
+                        .tint(.primary)
                         .disabled(newItem.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }

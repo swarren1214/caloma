@@ -53,8 +53,10 @@ struct SectionTitle<Trailing: View>: View {
                 .font(.title2.bold())
                 .accessibilityAddTraits(.isHeader)
             Spacer()
+            // A "See All" style link here is text, so it's the text color, not the app's color.
             trailing()
                 .font(.subheadline)
+                .tint(.primary)
         }
         .padding(.horizontal, 4)
     }

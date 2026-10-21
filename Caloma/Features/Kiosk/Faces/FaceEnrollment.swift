@@ -302,6 +302,7 @@ struct FaceEnrollmentView: View {
                     .padding(.top, 8)
             }
             Button("Set Up Later") { dismiss() }
+                .tint(.primary)
                 .padding(.vertical, 12)
         }
         .padding(32)
@@ -438,6 +439,7 @@ struct FaceEnrollmentView: View {
                 Button("Set Up \(next.name)") {
                     onAnother(next.id)
                 }
+                .tint(.primary)
                 .padding(.vertical, 12)
             }
         }

@@ -78,8 +78,8 @@ struct RotationDetailView: View {
                             HStack(spacing: 12) {
                                 IconTile(symbol: chore.symbol, color: tint, size: 32)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(chore.title).foregroundStyle(.primary)
-                                    Text(chore.repeatRule.label).font(.caption).foregroundStyle(.secondary)
+                                    Text(chore.title).foregroundStyle(Color.primary)
+                                    Text(chore.repeatRule.label).font(.caption).foregroundStyle(Color.secondary)
                                 }
                                 Spacer()
                                 Label("\(chore.points)", systemImage: PointWords.current().symbol)
@@ -215,6 +215,7 @@ struct RotationDetailView: View {
                 row.contentShape(Rectangle())
             }
             .foregroundStyle(.primary)
+            .tint(.primary)
         }
     }
 

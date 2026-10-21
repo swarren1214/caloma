@@ -51,6 +51,7 @@ struct AppleCalendarSettingsView: View {
                         Button("Open Settings") {
                             if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                         }
+                        .tint(.primary)
                     }
                 } else {
                     Text("These are just for this device. Each parent can turn them on for their own iPhone.")
@@ -75,7 +76,7 @@ struct AppleCalendarSettingsView: View {
                                         .font(.title3)
                                         .foregroundStyle(Color(cgColor: calendar.cgColor))
                                     Text(calendar.title)
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(Color.primary)
                                     Spacer()
                                 }
                                 .contentShape(Rectangle())

@@ -72,6 +72,7 @@ struct HomeTaskDetailView: View {
                         }
                         .buttonStyle(.glass)
                         .controlSize(.large)
+                        .tint(.primary)
                     }
                 }
 
@@ -114,7 +115,7 @@ struct HomeTaskDetailView: View {
         let color: Color
         if doneToday {
             text = "Done today · next due \(task.nextDue.formatted(.dateTime.month(.abbreviated).day()))"
-            color = accent
+            color = Brand.done
         } else {
             switch due {
             case .overdue(let days):

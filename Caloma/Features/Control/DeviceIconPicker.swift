@@ -51,7 +51,7 @@ struct DeviceIconPicker: View {
                         Button {
                             query = ""
                         } label: {
-                            Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(Color(.tertiaryLabel))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Clear search")

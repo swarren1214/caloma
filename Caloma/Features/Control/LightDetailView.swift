@@ -88,6 +88,8 @@ struct LightDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Edit", systemImage: "pencil", action: onEdit)
+                        // Not a confirm button: the text color, not the app's (AGENT.md).
+                        .tint(.primary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     SheetDoneButton { dismiss() }
