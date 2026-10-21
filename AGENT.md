@@ -111,6 +111,29 @@ native does the job, and match the system's look and behavior when you do.
 - Every screen that shows data that lives in iCloud supports pull to refresh (`.refreshable`),
   which fetches the latest changes from iCloud before it finishes.
 
+## Settings
+
+Every setting syncs unless it truly belongs to one device. Pick its home when you add it:
+
+- **The family's** (`Sync/SharedSettings.swift`, synced as `FamilySetting` records in the
+  family's zone): anything that describes how the family uses Caloma — points, allowance,
+  approvals, the family's name, the Family Board, Apple Home rooms already brought in, and
+  `SettingsKey.familySetUp` (someone finished onboarding, so other devices and people who join
+  skip it). Add the key to `SharedSettings.keys`. Bools, ints, strings and string arrays work.
+- **The person's** (`Sync/PersonalSettings.swift`, iCloud key-value storage): a person's own
+  choices that should follow them to their other devices but aren't the family's — calendar
+  filters. Add the key to `PersonalSettings.keys`. Having finished onboarding and seen the tour
+  follow the person through HearthKit (`HearthOnboarding.rememberInCloud`, `HearthTour`).
+- **Meal times** are the household's (`HearthMealTimes.save`, kept in the Hearth household), not
+  a Caloma setting.
+- **The device's** (plain UserDefaults): only what can't mean anything on another device —
+  onboarding done here, Kid View or the Family Board open here, notification switches (permission
+  is per device), which Apple Home and cameras this device watches, photos and albums on this
+  device, passcodes and faces kept in this device's keychain, caches and one-time upgrades.
+- A new device must never ask for something the family or the person already answered. When
+  onboarding gains a step, decide which of the three it is: family answers skip it for everyone,
+  personal ones skip it on the person's other devices.
+
 ## Confirmations
 
 When an action needs confirming (deleting, erasing, signing out, leaving), always use a native

@@ -699,6 +699,7 @@ final class CloudSync: HearthZoneParticipant {
         var newCompletions: [ChoreCompletion] = []
         var newRedemptions: [Redemption] = []
         var handled: [UUID] = []
+        var removedSettings: [String] = []
         for record in modifications where record.recordID.zoneID == zoneID {
             guard let type = SyncSchema.type(named: record.recordType),
                   let id = UUID(uuidString: record.recordID.recordName) else { continue }
@@ -723,6 +724,7 @@ final class CloudSync: HearthZoneParticipant {
             // A chore undone or a reward request taken back: its notification goes too.
             if let id = UUID(uuidString: recordID.recordName) { handled.append(id) }
             if let id = UUID(uuidString: recordID.recordName), let model = model(id, identifiers: identifiers, in: context) {
+                if let setting = model as? FamilySetting { removedSettings.append(setting.key) }
                 idsByModel[model.persistentModelID] = nil
                 context.delete(model)
             }
@@ -739,6 +741,7 @@ final class CloudSync: HearthZoneParticipant {
             idsByModel[model.persistentModelID] = model.id
         }
         saveState()
+        if !removedSettings.isEmpty { SharedSettings.shared.forget(removedSettings) }
         if settingsChanged { SharedSettings.shared.pull(from: context) }
         if calendarChanged {
             EventAlerts.reschedule(in: context)

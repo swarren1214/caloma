@@ -1,10 +1,12 @@
 import Foundation
 import SwiftData
 
-/// Family-wide settings (what points are called, approvals, streak bonus, allowance, accent)
-/// stay in UserDefaults for the screens, and are mirrored into `FamilySetting` records so they
-/// sync to everyone in the family. Device settings (reminders, Kid View, Apple Calendar) stay
-/// on the device.
+/// Family-wide settings (what points are called, approvals, streak bonus, allowance, the
+/// Family Board, that the family has been set up) stay in UserDefaults for the screens, and are
+/// mirrored into `FamilySetting` records so they sync to everyone in the family. A person's own
+/// settings follow them to their other devices through `PersonalSettings`. Device settings
+/// (notifications, Kid View, which Apple Home and cameras, photos on this device, passcodes and
+/// faces kept on this device) stay on the device. See AGENT.md › Settings.
 @MainActor
 final class SharedSettings {
     static let shared = SharedSettings()
@@ -13,7 +15,18 @@ final class SharedSettings {
         SettingsKey.pointName, SettingsKey.customPointName, SettingsKey.approvalsByDefault,
         SettingsKey.streakBonus, SettingsKey.allowanceOn, SettingsKey.centsPer100, SettingsKey.payday,
         SettingsKey.splitSpend, SettingsKey.splitSave, SettingsKey.splitGive,
-        SettingsKey.familyName, SettingsKey.rotationMakeUp,
+        SettingsKey.familyName, SettingsKey.rotationMakeUp, SettingsKey.familySetUp,
+        SettingsKey.importedHomeRooms,
+        // The Family Board: set up from anyone's Family settings, shown on the wall iPad.
+        SettingsKey.kioskIdleSeconds, SettingsKey.kioskShowsFamily, SettingsKey.kioskKeepAwake,
+        SettingsKey.kioskDoorbell, SettingsKey.kioskChime, SettingsKey.kioskLockBiometrics,
+        SettingsKey.kioskDims, SettingsKey.kioskDimMinutes, SettingsKey.kioskMatchLight,
+        SettingsKey.kioskScreensaver, SettingsKey.kioskScreensaverMinutes,
+        SettingsKey.kioskScreensaverPhotoSeconds, SettingsKey.kioskScreensaverShuffle,
+        SettingsKey.kioskScreensaverZoom, SettingsKey.kioskScreensaverStyle,
+        SettingsKey.kioskScreensaverWakeOnMotion, SettingsKey.kioskScreensaverWakeTo,
+        SettingsKey.kioskScreensaverNight, SettingsKey.kioskScreensaverWidgets,
+        SettingsKey.kioskScreensaverWallpapers, SettingsKey.kioskScreensaverSkipScreenshots,
     ]
 
     private var container: ModelContainer?
@@ -65,6 +78,17 @@ final class SharedSettings {
         applying = false
     }
 
+    /// Settings whose records were deleted in iCloud (Erase All Data on another device): they
+    /// go back to their defaults here too, so this device doesn't send them up again.
+    func forget(_ removedKeys: [String]) {
+        applying = true
+        for key in removedKeys where Self.keys.contains(key) {
+            defaults.removeObject(forKey: key)
+            lastSeen[key] = nil
+        }
+        applying = false
+    }
+
     /// The first time: every family setting this device has, so the records exist.
     private func pushMissing(in context: ModelContext) {
         let rows = (try? context.fetch(FetchDescriptor<FamilySetting>())) ?? []
@@ -91,7 +115,7 @@ final class SharedSettings {
         }
     }
 
-    /// "b:1", "i:500", "s:stars", or nil when the setting has never been set.
+    /// "b:1", "i:500", "s:stars", "a:[\"Kitchen\"]", or nil when the setting has never been set.
     private func encode(_ key: String) -> String? {
         switch defaults.object(forKey: key) {
         case let number as NSNumber:
@@ -99,6 +123,9 @@ final class SharedSettings {
             return "i:\(number.intValue)"
         case let string as String:
             return "s:" + string
+        case let strings as [String]:
+            guard let data = try? JSONEncoder().encode(strings) else { return nil }
+            return "a:" + String(decoding: data, as: UTF8.self)
         default:
             return nil
         }
@@ -110,6 +137,10 @@ final class SharedSettings {
         case "b:": defaults.set(body == "1", forKey: key)
         case "i:": defaults.set(Int(body) ?? 0, forKey: key)
         case "s:": defaults.set(body, forKey: key)
+        case "a:":
+            if let strings = try? JSONDecoder().decode([String].self, from: Data(body.utf8)) {
+                defaults.set(strings, forKey: key)
+            }
         default: break
         }
     }

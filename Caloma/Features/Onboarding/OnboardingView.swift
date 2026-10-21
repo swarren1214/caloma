@@ -57,6 +57,8 @@ struct OnboardingView: View {
         HearthOnboardingAppsPage(app: .caloma) { tour in
             HearthOnboarding.finish(.caloma, tour: tour && !flow.opensBoard)
             if flow.opensBoard { AppRouter.shared.openKiosk() }
+            // For the family: their other devices, and anyone who joins, skip the setup.
+            UserDefaults.standard.set(true, forKey: SettingsKey.familySetUp)
             UserDefaults.standard.set(true, forKey: SettingsKey.onboarded)
         }
         .hearthOnboardingStyle(.caloma)
@@ -140,8 +142,31 @@ final class OnboardingFlow {
 
     /// The family is already in Caloma: this account joined someone else's household (their
     /// Caloma comes down by itself), or this account's family is already in iCloud.
-    func familyIsAlreadySetUp(in context: ModelContext) -> Bool {
-        HearthHouseholdStore.shared.isMember || Self.hasFamilyData(in: context)
+    func familyIsAlreadySetUp(in context: ModelContext, defaults: UserDefaults = .standard) -> Bool {
+        Self.familyIsSetUp(defaults: defaults) || Self.hasFamilyData(in: context)
+    }
+
+    /// The family already uses Caloma, without looking at this device's data: someone finished
+    /// onboarding on another device (the family's settings say so, or this person's iCloud), or
+    /// this account is in someone else's household, whose Caloma comes down by itself.
+    static func familyIsSetUp(defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: SettingsKey.familySetUp) || HearthHouseholdStore.shared.isMember
+            || HearthOnboarding.isDoneOnAnotherDevice(.caloma)
+    }
+
+    /// Ends onboarding on a device whose family is already set up, without any of its steps:
+    /// the people, chores, points and home care all come from iCloud. On another device of the
+    /// same account the tour has been seen; a parent who joined still gets its Welcome.
+    static func finishForSetUpFamily(defaults: UserDefaults = .standard) {
+        // Starter home care came with the family, so nothing to add.
+        defaults.set(true, forKey: SettingsKey.seeded)
+        defaults.set(true, forKey: SettingsKey.familySetUp)
+        if HearthHouseholdStore.shared.isMember {
+            HearthOnboarding.finishWithoutSteps(.caloma)
+        } else {
+            HearthOnboarding.finish(.caloma, tour: false)
+        }
+        defaults.set(true, forKey: SettingsKey.onboarded)
     }
 
     /// Chores, rewards or events already here, from iCloud.

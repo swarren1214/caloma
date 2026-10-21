@@ -195,7 +195,7 @@ enum Family {
     static func eraseAll(in context: ModelContext, defaults: UserDefaults = .standard) {
         CloudSync.shared.pauseForErase()
         // Back to onboarding first, so no open screen draws a record that's being deleted.
-        for key in [SettingsKey.onboarded, SettingsKey.seeded, SettingsKey.currentMember, SettingsKey.kidViewOpen, SettingsKey.kidViewMember, SettingsKey.kioskOpen, SettingsKey.kioskFaces, SettingsKey.kioskScreensaverPhotos, SettingsKey.kioskScreensaverAlbums] {
+        for key in [SettingsKey.onboarded, SettingsKey.familySetUp, SettingsKey.seeded, SettingsKey.currentMember, SettingsKey.kidViewOpen, SettingsKey.kidViewMember, SettingsKey.kioskOpen, SettingsKey.kioskFaces, SettingsKey.kioskScreensaverPhotos, SettingsKey.kioskScreensaverAlbums] {
             defaults.removeObject(forKey: key)
         }
         ParentPIN.clear()

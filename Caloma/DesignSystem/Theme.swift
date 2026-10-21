@@ -4,6 +4,10 @@ import SwiftUI
 nonisolated enum SettingsKey {
     /// Onboarding has been finished.
     static let onboarded = "onboarding.done"
+    /// Someone in the family has finished onboarding, on any device. Family-wide (it syncs with
+    /// the family's settings), so a new device or a parent who joins the household skips the
+    /// family setup instead of doing it again.
+    static let familySetUp = "family.setUp"
     /// The starter home care tasks have been added (first launch).
     static let seeded = "data.seeded"
     /// The parent this device belongs to.

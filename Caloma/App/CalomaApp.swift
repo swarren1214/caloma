@@ -1,3 +1,4 @@
+import Combine
 import CloudKit
 import SwiftData
 import SwiftUI
@@ -25,11 +26,19 @@ struct CalomaApp: App {
         // family already in iCloud doesn't add a second copy.
         if UserDefaults.standard.bool(forKey: SettingsKey.onboarded) {
             StarterData.seedIfNeeded(in: container.mainContext)
+            // Onboarded before the family's settings remembered it: say so now (SharedSettings
+            // sends it up below), so the family's other devices skip onboarding.
+            if UserDefaults.standard.object(forKey: SettingsKey.familySetUp) == nil {
+                UserDefaults.standard.set(true, forKey: SettingsKey.familySetUp)
+            }
+            // And for this person's own devices (iCloud key-value storage).
+            HearthOnboarding.rememberInCloud(.caloma)
         }
         Upgrades.run(in: container.mainContext)
         // Registers Caloma's zone with the household store, which starts in AppRoot's task.
         CloudSync.shared.start(with: container)
         SharedSettings.shared.start(with: container)
+        PersonalSettings.shared.start()
         WatchBridge.shared.start(with: container)
     }
 
@@ -170,10 +179,17 @@ enum AppSheet: String, Identifiable {
 }
 
 /// Onboarding the first time, the tabs after that, and Kid View over everything when it's on.
+/// A family that's already set up (on another device, or a household this account joined)
+/// skips onboarding: a new device waits a moment for iCloud to say so before showing it.
 struct AppRoot: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var context
     @AppStorage(SettingsKey.onboarded) private var onboarded = false
+    /// Family-wide, from the family's settings in iCloud (SharedSettings).
+    @AppStorage(SettingsKey.familySetUp) private var familySetUp = false
+    /// A device that hasn't onboarded asks iCloud first, so it doesn't show Welcome to a family
+    /// that's already set up.
+    @State private var checkingCloud = !UserDefaults.standard.bool(forKey: SettingsKey.onboarded)
     @Environment(\.scenePhase) private var scenePhase
     @State private var household = HearthHouseholdStore.shared
     private var sync: CloudSync { CloudSync.shared }
@@ -190,6 +206,16 @@ struct AppRoot: View {
     /// What's paid for: Caloma Plus or Hearth+, and Hearth+ for the other apps' data.
     private var planKey: String {
         "\(CalomaPlus.isUnlocked)|\(CalomaPlus.hasHearthPlus)"
+    }
+
+    /// Ends onboarding here when the family's already set up. True when it did (or already was).
+    @discardableResult
+    private func skipsOnboarding() -> Bool {
+        guard !onboarded, !ScreenshotMode.isOn else { return onboarded }
+        guard OnboardingFlow.familyIsSetUp() else { return false }
+        OnboardingFlow.finishForSetUpFamily()
+        checkingCloud = false
+        return true
     }
 
     /// Caloma's part of a person's page in Household.
@@ -214,6 +240,8 @@ struct AppRoot: View {
                         }
                         .environment(\.accent, accent)
                     }
+            } else if checkingCloud {
+                CloudCheckView()
             } else {
                 OnboardingView()
             }
@@ -221,6 +249,31 @@ struct AppRoot: View {
         .tint(accent)
         .environment(\.accent, accent)
         .animation(.smooth, value: onboarded)
+        .animation(.smooth, value: checkingCloud)
+        // Up to a few seconds for iCloud to answer: the household, and the family's Caloma
+        // settings with it. No iCloud, or no answer in time, goes on to onboarding.
+        .task {
+            guard checkingCloud else { return }
+            let deadline = ContinuousClock.now + .seconds(6)
+            while ContinuousClock.now < deadline {
+                if skipsOnboarding() { return }
+                if household.account == .noAccount || household.account == .unavailable { break }
+                if household.cloudLoaded {
+                    // The family's zone comes in the same fetch; a moment for it to be applied.
+                    try? await Task.sleep(for: .milliseconds(400))
+                    if skipsOnboarding() { return }
+                    break
+                }
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+            checkingCloud = false
+        }
+        // The family's settings (or the household) can also arrive while onboarding is showing.
+        .onChange(of: familySetUp) { _, _ in skipsOnboarding() }
+        .onChange(of: household.isMember) { _, _ in skipsOnboarding() }
+        .onReceive(NotificationCenter.default.publisher(for: NSUbiquitousKeyValueStore.didChangeExternallyNotification).receive(on: RunLoop.main)) { _ in
+            skipsOnboarding()
+        }
         .sheet(item: $router.sheet) { sheet in
             Group {
                 switch sheet {
@@ -286,10 +339,26 @@ struct AppRoot: View {
             HearthLink.shared.reload()
             CalomaHousehold.sync(in: context)
         }
-        .alert(sync.notice ?? "", isPresented: Binding(get: { sync.notice != nil }, set: { if !$0 { sync.notice = nil } })) {
-            Button("OK") { sync.notice = nil }
-        }
+        // Above any open sheet (Profile included), not waiting behind it (HearthProfile.swift).
+        .hearthNotice(sync.notice ?? "", isPresented: Binding(get: { sync.notice != nil }, set: { if !$0 { sync.notice = nil } }))
         // Notifications open caloma://homecare, caloma://chores, caloma://rewards.
         .onOpenURL { url in router.open(url) }
+    }
+}
+
+/// A new device, for a moment, while iCloud says whether the family already uses Caloma.
+private struct CloudCheckView: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+            Text("Looking for your family in iCloud…")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
     }
 }

@@ -39,7 +39,7 @@ enum HomeRoomImport {
         let adding = newRoomNames(home: names, existing: rooms.map(\.name), imported: imported)
         // Everything seen this time is remembered, added or not, so a room the family later
         // deletes stays deleted.
-        defaults.set(Array(imported.union(names.map(key))), forKey: SettingsKey.importedHomeRooms)
+        defaults.set(imported.union(names.map(key)).sorted(), forKey: SettingsKey.importedHomeRooms)
         guard !adding.isEmpty else { return }
         insert(adding, into: context, after: rooms)
         try? context.save()
@@ -55,7 +55,7 @@ enum HomeRoomImport {
         // Remembered, so the automatic import doesn't add them a second time.
         let defaults = UserDefaults.standard
         let imported = Set(defaults.stringArray(forKey: SettingsKey.importedHomeRooms) ?? [])
-        defaults.set(Array(imported.union(names.map(key))), forKey: SettingsKey.importedHomeRooms)
+        defaults.set(imported.union(names.map(key)).sorted(), forKey: SettingsKey.importedHomeRooms)
         return adding.count
     }
 
