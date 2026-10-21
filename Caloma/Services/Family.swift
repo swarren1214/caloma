@@ -73,7 +73,7 @@ enum Family {
         if earns { awardStreakBonusIfEarned(memberID, in: context) }
     }
 
-    /// +10 on every seventh day in a row, once per day, when Family › Streak Bonus is on.
+    /// +10 on every seventh day in a row, once per day, when Profile › Streak Bonus is on.
     private static func awardStreakBonusIfEarned(_ memberID: UUID, in context: ModelContext, defaults: UserDefaults = .standard) {
         let on = defaults.object(forKey: SettingsKey.streakBonus) as? Bool ?? true
         guard on else { return }

@@ -86,6 +86,7 @@ struct CalendarView: View {
                     }
                     // White over the color header.
                     .tint(.white)
+                    HearthProfileButton()
                 }
             }
         }

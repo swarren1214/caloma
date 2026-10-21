@@ -10,7 +10,6 @@ import SwiftUI
 struct ControlView: View {
     @Environment(\.accent) private var accent
     @Environment(\.modelContext) private var context
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @Query private var styles: [DeviceStyle]
     @AppStorage(SettingsKey.controlScene) private var activeSceneID = ""
     private let home = HomeBridge.shared
@@ -67,6 +66,10 @@ struct ControlView: View {
                     // Keeps the picker's checkmark the text color.
                     .tint(.primary)
                 }
+            }
+            // The profile photo, always last, as in every Hearth app.
+            ToolbarItem(placement: .topBarTrailing) {
+                HearthProfileButton()
             }
         }
         .task {

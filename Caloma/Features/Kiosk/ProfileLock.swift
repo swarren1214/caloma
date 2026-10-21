@@ -14,7 +14,7 @@ nonisolated enum ProfileLock {
     nonisolated(unsafe) private static var misses: [UUID: Int] = [:]
     nonisolated(unsafe) private static var lockedUntil: [UUID: Date] = [:]
 
-    /// Family › Kiosk Mode › Profile Locks.
+    /// Profile › Kiosk Mode › Profile Locks.
     static func isLocked(_ memberID: UUID, defaults: UserDefaults = .standard) -> Bool {
         let ids = defaults.stringArray(forKey: SettingsKey.kioskLockedProfiles) ?? []
         return ids.contains(memberID.uuidString) && hasPasscode(memberID)

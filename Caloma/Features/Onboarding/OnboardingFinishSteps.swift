@@ -56,7 +56,7 @@ struct HomeExtrasStep: View {
                         ? "Hang this iPad on the wall: the week, faces, the doorbell."
                         : "Hang an iPad on the wall: the week, faces, the doorbell. Set it up on the iPad.",
                     isOn: Binding(get: { flow.extras.familyBoard }, set: { flow.extras.familyBoard = $0 }),
-                    tag: isPad ? "You can start it in a moment" : "On the iPad: Family › Family Board"
+                    tag: isPad ? "You can start it in a moment" : "On the iPad: Profile › Family Board"
                 )
             }
         } controls: {
@@ -126,7 +126,7 @@ struct NotificationsStep: View {
         } content: {
             if let answer = flow.notificationsAllowed {
                 Label(
-                    answer ? "Notifications are on. Fine-tune them any time in Family." : "Notifications are off. You can turn them on in Settings › Caloma.",
+                    answer ? "Notifications are on. Fine-tune them any time in Profile." : "Notifications are off. You can turn them on in Settings › Caloma.",
                     systemImage: answer ? "checkmark.circle.fill" : "bell.slash.fill"
                 )
                 .font(.subheadline.weight(.semibold))
@@ -343,10 +343,8 @@ struct InviteStep: View {
 
 struct AllSetStep: View {
     @Environment(OnboardingFlow.self) private var flow
-    @Environment(AppRouter.self) private var router
     @Environment(\.accent) private var accent
     @Environment(\.onboardingLayout) private var layout
-    @AppStorage(SettingsKey.onboarded) private var onboarded = false
     @AppStorage(SettingsKey.familyName) private var familyName = ""
     @AppStorage(SettingsKey.approvalsByDefault) private var approvalsByDefault = true
     @AppStorage(SettingsKey.allowanceOn) private var allowanceOn = true
@@ -391,7 +389,7 @@ struct AllSetStep: View {
         if let kid = flow.firstKidName {
             rows.append(NextUp(symbol: "figure.child", color: accent, title: "Hand \(isPad ? "an iPad" : "a phone") to \(kid)", detail: "Kid View shows just their day, with big buttons."))
         } else {
-            rows.append(NextUp(symbol: "person.badge.plus", color: accent, title: "Add your kids", detail: "Family › Household › Add Person, then pick their chores."))
+            rows.append(NextUp(symbol: "person.badge.plus", color: accent, title: "Add your kids", detail: "Profile › Household › Add Person, then pick their chores."))
         }
         if approvalsByDefault {
             rows.append(NextUp(symbol: "checkmark.seal.fill", color: Color(hex: 0x1E9E6A), title: "Check Needs Your OK", detail: "Finished chores wait there for a tap."))
@@ -401,7 +399,7 @@ struct AllSetStep: View {
         if isPad && flow.extras.familyBoard {
             rows.append(NextUp(symbol: "ipad.landscape", color: Color(hex: 0x5E5CE6), title: "Start the Family Board", detail: "The button below turns this iPad into it."))
         } else {
-            rows.append(NextUp(symbol: "ipad.landscape", color: Color(hex: 0x5E5CE6), title: "Set up the Family Board", detail: "On an iPad: Family › Family Board."))
+            rows.append(NextUp(symbol: "ipad.landscape", color: Color(hex: 0x5E5CE6), title: "Set up the Family Board", detail: "On an iPad: Profile › Family Board."))
         }
         return rows
     }
@@ -432,7 +430,7 @@ struct AllSetStep: View {
                 OnboardingPrimaryButton(title: "Start the Family Board", action: startBoard)
                 OnboardingSecondaryButton(title: "I'll Explore First") { finish(openBoard: false) }
             } else {
-                OnboardingPrimaryButton(title: "Start Using Caloma") { finish(openBoard: false) }
+                OnboardingPrimaryButton(title: "Continue") { finish(openBoard: false) }
             }
         }
         .sensoryFeedback(.success, trigger: celebrated)
@@ -463,9 +461,10 @@ struct AllSetStep: View {
         }
     }
 
+    /// On to Better with Hearth, which ends onboarding (and opens the wall if asked).
     private func finish(openBoard: Bool) {
-        if openBoard { router.openKiosk() }
-        onboarded = true
+        flow.opensBoard = openBoard
+        flow.next()
     }
 }
 

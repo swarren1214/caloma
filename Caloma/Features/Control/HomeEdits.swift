@@ -90,12 +90,12 @@ extension HomeBridge {
         }
     }
 
-    /// A short reason an Apple Home change failed.
+    /// A short reason an Apple Home change failed, in words a person can act on.
     static func describe(_ error: Error) -> String {
         if let error = error as? HMError, error.code == .insufficientPrivileges {
             return "Only the home's owner, or someone they made an admin in the Home app, can rename or move devices."
         }
-        return error.localizedDescription
+        return FriendlyError.message(for: error, doing: "save that change in Apple Home")
     }
 }
 

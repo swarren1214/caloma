@@ -64,7 +64,7 @@ struct ChoresView: View {
                 CalomaScreen(title: "Chores") {
                     controls(family)
                     if family.choreDoers.isEmpty {
-                        EmptyCard(symbol: "person.badge.plus", title: "No one has chores yet", message: "Add kids in Family, then give out chores.")
+                        EmptyCard(symbol: "person.badge.plus", title: "No one has chores yet", message: "Add kids in Household, then give out chores.")
                     } else if range == .today {
                         todayCards(family)
                     } else {
@@ -97,6 +97,7 @@ struct ChoresView: View {
                 }
                 // White over the color header.
                 .tint(.white)
+                HearthProfileButton()
             }
         }
         .sheet(item: $editing) { chore in
@@ -187,7 +188,7 @@ struct ChoresView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     controls(family)
                     if family.choreDoers.isEmpty {
-                        EmptyCard(symbol: "person.badge.plus", title: "No one has chores yet", message: "Add kids in Family, then give out chores.")
+                        EmptyCard(symbol: "person.badge.plus", title: "No one has chores yet", message: "Add kids in Household, then give out chores.")
                     }
                     let kids = family.choreDoers.filter { kidFilter == nil || $0.id == kidFilter }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 12, alignment: .top)], alignment: .leading, spacing: 12) {

@@ -18,7 +18,7 @@ extension HomeBridge {
 /// - `run(in:)`, on its own: each Apple Home room is added once. A room the family already has
 ///   (by name) is left alone, and one they deleted never comes back. Only runs once this device
 ///   has let Caloma see Apple Home, so a chore editor never asks for Home access by itself.
-/// - `importNow`, from Family › Rooms › Import from Apple Home: someone asked, so every Apple
+/// - `importNow`, from Profile › Rooms › Import from Apple Home: someone asked, so every Apple
 ///   Home room the family doesn't have right now is added, deleted ones included.
 /// Each new room gets an icon from its name, changeable like any room's.
 enum HomeRoomImport {

@@ -77,6 +77,10 @@ struct RootTabView: View {
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
+        // The tour (HearthTour.swift): Welcome after onboarding, then one step per tab.
+        .hearthTour(app: .caloma, steps: CalomaTour.steps(regular: sizeClass == .regular), finishTitle: "Got It", autoStart: !ScreenshotMode.isOn) { step in
+            router.tab = CalomaTour.tab(for: step, regular: sizeClass == .regular)
+        }
         // Debug: marketing screenshots. Does nothing otherwise.
         .screenshotStage(homePath: $homePath, homeCarePath: $homeCarePath)
     }

@@ -1,9 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Family: the household (people live there now), how points work, allowance, reminders and data.
+/// Profile: the shared Hearth Profile with Caloma's rooms, points, allowance, reminders and calendar.
 struct FamilyView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(\.accent) private var accent
     @Query(sort: \Member.sortOrder) private var allMembers: [Member]
@@ -24,238 +23,207 @@ struct FamilyView: View {
 
     @State private var household = HearthHouseholdStore.shared
     @State private var payingOut = false
-    @State private var confirmsErase = false
+    @AppStorage(SettingsKey.appleUserID) private var appleUserID = ""
 
     private var members: [Member] { allMembers.filter { !$0.isArchived } }
 
     var body: some View {
-        Form {
+        // The shared Hearth Profile (HearthProfile.swift), with Caloma's own sections in the middle.
+        HearthProfileView(
+            app: .caloma,
+            profile: accountProfile,
+            sync: HearthProfileSync(summary: "The family’s chores, calendar and rewards", sharing: syncSharing) {
+                CloudSync.shared.syncSnapshot
+            } syncNow: {
+                await CloudSync.shared.syncNow()
+            },
+            erase: HearthProfileErase(
+                app: .caloma,
+                question: "Erase everything?",
+                message: CloudSync.shared.isJoined
+                    ? "Caloma starts over on this \(UIDevice.current.localizedModel) and downloads the family's data again. The family's data stays with everyone else."
+                    : "Every chore, reward, point, event and home care task is deleted from this device and iCloud\(CloudSync.shared.isShared ? ", for everyone in the family" : ""), and Caloma starts over. This can't be undone.",
+                confirm: "Erase All Data",
+                footer: "Caloma keeps your family's information on your devices and in iCloud. Purchases are checked with RevenueCat."
+            ) {
+                Family.eraseAll(in: context)
+                HearthProfilePresenter.shared.dismiss()
+            }
+        ) {
             AccountSection()
-
-            // Caloma Plus or Hearth+: what you have, or how to get it.
-            Section {
-                HearthMembershipRow()
-            } header: {
-                HStack {
-                    Text("Membership")
-                    Spacer(minLength: 8)
-                    HearthMemberBadge()
-                }
-            }
-
-            if case .waiting = CloudSync.shared.location {
-                Section {
-                    Label {
-                        Text(waitingText)
-                    } icon: {
-                        Image(systemName: "hourglass")
-                    }
-                    // The icon in the text color, not the app's.
-                    .tint(.primary)
-                } footer: {
-                    Text("Changes you make here are kept on this \(UIDevice.current.localizedModel) until then.")
-                }
-            }
-
-            Section("iCloud") {
-                HearthSyncCard(
-                    app: .caloma,
-                    snapshot: CloudSync.shared.syncSnapshot,
-                    summary: "The family’s chores, calendar and rewards",
-                    sharing: syncSharing
-                ) {
-                    await CloudSync.shared.syncNow()
-                }
-                .hearthSyncCardRow()
-            }
-
-            // The family every Hearth app shares: people, invitations, birthdays and allergies.
-            Section {
-                NavigationLink {
-                    HearthHouseholdView(accent: accent)
-                } label: {
-                    HearthHouseholdLabel()
-                }
-            } footer: {
-                Text("The same people in every Hearth app. Invite your family here: one invitation shares Caloma too.")
-            }
-
-            // iPad only: the wall screen comes next, since it's set up once and opened often.
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                Section {
-                    NavigationLink {
-                        KioskSettingsView()
-                    } label: {
-                        Label("Family Board", systemImage: "rectangle.inset.filled.and.person.filled")
-                            // The row's icon in its text color, not the app's.
-                            .tint(.primary)
-                    }
-                } footer: {
-                    Text("Turn this iPad into the family's wall screen: the calendar all day, and a tap on a face for chores.")
-                }
-            }
-
-            Section {
-                NavigationLink {
-                    RoomsView()
-                } label: {
-                    LabeledContent {
-                        Text(rooms.isEmpty ? "None yet" : "\(rooms.count)")
-                    } label: {
-                        Label("Rooms", systemImage: "door.left.hand.open")
-                            .tint(.primary)
-                    }
-                }
-            } header: {
-                Text("House")
-            } footer: {
-                Text("Optional. Put chores in rooms so kids know where to go, and see the board one room at a time.")
-            }
-
-            Section {
-                Picker("Call Them", selection: $pointName) {
-                    ForEach(PointName.allCases) { Text($0.label).tag($0.rawValue) }
-                }
-                .tint(.primary)
-                if pointName == PointName.custom.rawValue {
-                    TextField("Your word (acorns, gems)", text: $customPointName)
-                        .textInputAutocapitalization(.never)
-                }
-                Toggle(isOn: $approvalsByDefault) {
-                    settingLabel("Parents Approve Chores", "New chores wait for an OK before \(PointWords.current().plural) land")
-                }
-                Toggle(isOn: $streakBonus) {
-                    settingLabel("Streak Bonus", "+10 for every 7 days in a row")
-                }
-            } header: {
-                Text("Points")
-            } footer: {
-                Text("Each chore sets its own value.")
-            }
-
-            Section {
-                Toggle(isOn: $allowanceOn) {
-                    settingLabel("Convert to Allowance", "Turn \(PointWords.current().plural) into money on payday")
-                }
-                if allowanceOn {
-                    Stepper(value: $centsPer100, in: 25...5000, step: centsPer100 < 100 ? 25 : 50) {
-                        Text("100 \(PointWords.current().plural) = \(money(centsPer100))")
-                            .monospacedDigit()
-                    }
-                    Picker("Payday", selection: $payday) {
-                        ForEach(1...7, id: \.self) { day in
-                            Text(Calendar.current.weekdaySymbols[day - 1]).tag(day)
-                        }
-                    }
-                    .tint(.primary)
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Split Every Payday")
-                        SplitBar(spend: splitSpend, save: splitSave, give: splitGive, accent: accent)
-                    }
-                    .padding(.vertical, 8)
-                    // One row each, so the steppers get the list's own spacing and separators.
-                    splitStepper("Spend", value: splitSpend) { setSplit(spend: $0) }
-                    splitStepper("Save", value: splitSave) { setSplit(save: $0) }
-                    splitStepper("Give", value: splitGive) { setSplit(give: $0) }
-                    Button("Pay Out Now") { payingOut = true }
-                        .tint(.primary)
-                }
-            } header: {
-                Text("Allowance")
-            } footer: {
-                Text("Caloma keeps track of what each kid has earned. You pay out however your family does: cash, a card or a savings jar.")
-            }
-
-            Section {
-                // Home Care is part of Caloma Plus and Hearth+.
-                if CalomaPlus.isUnlocked {
-                    Toggle(isOn: Binding(get: { homeReminders }, set: { on in
-                        homeReminders = on
-                        Task {
-                            if on { _ = await Reminders.requestPermission() }
-                            Reminders.reschedule(in: context)
-                        }
-                    })) {
-                        settingLabel("Home Care Reminders", "A notification before each task is due")
-                    }
-                }
-                Toggle(isOn: Binding(get: { approvalAlerts }, set: { on in
-                    approvalAlerts = on
-                    if on { Task { _ = await Reminders.requestPermission() } }
-                })) {
-                    settingLabel("Needs Your OK", "When a kid finishes a chore or asks for a reward")
-                }
-            } header: {
-                Text("Reminders")
-            } footer: {
-                Text("Approve or send back right from the notification. Each parent's phone gets them while Caloma is open or in the background.")
-            }
-
-            Section {
-                NavigationLink {
-                    MealTimesView(app: .caloma)
-                } label: {
-                    LabeledContent {
-                        Text(HearthLink.shared.mealTimes.summary)
-                    } label: {
-                        Label("Meal Times", systemImage: "fork.knife")
-                            .tint(.primary)
-                    }
-                }
-                NavigationLink {
-                    AppleCalendarSettingsView()
-                } label: {
-                    LabeledContent {
-                        Text(AppleCalendar.shared.showsAppleEvents || AppleCalendar.shared.addsFamilyEvents ? "On" : "Off")
-                    } label: {
-                        Label("Apple Calendar", systemImage: "calendar")
-                            .tint(.primary)
-                    }
-                }
-            } header: {
-                Text("Calendar")
-            } footer: {
-                Text("Meal times place BigTable's meals on the calendar, and change in BigTable too. Apple Calendar is optional: show your other calendars beside the family's, or add family events to it.")
-            }
-
-            Section {
-                NavigationLink {
-                    HearthAppsView(current: .caloma)
-                } label: {
-                    HearthAppsRowLabel(current: .caloma)
-                }
-            }
-
-            Section {
-                LabeledContent("Version", value: AppConfig.version)
-                Button("Erase All Caloma Data", role: .destructive) { confirmsErase = true }
-            } header: {
-                Text("Data")
-            } footer: {
-                Text("Caloma keeps your family's information on your devices and in iCloud. Purchases are checked with RevenueCat.")
-            }
+        } settings: {
+            calomaSections
+        } data: {
+        } about: {
         }
         .refreshesFromICloud()
-        .navigationTitle("Family")
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                SheetCancelButton("Close") { dismiss() }
-            }
-        }
         .sheet(isPresented: $payingOut) {
             PayOutSheet()
         }
-        .alert("Erase everything?", isPresented: $confirmsErase) {
-            Button("Erase All Data", role: .destructive) {
-                Family.eraseAll(in: context)
-                dismiss()
+    }
+
+    /// Who's signed in with Apple, for the account card at the top (nil shows Sign in with Apple).
+    private var accountProfile: HearthAccountProfile? {
+        guard !appleUserID.isEmpty else { return nil }
+        let shared = HearthAccounts.appleID().flatMap { $0.userID == appleUserID ? $0 : nil }
+        return HearthAccountProfile(name: shared?.fullName, email: shared?.email)
+    }
+
+    /// Caloma's own settings: the wall screen, rooms, points, allowance, reminders and calendar.
+    @ViewBuilder
+    private var calomaSections: some View {
+        if case .waiting = CloudSync.shared.location {
+            Section {
+                Label {
+                    Text(waitingText)
+                } icon: {
+                    Image(systemName: "hourglass")
+                }
+                // The icon in the text color, not the app's.
+                .tint(.primary)
+            } footer: {
+                Text("Changes you make here are kept on this \(UIDevice.current.localizedModel) until then.")
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(CloudSync.shared.isJoined
-                 ? "Caloma starts over on this \(UIDevice.current.localizedModel) and downloads the family's data again. The family's data stays with everyone else."
-                 : "Every chore, reward, point, event and home care task is deleted from this device and iCloud\(CloudSync.shared.isShared ? ", for everyone in the family" : ""), and Caloma starts over. This can't be undone.")
         }
+
+        // iPad only: the wall screen comes next, since it's set up once and opened often.
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            Section {
+                NavigationLink {
+                    KioskSettingsView()
+                } label: {
+                    Label("Family Board", systemImage: "rectangle.inset.filled.and.person.filled")
+                        // The row's icon in its text color, not the app's.
+                        .tint(.primary)
+                }
+            } footer: {
+                Text("Turn this iPad into the family's wall screen: the calendar all day, and a tap on a face for chores.")
+            }
+        }
+
+        Section {
+            NavigationLink {
+                RoomsView()
+            } label: {
+                LabeledContent {
+                    Text(rooms.isEmpty ? "None yet" : "\(rooms.count)")
+                } label: {
+                    Label("Rooms", systemImage: "door.left.hand.open")
+                        .tint(.primary)
+                }
+            }
+        } header: {
+            Text("House")
+        } footer: {
+            Text("Optional. Put chores in rooms so kids know where to go, and see the board one room at a time.")
+        }
+
+        Section {
+            Picker("Call Them", selection: $pointName) {
+                ForEach(PointName.allCases) { Text($0.label).tag($0.rawValue) }
+            }
+            .tint(.primary)
+            if pointName == PointName.custom.rawValue {
+                TextField("Your word (acorns, gems)", text: $customPointName)
+                    .textInputAutocapitalization(.never)
+            }
+            Toggle(isOn: $approvalsByDefault) {
+                settingLabel("Parents Approve Chores", "New chores wait for an OK before \(PointWords.current().plural) land")
+            }
+            Toggle(isOn: $streakBonus) {
+                settingLabel("Streak Bonus", "+10 for every 7 days in a row")
+            }
+        } header: {
+            Text("Points")
+        } footer: {
+            Text("Each chore sets its own value.")
+        }
+
+        Section {
+            Toggle(isOn: $allowanceOn) {
+                settingLabel("Convert to Allowance", "Turn \(PointWords.current().plural) into money on payday")
+            }
+            if allowanceOn {
+                Stepper(value: $centsPer100, in: 25...5000, step: centsPer100 < 100 ? 25 : 50) {
+                    Text("100 \(PointWords.current().plural) = \(money(centsPer100))")
+                        .monospacedDigit()
+                }
+                Picker("Payday", selection: $payday) {
+                    ForEach(1...7, id: \.self) { day in
+                        Text(Calendar.current.weekdaySymbols[day - 1]).tag(day)
+                    }
+                }
+                .tint(.primary)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Split Every Payday")
+                    SplitBar(spend: splitSpend, save: splitSave, give: splitGive, accent: accent)
+                }
+                .padding(.vertical, 8)
+                // One row each, so the steppers get the list's own spacing and separators.
+                splitStepper("Spend", value: splitSpend) { setSplit(spend: $0) }
+                splitStepper("Save", value: splitSave) { setSplit(save: $0) }
+                splitStepper("Give", value: splitGive) { setSplit(give: $0) }
+                Button("Pay Out Now") { payingOut = true }
+                    .tint(.primary)
+            }
+        } header: {
+            Text("Allowance")
+        } footer: {
+            Text("Caloma keeps track of what each kid has earned. You pay out however your family does: cash, a card or a savings jar.")
+        }
+
+        Section {
+            // Home Care is part of Caloma Plus and Hearth+.
+            if CalomaPlus.isUnlocked {
+                Toggle(isOn: Binding(get: { homeReminders }, set: { on in
+                    homeReminders = on
+                    Task {
+                        if on { _ = await Reminders.requestPermission() }
+                        Reminders.reschedule(in: context)
+                    }
+                })) {
+                    settingLabel("Home Care Reminders", "A notification before each task is due")
+                }
+            }
+            Toggle(isOn: Binding(get: { approvalAlerts }, set: { on in
+                approvalAlerts = on
+                if on { Task { _ = await Reminders.requestPermission() } }
+            })) {
+                settingLabel("Needs Your OK", "When a kid finishes a chore or asks for a reward")
+            }
+        } header: {
+            Text("Reminders")
+        } footer: {
+            Text("Approve or send back right from the notification. Each parent's phone gets them while Caloma is open or in the background.")
+        }
+
+        Section {
+            NavigationLink {
+                MealTimesView(app: .caloma)
+            } label: {
+                LabeledContent {
+                    Text(HearthLink.shared.mealTimes.summary)
+                } label: {
+                    Label("Meal Times", systemImage: "fork.knife")
+                        .tint(.primary)
+                }
+            }
+            NavigationLink {
+                AppleCalendarSettingsView()
+            } label: {
+                LabeledContent {
+                    Text(AppleCalendar.shared.showsAppleEvents || AppleCalendar.shared.addsFamilyEvents ? "On" : "Off")
+                } label: {
+                    Label("Apple Calendar", systemImage: "calendar")
+                        .tint(.primary)
+                }
+            }
+        } header: {
+            Text("Calendar")
+        } footer: {
+            Text("Meal times place BigTable's meals on the calendar, and change in BigTable too. Apple Calendar is optional: show your other calendars beside the family's, or add family events to it.")
+        }
+
     }
 
     /// Who the family is shared with, for the iCloud Sync card: the parents, since they're the

@@ -65,8 +65,8 @@ struct MoreView: View {
                             .foregroundStyle(.secondary)
                             .padding(.leading, 16)
                         VStack(spacing: 0) {
-                            shortcut(symbol: "person.2.fill", color: accent, title: "Family & Settings") {
-                                router.sheet = .family
+                            shortcut(symbol: "person.crop.circle", color: accent, title: "Profile & Settings") {
+                                HearthProfilePresenter.shared.show()
                             }
                             Divider().padding(.leading, 62)
                             shortcut(symbol: "figure.child", color: KidColor.blue.color, title: "Kid View") {
@@ -83,6 +83,12 @@ struct MoreView: View {
             .background(Color(.systemGroupedBackground))
             .refreshesFromICloud()
             .navigationTitle("More")
+            .toolbar {
+                // The profile photo, as on every main screen.
+                ToolbarItem(placement: .topBarTrailing) {
+                    HearthProfileButton()
+                }
+            }
             .navigationDestination(for: MoreItem.self) { item in
                 destination(item)
             }

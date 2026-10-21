@@ -8,7 +8,6 @@ struct RotationDetailView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.accent) private var accent
-    @Environment(\.dismiss) private var dismiss
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @Query private var groups: [ChoreGroup]
     @Query private var chores: [Chore]

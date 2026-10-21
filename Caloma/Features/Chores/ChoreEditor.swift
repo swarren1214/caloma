@@ -112,7 +112,7 @@ struct ChoreEditor: View {
                 if currentGroup == nil {
                 Section {
                     if people.isEmpty {
-                        Text("Add your family in Family first.").foregroundStyle(.secondary)
+                        Text("Add your family in Household first.").foregroundStyle(.secondary)
                     } else {
                         ScrollView(.horizontal) {
                             HStack(spacing: 8) {

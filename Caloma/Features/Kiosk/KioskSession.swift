@@ -82,7 +82,7 @@ final class KioskSession {
         }
     }
 
-    /// Family › Kiosk Mode › Back to the Calendar After.
+    /// Profile › Kiosk Mode › Back to the Calendar After.
     var idleSeconds: TimeInterval {
         Self.moveIdleTimeToTwentySeconds()
         let seconds = UserDefaults.standard.integer(forKey: SettingsKey.kioskIdleSeconds)

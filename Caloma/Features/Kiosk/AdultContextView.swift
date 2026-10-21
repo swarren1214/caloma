@@ -430,7 +430,7 @@ struct AdultContextView: View {
                     .frame(maxWidth: .infinity)
                     .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 18))
                 } else {
-                    Text("Set a parent PIN in Family › Family Board to approve from the wall.")
+                    Text("Set a parent PIN in Profile › Family Board to approve from the wall.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -491,7 +491,7 @@ struct AdultContextView: View {
         let total = kids.reduce(0) { $0 + family.progress(for: $1).total }
         return card(title: "The kids today", symbol: "figure.2.and.child.holdinghands", tint: Color(hex: 0xAF52DE), trailing: total == 0 ? nil : "\(done) of \(total) jobs done") {
             if kids.isEmpty {
-                emptyState(symbol: "person.3.fill", tint: Color(hex: 0xAF52DE), title: "No kids yet", message: "Add kids in Family to see their day here.")
+                emptyState(symbol: "person.3.fill", tint: Color(hex: 0xAF52DE), title: "No kids yet", message: "Add kids in Household to see their day here.")
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 116), spacing: 12)], spacing: 16) {
                     ForEach(kids) { kid in
@@ -596,7 +596,7 @@ struct AdultContextView: View {
                             ContentUnavailableView(
                                 "Set a Parent PIN First",
                                 systemImage: "key.fill",
-                                description: Text("Every home control, unlocking doors included, takes the parent PIN on the wall. Set one in Family › Family Board.")
+                                description: Text("Every home control, unlocking doors included, takes the parent PIN on the wall. Set one in Profile › Family Board.")
                             )
                         }
                     }

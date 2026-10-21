@@ -10,6 +10,9 @@ struct CalomaApp: App {
 
     init() {
         ScreenshotMode.prepareLaunch()
+        // Alert buttons in the text color, not Caloma's color; only a destructive button is red
+        // (its role). See AGENT.md › Confirmations.
+        UIView.appearance(whenContainedInInstancesOf: [UIAlertController.self]).tintColor = .label
         // Screenshot mode (Debug only) runs on an in-memory store of demo content, with no
         // sync, watch or settings mirroring, so the device's own family and iCloud are untouched.
         let container = Persistence.makeContainer(inMemory: ScreenshotMode.isOn)
@@ -161,7 +164,7 @@ final class AppRouter {
 }
 
 enum AppSheet: String, Identifiable {
-    case newChore, newReward, approvals, family
+    case newChore, newReward, approvals
 
     var id: String { rawValue }
 }
@@ -224,12 +227,18 @@ struct AppRoot: View {
                 case .newChore: ChoreEditor(chore: nil)
                 case .newReward: RewardEditor(reward: nil)
                 case .approvals: ApprovalsView()
-                case .family: NavigationStack { FamilyView() }
                 }
             }
             .tint(accent)
             .environment(\.accent, accent)
             .environment(\.hearthPersonExtras, personExtras)
+        }
+        // Profile, opened by the photo at the top right of every main screen.
+        .hearthProfile {
+            FamilyView()
+                .tint(accent)
+                .environment(\.accent, accent)
+                .environment(\.hearthPersonExtras, personExtras)
         }
         .fullScreenCover(isPresented: Binding(get: { onboarded && router.kidViewOpen }, set: { router.kidViewOpen = $0 })) {
             KidModeView()

@@ -2,7 +2,7 @@ import Photos
 import PhotosUI
 import SwiftUI
 
-/// Family › Family Board › Screensaver: when it starts, the photos, the cards that take turns,
+/// Profile › Family Board › Screensaver: when it starts, the photos, the cards that take turns,
 /// what waking it does, and the dim clock at night.
 struct ScreensaverSettingsView: View {
     @AppStorage(SettingsKey.kioskScreensaver) private var isOn = true

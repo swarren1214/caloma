@@ -68,6 +68,14 @@ struct WhiteboardView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Whiteboard")
         .toolbarVisibility(kiosk ? .hidden : .automatic, for: .navigationBar)
+        .toolbar {
+            // The profile photo, as on every main screen (not on the wall).
+            if !kiosk {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HearthProfileButton()
+                }
+            }
+        }
         .onAppear(perform: setUp)
         .onDisappear { save() }
         .onChange(of: drawing) { _, new in

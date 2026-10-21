@@ -93,7 +93,7 @@ final class HomeBridge: NSObject {
             .sorted { ($0.isDoorbell ? 0 : 1, $0.name) < ($1.isDoorbell ? 0 : 1, $1.name) }
     }
 
-    /// Cameras that pop up on the wall when they see motion (Family › Kiosk Mode › Cameras).
+    /// Cameras that pop up on the wall when they see motion (Profile › Kiosk Mode › Cameras).
     var motionCameraIDs: Set<UUID> {
         get {
             _ = revision

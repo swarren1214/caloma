@@ -20,7 +20,7 @@ enum ApprovalAlerts {
     nonisolated private static let prefix = "approval."
     private static let log = Logger(subsystem: "com.stephenwarren.caloma", category: "approvals")
 
-    /// On unless turned off in Family › Reminders.
+    /// On unless turned off in Profile › Reminders.
     static var isOn: Bool { UserDefaults.standard.object(forKey: SettingsKey.approvalAlerts) as? Bool ?? true }
 
     /// The Approve / Send Back buttons. Both need the phone unlocked, so a kid can't approve

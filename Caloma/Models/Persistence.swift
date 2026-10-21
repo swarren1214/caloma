@@ -178,7 +178,7 @@ enum StarterData {
         StarterHomeTask(name: "Service the furnace", symbol: "heater.vertical", area: .heatingAir, count: 1, unit: .years, firstDueInDays: 120),
     ]
 
-    /// Rooms most homes have, offered in Family › Rooms with Add Common Rooms.
+    /// Rooms most homes have, offered in Profile › Rooms with Add Common Rooms.
     static let rooms: [(name: String, symbol: String)] = [
         ("Kitchen", "fork.knife"), ("Living Room", "sofa"), ("Dining Room", "chair"),
         ("Bathroom", "shower"), ("Laundry Room", "washer"), ("Garage", "door.garage.closed"),

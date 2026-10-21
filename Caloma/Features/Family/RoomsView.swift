@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Family › Rooms: the rooms chores can be assigned to. Add, rename, reorder or remove them.
+/// Profile › Rooms: the rooms chores can be assigned to. Add, rename, reorder or remove them.
 struct RoomsView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.accent) private var accent

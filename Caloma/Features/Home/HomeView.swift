@@ -24,6 +24,7 @@ struct HomeView: View {
             // Only when a Caloma Plus or Hearth+ renewal failed.
             HearthBillingBanner()
             kidsToday(family)
+                .hearthTourTarget(CalomaTour.home)
             PinnedDevicesCard()
             DinnerTonightCard()
             ComingUpCard()
@@ -54,14 +55,11 @@ struct HomeView: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Group {
                     KidViewButton()
-                    Button {
-                        router.sheet = .family
-                    } label: {
-                        Label("Family", systemImage: "person.2.fill")
-                    }
                 }
                 // White over the color header.
                 .tint(.white)
+                // The profile photo, always last, as in every Hearth app (HearthProfile.swift).
+                HearthProfileButton()
             }
         }
     }
@@ -73,7 +71,7 @@ struct HomeView: View {
                 Button("All Chores") { router.tab = .chores }
             }
             if family.kids.isEmpty {
-                EmptyCard(symbol: "person.badge.plus", title: "No kids yet", message: "Add them in Family to start giving out chores.")
+                EmptyCard(symbol: "person.badge.plus", title: "No kids yet", message: "Add them in Household to start giving out chores.")
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 108), spacing: 10)], spacing: 10) {
                     ForEach(family.kids) { kid in

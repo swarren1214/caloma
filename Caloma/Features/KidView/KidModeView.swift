@@ -263,7 +263,7 @@ private struct KidPicker: View {
                 .font(.system(size: 38, weight: .heavy, design: .rounded))
                 .multilineTextAlignment(.center)
             if kids.isEmpty {
-                Text("Add kids in Family first.")
+                Text("Add kids in Household first.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }

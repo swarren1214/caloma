@@ -74,7 +74,7 @@ struct HomeTaskEditor: View {
                     Text("Schedule")
                 } footer: {
                     if !remindersOn {
-                        Text("Turn on Home Care Reminders in Family to get a notification.")
+                        Text("Turn on Home Care Reminders in Profile to get a notification.")
                     }
                 }
 

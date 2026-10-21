@@ -16,7 +16,7 @@ struct AppleEvent: Identifiable, Hashable {
     var color: Color
 }
 
-/// Apple Calendar, both ways, each off until turned on in Family › Apple Calendar:
+/// Apple Calendar, both ways, each off until turned on in Profile › Apple Calendar:
 /// - Show Apple Calendar events: the calendars picked there show on the family calendar.
 /// - Add family events to Apple Calendar: the next two months of family events go into a
 ///   "Caloma" calendar, kept in step whenever an event changes. That calendar is Caloma's;
@@ -49,7 +49,7 @@ final class AppleCalendar {
         didSet { defaults.set(addsFamilyEvents, forKey: Key.write) }
     }
 
-    /// Calendars someone unticked in Family › Apple Calendar.
+    /// Calendars someone unticked in Profile › Apple Calendar.
     var hiddenCalendarIDs: Set<String> {
         didSet {
             defaults.set(Array(hiddenCalendarIDs), forKey: Key.hidden)

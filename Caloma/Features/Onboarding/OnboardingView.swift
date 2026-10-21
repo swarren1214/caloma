@@ -4,11 +4,12 @@ import SwiftUI
 /// First run, from the canvas's onboarding flow: Welcome, the household (set one up or join the
 /// family's: the people come from it), what chores earn, a few starter chores, the extras
 /// (calendar, home care, Apple Home, Family Board), notifications, inviting the other parent to
-/// the household, and "Welcome home".
+/// the household, "Welcome home", and Better with Hearth (the other Hearth apps), which starts the
+/// tour or jumps in.
 ///
 /// The chores and settings are saved on leaving "Make it your home" (or skipping past it).
 /// After that there's no going back, so nothing is added twice. Joining a family that already
-/// uses Caloma skips straight to the app.
+/// uses Caloma skips straight to Better with Hearth.
 struct OnboardingView: View {
     @State private var flow = OnboardingFlow()
     @State private var size = CGSize(width: 390, height: 844)
@@ -44,8 +45,21 @@ struct OnboardingView: View {
         case 4: HomeExtrasStep()
         case 5: NotificationsStep()
         case 6: InviteStep()
-        default: AllSetStep()
+        case OnboardingFlow.allSetStep: AllSetStep()
+        default: appsStep
         }
+    }
+
+    /// The last page (HearthOnboarding.swift), in the Hearth onboarding's dark style. Show Me
+    /// Around starts the tour at its first step once the tabs are up; the tour's own Welcome
+    /// never shows. Starting the Family Board skips the tour (the wall is the point).
+    private var appsStep: some View {
+        HearthOnboardingAppsPage(app: .caloma) { tour in
+            HearthOnboarding.finish(.caloma, tour: tour && !flow.opensBoard)
+            if flow.opensBoard { AppRouter.shared.openKiosk() }
+            UserDefaults.standard.set(true, forKey: SettingsKey.onboarded)
+        }
+        .hearthOnboardingStyle(.caloma)
     }
 
     private var stepTransition: AnyTransition {
@@ -59,7 +73,7 @@ struct OnboardingView: View {
     /// Skip, from "Make it your home" on: saves the family if it isn't yet, then "all set".
     private func skip() {
         guard flow.commit(in: context) else { return }
-        flow.go(to: OnboardingFlow.lastStep)
+        flow.go(to: OnboardingFlow.allSetStep)
     }
 }
 
@@ -76,7 +90,11 @@ final class OnboardingFlow {
         var familyBoard = false
     }
 
-    static let lastStep = 7
+    /// "Welcome home".
+    static let allSetStep = 7
+    /// Better with Hearth, the last page.
+    static let appsStep = 8
+    static let lastStep = appsStep
     /// The steps with a progress bar: everything between Welcome and "Welcome home".
     static let progressSteps = 1...6
     /// The first step with Skip.
@@ -91,10 +109,12 @@ final class OnboardingFlow {
     private(set) var committed = false
     var notificationsAllowed: Bool?
     var invited = false
+    /// "Start the Family Board" on Welcome home: the wall opens once onboarding ends.
+    var opensBoard = false
 
     var showsBar: Bool { Self.progressSteps.contains(step) }
     var showsBack: Bool { showsBar && !(committed && step > Self.firstSkippable) }
-    var showsSkip: Bool { step >= Self.firstSkippable && step < Self.lastStep }
+    var showsSkip: Bool { step >= Self.firstSkippable && step < Self.allSetStep }
 
     func go(to next: Int) {
         let target = min(max(next, 0), Self.lastStep)
@@ -131,12 +151,12 @@ final class OnboardingFlow {
             || ((try? context.fetchCount(FetchDescriptor<FamilyEvent>())) ?? 0) > 0
     }
 
-    /// Straight into the app with the family that's already there.
+    /// On to Better with Hearth with the family that's already there.
     func finishWithExistingFamily(defaults: UserDefaults = .standard) {
         committed = true
         // Starter home care came with the family, so nothing to add.
         defaults.set(true, forKey: SettingsKey.seeded)
-        defaults.set(true, forKey: SettingsKey.onboarded)
+        go(to: Self.appsStep)
     }
 
     /// Saves the chores picked for the household's kids, the store, home care and the points
@@ -248,7 +268,7 @@ private struct OnboardingBackground: View {
     var step: Int
     @Environment(\.accent) private var accent
 
-    private var glows: Bool { step == 0 || step == OnboardingFlow.lastStep }
+    private var glows: Bool { step == 0 || step == OnboardingFlow.allSetStep }
 
     var body: some View {
         Color(.systemGroupedBackground)

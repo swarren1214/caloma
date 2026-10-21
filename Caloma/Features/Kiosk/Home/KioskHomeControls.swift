@@ -139,7 +139,7 @@ struct KioskHomeControls: View {
                     ContentUnavailableView(
                         "Set a Parent PIN First",
                         systemImage: "key.fill",
-                        description: Text("Unlocking doors, opening the garage and turning off the alarm from the wall take the parent PIN. Set one in Family › Family Board.")
+                        description: Text("Unlocking doors, opening the garage and turning off the alarm from the wall take the parent PIN. Set one in Profile › Family Board.")
                     )
                 }
             }

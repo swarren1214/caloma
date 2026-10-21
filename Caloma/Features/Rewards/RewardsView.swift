@@ -101,6 +101,7 @@ struct RewardsView: View {
                 }
                 // White over the color header.
                 .tint(.white)
+                HearthProfileButton()
             }
         }
         .sheet(item: $editing) { reward in

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Family › Family Board › Lock This iPad to Caloma: how to set up Guided Access, so the wall
+/// Profile › Family Board › Lock This iPad to Caloma: how to set up Guided Access, so the wall
 /// stays on Caloma with no Home swipe, Control Center, notifications or Siri. Two parts: the
 /// one-time setup in Settings, then the triple-click each time. A green banner shows while
 /// Guided Access is running.

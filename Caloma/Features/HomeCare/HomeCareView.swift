@@ -45,7 +45,7 @@ struct HomeCareView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 Group {
                     Button {
                         addingTask = true
@@ -55,6 +55,7 @@ struct HomeCareView: View {
                 }
                 // White over the color header.
                 .tint(.white)
+                HearthProfileButton()
             }
         }
         .sheet(isPresented: $addingTask) {

@@ -6,6 +6,8 @@ struct WelcomeStep: View {
     @Environment(OnboardingFlow.self) private var flow
     @Environment(\.accent) private var accent
     @Environment(\.onboardingLayout) private var layout
+    @AppStorage(SettingsKey.appleUserID) private var appleUserID = ""
+    @State private var errorMessage: String?
 
     var body: some View {
         OnboardingScreen(title: "Caloma", subtitle: "Run the house together, and make chores something kids want to do.", centered: true) {
@@ -19,8 +21,30 @@ struct WelcomeStep: View {
             }
             .padding(.horizontal, 4)
         } controls: {
-            // Starting a household or joining the family's is the next step.
-            OnboardingPrimaryButton(title: "Get Started", action: flow.next)
+            // Starting a household or joining the family's is the next step. Signing in is
+            // optional, as in every Hearth app: it adds your name and lets your other Hearth
+            // apps recognize you.
+            if appleUserID.isEmpty {
+                CalomaAppleSignInButton { errorMessage = $0 }
+                    .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52)
+                    .clipShape(.capsule)
+                OnboardingSecondaryButton(title: "Continue Without an Account", action: flow.next)
+                Text("Optional. Your family syncs through iCloud either way.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                OnboardingPrimaryButton(title: "Get Started", action: flow.next)
+            }
+        }
+        // Signed in with Apple here: on to the household.
+        .onChange(of: appleUserID) { _, id in
+            if !id.isEmpty && flow.step == 0 { flow.next() }
+        }
+        .alert("Couldn't sign in", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
         }
     }
 }

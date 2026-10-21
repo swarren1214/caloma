@@ -240,7 +240,7 @@ struct PointsStep: View {
         }
     }
 
-    /// Spend, save, give: how each payday is split. Changed in Family.
+    /// Spend, save, give: how each payday is split. Changed in Profile.
     private var splitBar: some View {
         let parts: [(String, Int, Color)] = [("Spend", splitSpend, accent), ("Save", splitSave, Color(hex: 0x1E9E6A)), ("Give", splitGive, Color(hex: 0xAF52DE))]
         let total = max(parts.map(\.1).reduce(0, +), 1)
@@ -265,7 +265,7 @@ struct PointsStep: View {
                 }
                 Spacer(minLength: 0)
             }
-            Text("Change the split any time in Family.")
+            Text("Change the split any time in Profile.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -296,7 +296,7 @@ struct ChoresStep: View {
             title: hasKids ? "Pick a few chores" : "Chores come later",
             subtitle: hasKids
                 ? "Every kid gets these to start. Change who does what, and what each is worth, any time."
-                : "Add kids any time in Family › Household, then pick their chores."
+                : "Add kids any time in Profile › Household, then pick their chores."
         ) {
             OnboardingSymbolIcon(symbol: "checklist")
         } content: {

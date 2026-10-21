@@ -2,7 +2,7 @@ import EventKit
 import SwiftData
 import SwiftUI
 
-/// Family › Apple Calendar: show Apple Calendar events on the family calendar (choosing which
+/// Profile › Apple Calendar: show Apple Calendar events on the family calendar (choosing which
 /// calendars), and add family events to Apple Calendar. Both are off until turned on, and
 /// both are just for this device.
 struct AppleCalendarSettingsView: View {

@@ -611,14 +611,14 @@ final class CloudSync: HearthZoneParticipant {
         }
         // Shown on the iCloud Sync card, rather than "Up to date" while iCloud refuses the
         // records (an undeployed schema on a TestFlight build, say).
-        sendError = rejected.map { "iCloud didn't accept \(failedSaves.count) change\(failedSaves.count == 1 ? "" : "s"): \($0.localizedDescription)" }
+        sendError = rejected.map { "iCloud didn't accept \(failedSaves.count) change\(failedSaves.count == 1 ? "" : "s"): \(Self.detail($0))" }
         if sendError == nil, !(saved.isEmpty && deleted.isEmpty) {
             markSynced()
         }
         if sendError != nil {
-            errorMessage = rejected.flatMap { syncErrorMessage(for: $0) }.map { message in
-                rejectedType.map { "\(message) [\($0) records]" } ?? message
-            }
+            // The record type and iCloud's reason are in the log above; the card gets words.
+            errorMessage = rejected.flatMap { syncErrorMessage(for: $0) }
+            if let rejectedType { log.error("Refused record type: \(rejectedType, privacy: .public)") }
             // Refused records aren't queued anymore (they stay in `unsent`); send them again
             // next time, once whatever iCloud objected to may be fixed.
             state.needsResend = true
@@ -898,7 +898,7 @@ final class CloudSync: HearthZoneParticipant {
         case .networkUnavailable, .networkFailure: "No internet connection. Changes will sync when you're back online."
         case .notAuthenticated: "Sign in to iCloud in Settings to sync."
         case .quotaExceeded: "iCloud storage is full."
-        default: error.localizedDescription
+        default: FriendlyError.hint(for: error) ?? "iCloud couldn’t sync just now. Caloma will try again on its own."
         }
     }
 
@@ -906,7 +906,7 @@ final class CloudSync: HearthZoneParticipant {
 
     static let removedFromFamilyMessage = "You’re no longer in this family’s shared iCloud."
 
-    /// What Family › iCloud shows, from the sync's state right now.
+    /// What Profile › iCloud shows, from the sync's state right now.
     var syncSnapshot: HearthSyncSnapshot {
         let account: HearthSyncSnapshot.Account
         if !AppConfig.cloudSyncEnabled {
@@ -936,17 +936,17 @@ final class CloudSync: HearthZoneParticipant {
 
     /// An error in words for the iCloud Sync card, or nil for ones that sort themselves out
     /// (offline, signed out: the card says those itself).
+    /// iCloud's own reason and code go to the log (`fail`, `zoneSent`), never on the card.
     private func syncErrorMessage(for error: Error) -> String? {
-        guard let error = error as? CKError else {
-            return "iCloud couldn’t sync: \(Self.detail(error))"
-        }
+        let fallback = "iCloud couldn’t sync just now. Caloma will try again on its own, or tap Sync Now."
+        guard let error = error as? CKError else { return fallback }
         switch error.code {
         case .quotaExceeded:
             return "iCloud storage is full, so new changes can’t be saved there. Free up space in Settings › [your name] › iCloud."
         case .networkUnavailable, .networkFailure, .notAuthenticated:
             return nil
         default:
-            return "iCloud couldn’t sync: \(Self.detail(error))"
+            return FriendlyError.hint(for: error).map { "iCloud couldn’t sync. \($0)" } ?? fallback
         }
     }
 

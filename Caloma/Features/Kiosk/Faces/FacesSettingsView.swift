@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Family › Kiosk Mode › Faces: turn recognition on, set up each person, and the promises.
+/// Profile › Kiosk Mode › Faces: turn recognition on, set up each person, and the promises.
 struct FacesSettingsView: View {
     @Environment(\.accent) private var accent
     @Query(sort: \Member.sortOrder) private var members: [Member]

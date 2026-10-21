@@ -29,7 +29,9 @@ enum CalomaPlus {
             app: .caloma,
             apiKey: AppConfig.revenueCatAPIKey,
             apiBaseURL: AppConfig.apiBaseURL,
-            accessToken: nil,
+            // Caloma has no API client of its own: it uses the shared sign-in's token while it's
+            // good (never refreshing it), for the household's plan.
+            accessToken: { HearthAccounts.currentAccessToken() },
             signInButton: nil
         )
     }

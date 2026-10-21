@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Family › Kiosk Mode: turn this iPad into the family's wall screen, and how it behaves.
+/// Profile › Kiosk Mode: turn this iPad into the family's wall screen, and how it behaves.
 struct KioskSettingsView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.accent) private var accent

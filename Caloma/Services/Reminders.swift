@@ -3,7 +3,7 @@ import SwiftData
 import UserNotifications
 
 /// Home care reminders: a notification at 9 AM some days before each task is due, when
-/// Family › Home Care Reminders is on. Rescheduled from scratch whenever a task changes.
+/// Profile › Home Care Reminders is on. Rescheduled from scratch whenever a task changes.
 enum Reminders {
     nonisolated private static let prefix = "homecare."
 
