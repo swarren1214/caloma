@@ -295,13 +295,16 @@ extension KioskRootView {
             presence.touched()
             if ScreensaverPrefs.wakeTo == .calendar { return }
         }
-        if let paused = session.facesPausedUntil, paused > .now, session.activeID == nil { return }
         // Someone drawing on the whiteboard or writing keeps the screen.
         if session.isComposing || (session.showsWhiteboard && session.activeID == nil) { return }
         // Their own screen: nothing to do. Only touches hold it open; a face never resets the
         // countdown back to the calendar.
         if session.activeID == id { return }
         if session.activeID == nil {
+            session.open(id, source: .face)
+        } else if let current = session.activeID, session.isAway(current), held >= 0.6 {
+            // Whoever had the screen walked away: the next face takes over straight away, even
+            // from a tapped-open or PIN-unlocked screen (the unlock doesn't carry over).
             session.open(id, source: .face)
         } else if session.source == .face, !session.isUnlocked || session.unlockedByFace, held >= 1.5 {
             session.open(id, source: .face)
@@ -316,7 +319,6 @@ extension KioskRootView {
         guard !leaving, closeCall == nil, drawingBack == nil, session.doorbell == nil, session.lockRequest == nil,
               session.activeID == nil, !session.isComposing, !session.showsWhiteboard,
               people.contains(where: { $0.id == first }), people.contains(where: { $0.id == second }) else { return }
-        if let paused = session.facesPausedUntil, paused > .now { return }
         if presence.isScreensaverOn {
             presence.touched()
             if ScreensaverPrefs.wakeTo == .calendar { return }

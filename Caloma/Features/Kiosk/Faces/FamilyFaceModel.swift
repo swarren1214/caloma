@@ -8,9 +8,11 @@ import Foundation
 ///    makes each person different from the others.
 /// 2. Each person is scored by their typical look (the average of their 3 closest stored
 ///    looks), not their single closest one, so one odd look can't pull everyone in.
-/// 3. For each person, it measures how close the rest of the family usually comes to them.
-///    A match has to stand well clear of that, rather than clear one number that suits some
-///    faces and not others.
+/// 3. For each person, it measures how close the family member who looks most like them
+///    comes (a brother or sister, usually). A match has to stand well clear of that, rather
+///    than clear one number that suits some faces and not others. Measuring against the
+///    whole family instead let a parent's very different face set the bar, so every child
+///    looked "clearly" like the first child set up.
 nonisolated struct FamilyFaceModel: Sendable {
     struct Person: Sendable {
         /// Family-centered, normalized looks.
@@ -84,13 +86,18 @@ nonisolated struct FamilyFaceModel: Sendable {
         for (id, looks) in present {
             people[id] = Person(looks: looks.map { Self.center($0, shared) }, rawLooks: looks)
         }
-        // How close everyone else's looks come to each person.
+        // How close the most alike other person's looks come to each person.
         if people.count >= 2 {
             for (id, person) in people {
                 var values: [Float] = []
+                var closestMean = -Float.infinity
                 for (otherID, other) in people where otherID != id {
-                    for look in other.looks {
-                        values.append(Self.typical(look, person.looks))
+                    let theirs = other.looks.map { Self.typical($0, person.looks) }
+                    guard !theirs.isEmpty else { continue }
+                    let mean = theirs.reduce(0, +) / Float(theirs.count)
+                    if mean > closestMean {
+                        closestMean = mean
+                        values = theirs
                     }
                 }
                 guard !values.isEmpty else { continue }
@@ -157,16 +164,11 @@ nonisolated struct FamilyFaceModel: Sendable {
         return standout >= Self.closeCallStandout && top - standout < Self.standoutMargin
     }
 
-    /// Whether a new person's look would be taken for someone already set up.
+    /// Whether a new person's look is someone already set up: nearly the same as their stored
+    /// looks. Resemblance alone never counts here; the parent picked who's being set up, and
+    /// brothers and sisters are meant to look alike.
     func isRival(_ embedding: [Float], embedder: any FaceEmbedding) -> UUID? {
-        let ranked = scores(embedding)
-        if isCalibrated {
-            if case .match(let id) = verdict(ranked, embedder: embedder) { return id }
-            return nil
-        }
-        // Too few people to measure the family yet: only a look nearly the same as a stored
-        // one counts, so a brother or sister isn't turned away.
-        guard let best = ranked.first, best.similarity >= embedder.duplicateSimilarity else { return nil }
+        guard let best = scores(embedding).max(by: { $0.plain < $1.plain }), best.plain >= embedder.duplicateSimilarity else { return nil }
         return best.id
     }
 

@@ -48,13 +48,11 @@ final class KioskSession {
     /// Someone who just cancelled their passcode; their face won't ask again for a moment.
     @ObservationIgnored private var declined: (memberID: UUID, until: Date)?
 
-    /// After someone taps back to the calendar, faces wait a moment before opening anyone.
-    private(set) var facesPausedUntil: Date?
-
-    /// How long a face waits before it can open the same person's screen again.
-    static let faceCooldown: TimeInterval = 30
-    /// When each person's face may open their screen again: 30 seconds after a face opened
-    /// it, and 30 seconds after it closed, whichever is later. A tap always opens it.
+    /// How long a face waits before it can open the same person's screen again. Only that
+    /// person waits; anyone else walking up opens their own screen straight away.
+    static let faceCooldown: TimeInterval = 10
+    /// When each person's face may open their screen again: 10 seconds after a face opened
+    /// it, and 10 seconds after it closed, whichever is later. A tap always opens it.
     @ObservationIgnored private var faceCooldowns: [UUID: Date] = [:]
 
     @ObservationIgnored private var watchdog: Task<Void, Never>?
@@ -65,6 +63,15 @@ final class KioskSession {
     @ObservationIgnored private var lastSeen: (memberID: UUID, at: Date)?
     /// How long after a steady match someone still counts as standing in front of the iPad.
     static let inViewSeconds: TimeInterval = 2.5
+    /// With no touch for this long and the camera no longer seeing them, whoever has the
+    /// screen has walked away, and the next face can take over.
+    static let handOffSeconds: TimeInterval = 3
+
+    /// Whether this person has stepped away: not seen by the camera a moment ago, and the
+    /// screen hasn't been touched for a few seconds.
+    func isAway(_ memberID: UUID, now: Date = .now) -> Bool {
+        !isInView(memberID, now: now) && now.timeIntervalSince(lastTouch) > Self.handOffSeconds
+    }
 
     /// Whether the camera recognized this person a moment ago, so a tap on their own screen
     /// is them and not someone else.
@@ -156,7 +163,6 @@ final class KioskSession {
             declined = (request.memberID, .now.addingTimeInterval(20))
         }
         lockRequest = nil
-        facesPausedUntil = .now.addingTimeInterval(15)
     }
 
     func show(_ memberID: UUID, source: Source) {
@@ -194,10 +200,15 @@ final class KioskSession {
     }
 
     /// The calendar button or the countdown ring: back to the calendar, and don't let the
-    /// face that's still standing there pop their screen straight back open.
+    /// face that's still standing there pop their screen straight back open. Only they wait;
+    /// the next person walking up is recognized right away.
     func showCalendarByTap() {
+        let closed = activeID
         showCalendar()
-        facesPausedUntil = .now.addingTimeInterval(15)
+        if let closed { startCooldown(closed) }
+        if let lastSeen, Date.now.timeIntervalSince(lastSeen.at) <= Self.inViewSeconds {
+            startCooldown(lastSeen.memberID)
+        }
     }
 
     func touched() {

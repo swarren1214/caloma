@@ -185,6 +185,52 @@ final class EnrollmentModel {
     }
 }
 
+/// Lights the face during setup: the screen at full brightness with a thick white frame
+/// around the edge, like a ring light. The brightness goes back to where it was after.
+private struct FaceSetupLight: ViewModifier {
+    var on: Bool
+    @State private var savedBrightness: CGFloat?
+
+    func body(content: Content) -> some View {
+        GeometryReader { proxy in
+            let ring = on ? max(28, min(proxy.size.width, proxy.size.height) * 0.07) : 0
+            content
+                .padding(ring)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .background {
+                    if on {
+                        ZStack {
+                            Color.white
+                            RoundedRectangle(cornerRadius: 40, style: .continuous)
+                                .fill(Color(.systemBackground))
+                                .padding(ring)
+                        }
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                    }
+                }
+        }
+        .animation(.smooth, value: on)
+        .onChange(of: on, initial: true) { _, on in light(on) }
+        .onDisappear { light(false) }
+    }
+
+    private var screen: UIScreen? {
+        UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen }.first
+    }
+
+    private func light(_ on: Bool) {
+        guard let screen else { return }
+        if on {
+            if savedBrightness == nil { savedBrightness = screen.brightness }
+            screen.brightness = 1
+        } else if let saved = savedBrightness {
+            screen.brightness = saved
+            savedBrightness = nil
+        }
+    }
+}
+
 /// The face setup sheet: intro, the camera in a ring of ticks for two scans, and done.
 struct FaceEnrollmentView: View {
     var member: Member
@@ -209,6 +255,9 @@ struct FaceEnrollmentView: View {
                     Color.clear
                 }
             }
+            // While the camera is looking: full brightness and a white frame, a ring light
+            // for their face.
+            .modifier(FaceSetupLight(on: [.position, .scanning, .firstScanDone].contains(model?.step)))
             .toolbar {
                 if model?.step != .done {
                     ToolbarItem(placement: .cancellationAction) {

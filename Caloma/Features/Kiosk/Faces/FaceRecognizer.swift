@@ -246,7 +246,15 @@ final class FaceRecognizer {
     private func pooled(_ look: [Float], _ reading: FaceReading) -> [Float] {
         if let last = track.last {
             let moved = Self.overlap(last.box, reading.box) < 0.3
-            if moved || reading.at.timeIntervalSince(last.at) > 1 { track = [] }
+            // Someone else stepped into the same spot: start over, so the last person's looks
+            // don't blend into theirs and their old votes don't have to be outvoted.
+            let pooled = FaceMath.weightedCentroid(track.map { ($0.embedding, Float(max($0.quality, 0.05))) })
+            let someoneElse = pooled.map { FaceMath.similarity($0, look) < FaceEmbedder.current.matchThreshold - 0.02 } ?? false
+            if someoneElse {
+                votes = []
+                askedPair = nil
+            }
+            if moved || someoneElse || reading.at.timeIntervalSince(last.at) > 1 { track = [] }
         }
         track.append((look, reading.quality, reading.box, reading.at))
         track.removeAll { reading.at.timeIntervalSince($0.at) > Self.trackWindow }
