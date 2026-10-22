@@ -166,20 +166,9 @@ final class EnrollmentModel {
             step = .failed("Caloma couldn't get a clear enough look. Try somewhere brighter.")
             return
         }
-        // Each new look gets the same test the wall uses, against everyone else set up. If a
-        // third of them would be taken for someone already set up, this isn't safe to save.
-        let embedder = FaceEmbedder.current
-        let family = FamilyFaceModel(faces: FaceStore.shared.faces.filter { $0.key != memberID })
-        var hits: [UUID: Int] = [:]
-        for look in collected {
-            if let rival = family.isRival(look, embedder: embedder) {
-                hits[rival, default: 0] += 1
-            }
-        }
-        if let rival = hits.max(by: { $0.value < $1.value }), rival.value * 3 > collected.count {
-            step = .failed("That looked a lot like \(others[rival.key] ?? "someone else"). Let's try again, with just \(name) in view.")
-            return
-        }
+        // No look-alike check: the parent picked who's being set up, and to the face model
+        // brothers and sisters score about as close as two looks at the same child, so any
+        // such check turns siblings away. Telling them apart is the family model's job.
         FaceStore.shared.set(collected, for: memberID)
         step = .done
     }

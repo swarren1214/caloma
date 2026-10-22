@@ -164,14 +164,6 @@ nonisolated struct FamilyFaceModel: Sendable {
         return standout >= Self.closeCallStandout && top - standout < Self.standoutMargin
     }
 
-    /// Whether a new person's look is someone already set up: nearly the same as their stored
-    /// looks. Resemblance alone never counts here; the parent picked who's being set up, and
-    /// brothers and sisters are meant to look alike.
-    func isRival(_ embedding: [Float], embedder: any FaceEmbedding) -> UUID? {
-        guard let best = scores(embedding).max(by: { $0.plain < $1.plain }), best.plain >= embedder.duplicateSimilarity else { return nil }
-        return best.id
-    }
-
     // MARK: Math
 
     private static func center(_ embedding: [Float], _ shared: [Float]?) -> [Float] {
