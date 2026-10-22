@@ -26,7 +26,7 @@ struct SafetySection: View {
                     }
             }
             if !alarms.isEmpty {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
+                DuoAdaptiveGrid(minimum: 104, spacing: 8) {
                     ForEach(alarms) { alarm in
                         AlarmTile(control: alarm)
                             .contextMenu {
@@ -417,7 +417,7 @@ struct OtherAccessoriesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionTitle("Opens in Apple Home")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 8)], spacing: 8) {
+            DuoAdaptiveGrid(minimum: 160, spacing: 8) {
                 ForEach(accessories) { accessory in
                     Button {
                         if let url = URL(string: "com.apple.home://") { openURL(url) }

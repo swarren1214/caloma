@@ -34,7 +34,7 @@ struct ListsView: View {
             if !reusable.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionTitle("Start from a List You've Used")
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 10)], spacing: 10) {
+                    DuoAdaptiveGrid(minimum: 160, spacing: 10) {
                         ForEach(reusable) { old in
                             Button {
                                 editing = .reuse(old)

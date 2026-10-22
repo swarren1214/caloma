@@ -98,7 +98,10 @@ struct HomeTaskDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Edit") { editing = true }
+                // Title and symbol, so it shows on the iPhone Duo's rail.
+                Button("Edit", systemImage: "pencil") { editing = true }
+                    // A small toolbar icon: the text color, not the app's (AGENT.md).
+                    .tint(.primary)
             }
         }
         .sheet(isPresented: $editing) {

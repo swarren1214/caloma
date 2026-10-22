@@ -77,7 +77,7 @@ struct KidHomeStrip: View {
                         .font(.system(size: 22, weight: .heavy, design: .rounded))
                         .foregroundStyle(color)
                         .padding(.horizontal, 4)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: sizeClass == .compact ? 140 : 180), spacing: 12)], spacing: 12) {
+                    DuoAdaptiveGrid(minimum: sizeClass == .compact ? 140 : 180, spacing: 12) {
                         ForEach(controls) { control in
                             tile(control, look: DeviceLook(control: control, style: book.style(serviceID: control.id.uuidString, matchKey: control.matchKey), accent: accent))
                         }

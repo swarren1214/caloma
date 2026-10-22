@@ -6,6 +6,8 @@ struct RewardsView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var context
     @Environment(\.accent) private var accent
+    /// iPhone Duo held like a book: a kid's chores beside the store.
+    @Environment(\.hearthDuoPose) private var pose
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @Query private var chores: [Chore]
     @Query private var completions: [ChoreCompletion]
@@ -16,6 +18,8 @@ struct RewardsView: View {
     @State private var kind: RewardKind?
     @State private var editing: Reward?
     @State private var confirmsFinish: Reward?
+    /// The kid on the Book spread; kept here so folding and unfolding keeps them.
+    @State private var spreadKidID: UUID?
 
     private var family: FamilySnapshot {
         FamilySnapshot(members: members, chores: chores, completions: completions, points: points, redemptions: redemptions)
@@ -26,9 +30,50 @@ struct RewardsView: View {
 
     var body: some View {
         let family = family
+        Group {
+            if pose == .book {
+                DuoChoresBesideRewards(family: family, store: store, completions: completions, kidID: $spreadKidID) { editing = $0 }
+            } else {
+                storeScreen(family)
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Group {
+                    Button {
+                        router.sheet = .approvals
+                    } label: {
+                        Label("Needs Your OK", systemImage: "checkmark.shield")
+                    }
+                    .badge(family.pendingRedemptionCount)
+                    Button {
+                        router.sheet = .newReward
+                    } label: {
+                        Label("New Reward", systemImage: "plus")
+                    }
+                }
+                // White over the color header.
+                .tint(.white)
+                HearthProfileButton()
+            }
+        }
+        .sheet(item: $editing) { reward in
+            RewardEditor(reward: reward)
+        }
+        .alert("Mark \(confirmsFinish?.name ?? "the goal") reached?", isPresented: Binding(get: { confirmsFinish != nil }, set: { if !$0 { confirmsFinish = nil } })) {
+            Button("Mark Reached") {
+                if let goal = confirmsFinish { Family.finishGoal(goal, in: context) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It leaves the store. Set up the next goal with New Reward › Make It a Family Goal.")
+        }
+    }
+
+    private func storeScreen(_ family: FamilySnapshot) -> some View {
         CalomaScreen(title: "Rewards") {
             if !family.kids.isEmpty {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
+                DuoAdaptiveGrid(minimum: 110, spacing: 10) {
                     ForEach(family.kids) { kid in
                         NavigationLink {
                             KidDetailView(kidID: kid.id)
@@ -71,7 +116,7 @@ struct RewardsView: View {
                 if shown.isEmpty {
                     EmptyCard(symbol: "gift", title: "Nothing here yet", message: "Add rewards your kids can work toward.")
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 10)], spacing: 10) {
+                    DuoAdaptiveGrid(minimum: 160, spacing: 10) {
                         ForEach(shown) { reward in
                             Button {
                                 editing = reward
@@ -83,37 +128,6 @@ struct RewardsView: View {
                     }
                 }
             }
-        }
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Group {
-                    Button {
-                        router.sheet = .approvals
-                    } label: {
-                        Label("Needs Your OK", systemImage: "checkmark.shield")
-                    }
-                    .badge(family.pendingRedemptionCount)
-                    Button {
-                        router.sheet = .newReward
-                    } label: {
-                        Label("New Reward", systemImage: "plus")
-                    }
-                }
-                // White over the color header.
-                .tint(.white)
-                HearthProfileButton()
-            }
-        }
-        .sheet(item: $editing) { reward in
-            RewardEditor(reward: reward)
-        }
-        .alert("Mark \(confirmsFinish?.name ?? "the goal") reached?", isPresented: Binding(get: { confirmsFinish != nil }, set: { if !$0 { confirmsFinish = nil } })) {
-            Button("Mark Reached") {
-                if let goal = confirmsFinish { Family.finishGoal(goal, in: context) }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("It leaves the store. Set up the next goal with New Reward › Make It a Family Goal.")
         }
     }
 

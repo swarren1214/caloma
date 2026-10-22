@@ -36,7 +36,7 @@ struct EventDetailView: View {
             }
             if event != nil && !readOnly {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Edit") { editing = true }
+                    Button("Edit", systemImage: "pencil") { editing = true }
                         // Not a confirm button: the text color, not the app's (AGENT.md).
                         .tint(.primary)
                 }

@@ -8,6 +8,9 @@ struct ChoresView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accent) private var accent
+    /// iPhone Duo: inner landscape shows the chore chart; partly folded keeps the board and
+    /// Needs Your OK on their own pages.
+    @Environment(\.hearthDuoPose) private var pose
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @Query private var chores: [Chore]
     @Query private var completions: [ChoreCompletion]
@@ -19,10 +22,17 @@ struct ChoresView: View {
     @State private var roomFilter: UUID?
     @Query(filter: #Predicate<Room> { !$0.isArchived }, sort: \Room.sortOrder) private var rooms: [Room]
     @State private var editing: Chore?
+    /// The chore picked on the chore chart (iPhone Duo, inner landscape), for Assign.
+    @State private var chartChoreID: UUID?
 
     enum BoardRange: String, CaseIterable, Identifiable {
         case today = "Today", week = "This Week"
         var id: String { rawValue }
+    }
+
+    /// Every chore, for the chore chart (it filters by room itself).
+    private var everyChore: FamilySnapshot {
+        FamilySnapshot(members: members, chores: chores, completions: completions, points: points, redemptions: redemptions)
     }
 
     /// With a room picked, the board is built from that room's chores only.
@@ -57,12 +67,19 @@ struct ChoresView: View {
     var body: some View {
         let family = family
         Group {
-            if sizeClass == .regular && range == .today {
+            if pose == .openWide {
+                // iPhone Duo, open in landscape: rooms beside the chosen room's week.
+                DuoChoreChart(family: everyChore, rooms: rooms, roomID: $roomFilter, selectedChoreID: $chartChoreID, completions: completions, onEdit: edit)
+            } else if sizeClass == .regular && range == .today {
                 wideBoard(family)
                     .refreshesFromICloud()
             } else {
                 CalomaScreen(title: "Chores") {
                     controls(family)
+                    // Every kid's ring across the top (iPhone Duo "Today"); tap one to see only theirs.
+                    if range == .today && sizeClass == .compact {
+                        DuoTodayRings(family: family, selection: $kidFilter)
+                    }
                     if family.choreDoers.isEmpty {
                         EmptyCard(symbol: "person.badge.plus", title: "No one has chores yet", message: "Add kids in Household, then give out chores.")
                     } else if range == .today {
@@ -93,6 +110,15 @@ struct ChoresView: View {
                         router.sheet = .newChore
                     } label: {
                         Label("New Chore", systemImage: "plus")
+                    }
+                    // The chore chart's Assign: who does the picked chore is set in its editor.
+                    if pose == .openWide {
+                        Button {
+                            if let id = chartChoreID { edit(id) }
+                        } label: {
+                            Label("Assign", systemImage: "person.crop.circle.badge.plus")
+                        }
+                        .disabled(chartChoreID == nil)
                     }
                 }
                 // White over the color header.
@@ -182,8 +208,34 @@ struct ChoresView: View {
 
     // MARK: iPad
 
+    @ViewBuilder
     private func wideBoard(_ family: FamilySnapshot) -> some View {
-        HStack(alignment: .top, spacing: 16) {
+        if pose.isFolded {
+            // Partly folded: the board and Needs Your OK each get a page, nothing in the fold.
+            HearthFoldSplit {
+                boardColumns(family)
+            } secondary: {
+                ApprovalsPanel()
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationBarTitleDisplayMode(.large)
+        } else {
+            HStack(alignment: .top, spacing: 16) {
+                boardColumns(family)
+                ApprovalsPanel()
+                    .frame(width: 320)
+                    .padding(.trailing, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 20)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+
+    private func boardColumns(_ family: FamilySnapshot) -> some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     controls(family)
@@ -191,7 +243,8 @@ struct ChoresView: View {
                         EmptyCard(symbol: "person.badge.plus", title: "No one has chores yet", message: "Add kids in Household, then give out chores.")
                     }
                     let kids = family.choreDoers.filter { kidFilter == nil || $0.id == kidFilter }
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 12, alignment: .top)], alignment: .leading, spacing: 12) {
+                    // Even columns while an iPhone Duo is partly folded (DuoGrid.swift).
+                    DuoAdaptiveGrid(minimum: 250, spacing: 12, alignment: .leading, itemAlignment: .top) {
                         ForEach(kids) { kid in
                             let items = family.items(for: kid).filter { !$0.chore.upForGrabs || $0.memberID == kid.id }
                             KidColumn(kid: kid, items: items, family: family, onEdit: edit, onToggle: toggle)
@@ -209,14 +262,6 @@ struct ChoresView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 40)
             }
-            ApprovalsPanel()
-                .frame(width: 320)
-                .padding(.trailing, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 20)
-        }
-        .background(Color(.systemGroupedBackground))
-        .navigationBarTitleDisplayMode(.large)
     }
 }
 
@@ -231,7 +276,8 @@ private struct KidChoreSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Circle().fill(kid.color.color).frame(width: 10, height: 10)
+                // Whose chores these are, at a glance.
+                MemberAvatar(kid, size: 28)
                 Text(kid.name).font(.title3.bold())
                 Spacer()
                 Text(summary)

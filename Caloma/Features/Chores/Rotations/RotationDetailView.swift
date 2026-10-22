@@ -105,13 +105,16 @@ struct RotationDetailView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Edit") {
+                // Title and symbol, so it shows on the iPhone Duo's rail.
+                Button("Edit", systemImage: "pencil") {
                     if summary.isGroup {
                         editingGroup = groups.first { $0.id == summary.id }
                     } else {
                         editingChore = chores.first { $0.id == summary.id }
                     }
                 }
+                // A small toolbar icon: the text color, not the app's (AGENT.md).
+                .tint(.primary)
             }
         }
     }

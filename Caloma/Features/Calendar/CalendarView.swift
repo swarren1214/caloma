@@ -75,7 +75,8 @@ struct CalendarView: View {
             if sizeClass != .regular && !readOnly {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Group {
-                        Button("Today") {
+                        // Title and symbol, so it shows on the iPhone Duo's rail.
+                        Button("Today", systemImage: "calendar.badge.clock") {
                             withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
                         }
                         Button {

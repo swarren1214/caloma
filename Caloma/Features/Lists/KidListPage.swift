@@ -38,7 +38,7 @@ struct KidListPage: View {
                 allPacked
                     .transition(.scale(scale: 0.9).combined(with: .opacity))
             }
-            LazyVGrid(columns: compact ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 260), spacing: 14)], spacing: 14) {
+            DuoAdaptiveGrid(minimum: 260, spacing: 14, single: compact) {
                 ForEach(mine) { item in
                     ListItemTile(
                         item: item,

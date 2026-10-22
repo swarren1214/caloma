@@ -349,9 +349,9 @@ extension View {
                 Button {
                     show.wrappedValue = true
                 } label: {
-                    Image(systemName: "person.2.fill")
+                    // Title and symbol, so it shows on the iPhone Duo's rail.
+                    Label("Family", systemImage: "person.2.fill")
                 }
-                .accessibilityLabel("Family")
                 // White over the color header.
                 .tint(.white)
             }

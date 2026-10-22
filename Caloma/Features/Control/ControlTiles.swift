@@ -163,7 +163,7 @@ struct DeviceGrid<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: sizeClass == .compact ? 150 : 180), spacing: 10)], spacing: 10) {
+        DuoAdaptiveGrid(minimum: sizeClass == .compact ? 150 : 180, spacing: 10) {
             content()
         }
     }

@@ -149,7 +149,7 @@ struct KidStoreView: View {
     }
 
     private func rewardGrid(_ family: FamilySnapshot, _ spendable: Int) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: sizeClass == .compact ? 160 : 220), spacing: 14)], spacing: 14) {
+        DuoAdaptiveGrid(minimum: sizeClass == .compact ? 160 : 220, spacing: 14) {
             ForEach(Array(store.enumerated()), id: \.element.id) { index, reward in
                 let check = RewardMath.check(cost: reward.cost, limit: reward.limit, eligible: reward.isAvailable(to: kid.id), spendable: spendable, memberID: kid.id, rewardID: reward.id, redemptions: family.redemptions)
                 StoreTile(reward: reward, kid: kid, check: check, have: spendable, isSaving: savingFor(spendable)?.id == reward.id, index: index, compact: sizeClass == .compact) {
@@ -800,7 +800,7 @@ private struct SavingForPicker: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 14)], spacing: 14) {
+                DuoAdaptiveGrid(minimum: 160, spacing: 14) {
                     ForEach(rewards) { reward in
                         let picked = reward.id == current
                         let enough = have >= reward.cost

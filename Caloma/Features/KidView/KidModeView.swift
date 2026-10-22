@@ -10,6 +10,8 @@ struct KidModeView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @AppStorage(SettingsKey.kidViewMember) private var kidIDString = ""
+    /// iPhone Duo closed: the pocket-size Kid View on the outer display.
+    @Environment(\.hearthDuoPose) private var pose
 
     @State private var showsParentGate = false
     @State private var authenticating = false
@@ -26,15 +28,21 @@ struct KidModeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             Group {
-                if let kid {
+                if let kid, pose == .outer {
+                    // The outer display: their ring and today's chores as big rows, with Switch
+                    // Person in the toolbar (on the Duo's rail). The kid is kept above, so
+                    // opening the phone carries on with the same kid.
+                    DuoKidPocketView(kid: kid, kids: kids, onPick: pick, onLeave: leave)
+                } else if let kid {
                     KidDayView(kid: kid, kids: kids, onPick: pick, onLeave: leave)
                         // Each kid's day starts fresh when switching.
                         .id(kid.id)
+                        .toolbar(.hidden, for: .navigationBar)
                 } else {
                     KidPicker(kids: kids, onPick: pick, onLeave: leave)
+                        .toolbar(.hidden, for: .navigationBar)
                 }
             }
-            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: ScreenshotRoute.self) { _ in
                 if let kid { KidStoreView(kid: kid) }
             }
@@ -267,7 +275,7 @@ private struct KidPicker: View {
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 20)], spacing: 20) {
+            DuoAdaptiveGrid(minimum: 150, spacing: 20) {
                 ForEach(kids) { kid in
                     Button {
                         onPick(kid)
@@ -394,7 +402,8 @@ struct KidDayView: View {
                     if items.isEmpty {
                         nothingToday
                     } else {
-                        LazyVGrid(columns: columns, spacing: 14) {
+                        // Even columns while an iPhone Duo is partly folded (DuoGrid.swift).
+                        DuoAdaptiveGrid(minimum: 260, spacing: 14, single: sizeClass == .compact) {
                             ForEach(items) { item in
                                 JobTile(item: item, kid: kid, isNext: item.id == items.first(where: { $0.status == .open })?.id, isCelebrating: celebrating == item.id, celebration: celebration, compact: sizeClass == .compact) {
                                     tapped(item, family: family)
@@ -455,10 +464,6 @@ struct KidDayView: View {
             }
             .ignoresSafeArea()
         }
-    }
-
-    private var columns: [GridItem] {
-        sizeClass == .compact ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 260), spacing: 14)]
     }
 
     private func header(_ family: FamilySnapshot) -> some View {

@@ -230,7 +230,7 @@ struct ControlView: View {
         if !sensors.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 SectionTitle("Sensors")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 8)], spacing: 8) {
+                DuoAdaptiveGrid(minimum: 160, spacing: 8) {
                     ForEach(sensors) { SensorChip(control: $0) }
                 }
             }

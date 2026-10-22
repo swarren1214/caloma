@@ -6,6 +6,9 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.accent) private var accent
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    /// iPhone Duo: set down half-folded (Laptop), Home becomes the after-school station.
+    @Environment(\.hearthDuoPose) private var pose
     @Query(sort: \Member.sortOrder) private var members: [Member]
     @Query private var chores: [Chore]
     @Query private var completions: [ChoreCompletion]
@@ -18,8 +21,62 @@ struct HomeView: View {
         FamilySnapshot(members: members, chores: chores, completions: completions, points: points, redemptions: redemptions)
     }
 
+    /// Standing the phone up as the Family Board (Tent). Opened by the person; the system can't
+    /// tell Tent from Closed.
+    @State private var showsFamilyBoard = false
+
     var body: some View {
         let family = family
+        Group {
+            if pose == .laptop {
+                DuoAfterSchoolStation(family: family)
+            } else {
+                home(family)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Group {
+                    Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .fixedSize()
+                }
+                // White over the color header.
+                .tint(.white)
+            }
+            .sharedBackgroundVisibility(.hidden)
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Group {
+                    KidViewButton()
+                    // A glance board for standing the phone on the counter (iPhone Duo's Tent).
+                    // Compact width only: in regular width (iPad) the Kid View menu has the wall's
+                    // Family Board (Kiosk Mode) instead, and two "Family Boards" would confuse.
+                    if sizeClass == .compact {
+                        HearthGlanceBoardButton(title: "Family Board", systemImage: "rectangle.inset.filled") {
+                            showsFamilyBoard = true
+                        }
+                    }
+                }
+                // White over the color header.
+                .tint(.white)
+                // The profile photo, always last, as in every Hearth app (HearthProfile.swift).
+                HearthProfileButton()
+            }
+        }
+        .fullScreenCover(isPresented: $showsFamilyBoard) {
+            DuoFamilyBoard {
+                showsFamilyBoard = false
+                Task {
+                    // Let the board go before Kid View covers the app.
+                    try? await Task.sleep(for: .milliseconds(450))
+                    router.openKidView()
+                }
+            }
+        }
+    }
+
+    private func home(_ family: FamilySnapshot) -> some View {
         CalomaScreen(title: "Home") {
             // Only when a Caloma Plus or Hearth+ renewal failed.
             HearthBillingBanner()
@@ -40,28 +97,6 @@ struct HomeView: View {
                 FamilyGoalCard(goal: goal, family: family)
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Group {
-                    Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .fixedSize()
-                }
-                // White over the color header.
-                .tint(.white)
-            }
-            .sharedBackgroundVisibility(.hidden)
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Group {
-                    KidViewButton()
-                }
-                // White over the color header.
-                .tint(.white)
-                // The profile photo, always last, as in every Hearth app (HearthProfile.swift).
-                HearthProfileButton()
-            }
-        }
     }
 
     @ViewBuilder
@@ -73,7 +108,8 @@ struct HomeView: View {
             if family.kids.isEmpty {
                 EmptyCard(symbol: "person.badge.plus", title: "No kids yet", message: "Add them in Household to start giving out chores.")
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 108), spacing: 10)], spacing: 10) {
+                // Even columns while an iPhone Duo is partly folded (DuoGrid.swift).
+                DuoAdaptiveGrid(minimum: 108, spacing: 10) {
                     ForEach(family.kids) { kid in
                         NavigationLink {
                             KidDetailView(kidID: kid.id)

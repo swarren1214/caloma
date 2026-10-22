@@ -107,7 +107,7 @@ struct KidDetailView: View {
             if let person = CalomaHousehold.person(for: kid), HearthHouseholdStore.shared.canEdit(person) {
                 ToolbarItem(placement: .topBarTrailing) {
                     Group {
-                        Button("Edit") { editingMember = true }
+                        Button("Edit", systemImage: "pencil") { editingMember = true }
                     }
                     // White over the color header.
                     .tint(.white)

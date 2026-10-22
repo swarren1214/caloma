@@ -48,6 +48,8 @@ struct CalomaApp: App {
                 // The Hearth launch splash.
                 .hearthSplash(.caloma, isEnabled: !ScreenshotMode.isOn)
                 .environment(router)
+                // iPhone Duo: which pose the device is in, for every screen (HearthDuo.swift).
+                .hearthDuoPose()
         }
         .modelContainer(container)
         .commands { CalomaCommands(router: router) }
@@ -294,8 +296,11 @@ struct AppRoot: View {
                 .environment(\.hearthPersonExtras, personExtras)
         }
         .fullScreenCover(isPresented: Binding(get: { onboarded && router.kidViewOpen }, set: { router.kidViewOpen = $0 })) {
+            // A full-screen cover takes the presenter out of the window, so Kid View reads the
+            // iPhone Duo pose itself (the pocket layout on the outer display).
             KidModeView()
                 .environment(\.accent, accent)
+                .hearthDuoPose()
         }
         .task {
             FamilyLists.clearFinished(in: context)
