@@ -54,6 +54,15 @@ struct FamilyView: View {
         } settings: {
             calomaSections
         } data: {
+            // TestFlight and Debug builds: why two devices don't match.
+            if CloudSync.showsSyncDetails {
+                NavigationLink {
+                    SyncDetailsView()
+                } label: {
+                    Label("Sync Details", systemImage: "stethoscope")
+                        .tint(.primary)
+                }
+            }
         } about: {
         }
         .refreshesFromICloud()

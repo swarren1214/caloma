@@ -332,7 +332,9 @@ struct AppRoot: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task {
-                await sync.syncNow()
+                // Coming back to the app: what changed. (Sync Now and pull to refresh read
+                // everything.)
+                await sync.syncNow(full: false)
                 await sync.updateSharing()
             }
             FamilyLists.clearFinished(in: context)

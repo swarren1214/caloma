@@ -90,6 +90,9 @@ final class CloudSync: HearthZoneParticipant {
     /// like before the CloudKit schema was in Production).
     static let uploadGeneration = 1
     nonisolated static let lastSyncedKey = "sync.lastSynced"
+    /// Raised when devices may be missing records iCloud has (an incremental download that
+    /// skipped some): each device downloads the whole family once more on its next launch.
+    static let fullFetchGeneration = 1
 
     var household: HearthHouseholdStore { .shared }
 
@@ -169,8 +172,11 @@ final class CloudSync: HearthZoneParticipant {
         scanHistory()
         saveState()
         // A build that adds record types fetches the whole family again once: older builds
-        // skipped records of types they didn't know yet.
-        if newTypes { Task { await fetchWholeZone() } }
+        // skipped records of types they didn't know yet. So does a device that hasn't done
+        // this build's full download (devices that were missing records iCloud had).
+        if newTypes || (state.fullFetchGeneration ?? 0) < Self.fullFetchGeneration {
+            Task { await fetchWholeZone() }
+        }
     }
 
     /// Shares the family's zone with the household (owner) or joins it (everyone else). Call on
@@ -188,7 +194,8 @@ final class CloudSync: HearthZoneParticipant {
     }
 
     /// Fetches and sends now (pull to refresh, coming back to the app).
-    func syncNow() async {
+    /// `full` (Sync Now, pull to refresh) also reads the whole family from iCloud.
+    func syncNow(full: Bool = true) async {
         guard started else { return }
         if household.account != .available { await household.refreshAccount() }
         scanHistory()
@@ -204,6 +211,9 @@ final class CloudSync: HearthZoneParticipant {
             queueUnsent()
         }
         await household.syncZoneNow(isShared: zone.isShared)
+        // Sync Now and pull to refresh read the whole family from iCloud too, not only what
+        // the engine thinks changed, so a device can never stay behind what iCloud has.
+        if full { await fetchWholeZone() }
         if sendError == nil, household.account == .available {
             markSynced()
         }
@@ -312,12 +322,17 @@ final class CloudSync: HearthZoneParticipant {
                 let changes = try await database.recordZoneChanges(inZoneWith: zone.zoneID, since: token)
                 // Moved somewhere else meanwhile: these aren't this location's.
                 guard zoneLocation?.zoneID == zone.zoneID else { return }
+                // Not what this device changed and hasn't sent yet: iCloud's older copy mustn't
+                // replace it.
+                let unsent = state.unsentSaves
                 let records = changes.modificationResultsByID.values.compactMap { try? $0.get().record }
-                apply(modifications: records, deletions: changes.deletions.map(\.recordID))
+                    .filter { !unsent.contains($0.recordID.recordName) }
+                apply(modifications: records, deletions: changes.deletions.map(\.recordID).filter { !unsent.contains($0.recordName) })
                 token = changes.changeToken
                 moreComing = changes.moreComing
             }
             if zone.isShared { state.hasFamilyData = true }
+            state.fullFetchGeneration = Self.fullFetchGeneration
             markSynced()
             saveState()
         } catch let error as CKError where error.code == .zoneNotFound || error.code == .userDeletedZone {
@@ -1025,6 +1040,8 @@ nonisolated struct SyncState: Codable, @unchecked Sendable {
     var unsentDeletes: Set<String> = []
     /// iCloud refused some: send the unsent ones again on the next sync.
     var needsResend = false
+    /// Which full download this device has done (see `CloudSync.fullFetchGeneration`).
+    var fullFetchGeneration: Int?
 
     init() {}
 
@@ -1043,6 +1060,7 @@ nonisolated struct SyncState: Codable, @unchecked Sendable {
         unsentSaves = try container.decodeIfPresent(Set<String>.self, forKey: .unsentSaves) ?? []
         unsentDeletes = try container.decodeIfPresent(Set<String>.self, forKey: .unsentDeletes) ?? []
         needsResend = try container.decodeIfPresent(Bool.self, forKey: .needsResend) ?? false
+        fullFetchGeneration = try container.decodeIfPresent(Int.self, forKey: .fullFetchGeneration)
     }
 
     private static var folder: URL {
@@ -1121,5 +1139,162 @@ nonisolated struct SyncMaps: Codable, @unchecked Sendable {
         for file in files where file.lastPathComponent.hasPrefix("caloma-") {
             try? FileManager.default.removeItem(at: file)
         }
+    }
+}
+
+// MARK: - Sync Details
+
+/// What Family › Sync Details shows (TestFlight and Debug builds): everything needed to tell
+/// why two devices don't match, side by side. In this file because it reads private state.
+extension CloudSync {
+    /// The build, and so which iCloud environment it talks to: Xcode builds use Development,
+    /// TestFlight and the App Store use Production. Two devices on different environments never
+    /// see each other's data.
+    nonisolated static var buildKind: String {
+        #if DEBUG
+        return "Debug (iCloud Development)"
+        #else
+        let receipt = Bundle.main.appStoreReceiptURL?.lastPathComponent ?? ""
+        return receipt == "sandboxReceipt" ? "TestFlight (iCloud Production)" : "App Store (iCloud Production)"
+        #endif
+    }
+
+    /// Whether Sync Details is offered: never in App Store builds.
+    nonisolated static var showsSyncDetails: Bool {
+        #if DEBUG
+        return true
+        #else
+        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+        #endif
+    }
+
+    /// Label and value pairs about this device's sync.
+    func detailLines(in context: ModelContext) -> [(String, String)] {
+        let store = household
+        let dateText: (Date?) -> String = { $0?.formatted(date: .abbreviated, time: .standard) ?? "Never" }
+        let mode: String = switch store.mode {
+        case .owner: "Owner (this account's own household)"
+        case .member(let ownerName): "Member of \(Self.short(ownerName))'s household"
+        }
+        let where_: String = switch location {
+        case .personal: "This account's own zone"
+        case .waiting(let ownerName): "Waiting for \(Self.short(ownerName))'s zone to be shared"
+        case .shared(let ownerName): "\(Self.short(ownerName))'s shared zone"
+        }
+        func count<T: PersistentModel>(_ type: T.Type) -> String { "\((try? context.fetchCount(FetchDescriptor<T>())) ?? 0)" }
+        return [
+            ("Build", Self.buildKind),
+            ("iCloud account", "\(store.account)"),
+            ("Household", store.info.map { "\($0.name) · \(Self.short($0.id))" } ?? "None"),
+            ("Household mode", mode),
+            ("People in household", "\(store.people.count)"),
+            ("Household loaded from iCloud", store.cloudLoaded ? "Yes" : "No"),
+            ("Household problem", store.problem ?? "None"),
+            ("Shared with", store.shareLoaded ? "\(store.participants.count) people" : "Not read yet"),
+            ("Caloma's data", where_),
+            ("Family data downloaded", state.hasFamilyData ? "Yes" : "No"),
+            ("First upload done", state.didInitialUpload ? "Yes" : "No"),
+            ("Anything uploaded", state.hasUploaded ? "Yes" : "No"),
+            ("Waiting to upload", "\(state.unsentSaves.count) changes, \(state.unsentDeletes.count) deletions"),
+            ("Resend needed", state.needsResend ? "Yes" : "No"),
+            ("Last synced", dateText(lastSynced)),
+            ("Last upload error", sendError ?? "None"),
+            ("Last error", errorMessage ?? "None"),
+            ("Members here", count(Member.self)),
+            ("Chores here", count(Chore.self)),
+            ("Family settings here", count(FamilySetting.self)),
+        ]
+    }
+
+    /// Who's who on this device: each household person, the Caloma member they're linked to in
+    /// the household and on this device, the member this device actually uses for them, and how
+    /// many chores point at it. Then every member here, and the family settings here.
+    func peopleLines(in context: ModelContext) -> [String] {
+        let store = household
+        let members = (try? context.fetch(FetchDescriptor<Member>())) ?? []
+        let chores = (try? context.fetch(FetchDescriptor<Chore>())) ?? []
+        let ids = Set(members.map(\.id.uuidString))
+        let links = UserDefaults.standard.dictionary(forKey: "hearth.household.links.\(HearthApp.caloma.rawValue)") as? [String: String] ?? [:]
+        func choreCount(_ id: String) -> Int { chores.filter { $0.assigneeIDs.map(\.uuidString).contains(id) }.count }
+        var lines: [String] = ["PEOPLE (household → Caloma member)"]
+        for person in store.snapshot.members {
+            let shared = person.appID(.caloma)
+            let device = links[person.id]
+            let used = store.localID(of: person, app: .caloma, among: ids)
+            lines.append("\(person.trimmedName)\(person.isArchived ? " [archived]" : "") · household link \(shared.map(Self.short) ?? "none")\(shared.map { ids.contains($0) ? " (here)" : " (NOT here)" } ?? "") · device link \(device.map(Self.short) ?? "none") · uses \(used.map(Self.short) ?? "NOTHING") · chores \(used.map(choreCount) ?? 0)")
+        }
+        lines.append("")
+        lines.append("MEMBERS HERE")
+        for member in members.sorted(by: { $0.name < $1.name }) {
+            let id = member.id.uuidString
+            lines.append("\(member.name) · \(Self.short(id))\(member.isArchived ? " [archived]" : "") · \(member.isKid ? "kid" : "parent") · chores \(choreCount(id))")
+        }
+        lines.append("")
+        lines.append("CHORES HERE")
+        let names = Dictionary(members.map { ($0.id.uuidString, $0.name) }, uniquingKeysWith: { a, _ in a })
+        for chore in chores.sorted(by: { $0.title < $1.title }) {
+            let who = chore.assigneeIDs.map { id in "\(names[id.uuidString] ?? "unknown") \(Self.short(id.uuidString))" }
+            lines.append("\(chore.title)\(chore.isArchived ? " [archived]" : "") → \(who.isEmpty ? "nobody" : who.joined(separator: ", "))")
+        }
+        lines.append("")
+        let settings = ((try? context.fetch(FetchDescriptor<FamilySetting>())) ?? []).map { "\($0.key)=\($0.value)" }.sorted()
+        lines.append("FAMILY SETTINGS HERE (\(settings.count)): \(settings.joined(separator: ", "))")
+        return lines
+    }
+
+    /// Reads Caloma's zone straight from iCloud, from the start, and counts what's there by
+    /// record type. What iCloud really has, not what this device thinks it has.
+    func recordsInICloud() async -> String {
+        guard let zone = zoneLocation else { return "No zone yet (waiting for the family's to be shared)." }
+        guard let container = household.cloudContainer else { return "iCloud isn't set up in this build." }
+        let database = zone.isShared ? container.sharedCloudDatabase : container.privateCloudDatabase
+        var counts: [String: Int] = [:]
+        var details: [String] = []
+        var token: CKServerChangeToken?
+        var moreComing = true
+        do {
+            let user = try? await container.userRecordID()
+            while moreComing {
+                let changes = try await database.recordZoneChanges(inZoneWith: zone.zoneID, since: token)
+                for result in changes.modificationResultsByID.values {
+                    guard let record = try? result.get().record else { continue }
+                    counts[record.recordType, default: 0] += 1
+                    let id = Self.short(record.recordID.recordName)
+                    switch record.recordType {
+                    case "Member":
+                        details.append("Member \(record["name"] as? String ?? "?") · \(id)\((record["isArchived"] as? Bool) == true ? " [archived]" : "")")
+                    case "Chore":
+                        let who = Chore.decode(record["assigneeIDsRaw"] as? String ?? "").map { Self.short($0.uuidString) }
+                        details.append("Chore \(record["title"] as? String ?? "?") · \(id) → \(who.isEmpty ? "nobody" : who.joined(separator: ", "))")
+                    case "FamilySetting":
+                        details.append("Setting \(record["key"] as? String ?? "?") = \(record["value"] as? String ?? "?")")
+                    default:
+                        break
+                    }
+                }
+                token = changes.changeToken
+                moreComing = changes.moreComing
+            }
+            let list = counts.sorted { $0.key < $1.key }.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+            return """
+            Account: \(user.map { Self.short($0.recordName) } ?? "unknown")
+            Zone: \(zone.zoneID.zoneName) · owner \(Self.short(zone.zoneID.ownerName)) · \(zone.isShared ? "shared database" : "private database")
+            \(list.isEmpty ? "The zone is empty." : list)
+
+            \(details.sorted().joined(separator: "\n"))
+            """
+        } catch {
+            return "iCloud refused: \(Self.detail(error))"
+        }
+    }
+
+    /// Sync Details › Download Everything Again.
+    func redownloadEverything() async {
+        await fetchWholeZone()
+    }
+
+    /// The last 6 characters of an id: enough to tell two apart, nothing more.
+    nonisolated static func short(_ id: String) -> String {
+        id == CKCurrentUserDefaultName ? "me" : "…" + String(id.suffix(6))
     }
 }

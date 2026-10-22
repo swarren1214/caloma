@@ -199,21 +199,22 @@ Before the first run with sync:
 3. Test sharing with two Apple Accounts (two devices, or a device and a second account on
    another device). Development builds share in the development environment.
 4. Before TestFlight, the record types have to be in **Production**. TestFlight and App Store
-   builds use Production, where records can't create new types, and the types only appear in
-   Development when a build run from Xcode saves them. `CloudKit/schema.ckdb` lists every
-   type and field, so there's no need to wait for that. In the CloudKit Console, with
-   **Development** selected, choose **Import Schema…** and pick `CloudKit/schema.ckdb`, then
-   **Deploy Schema Changes…**. (Apple's built-in SwiftData sync creates types by itself;
-   Caloma syncs on its own so two Apple Accounts can share a family, so it needs this file.)
+   builds use Production, where records can't create new types or fields, and they only appear
+   in Development when a build run from Xcode saves them with a value (a field that's always
+   empty never appears). Caloma shares the `iCloud.com.stephenwarren.hearth` container with
+   the household, BigTable and Suffice, so the schema to import is the **whole container's**:
+   `~/Developer/hearthkit/CloudKit/hearth.ckdb`. In the CloudKit Console, open that
+   container with **Development** selected, choose **Import Schema…** and pick `hearth.ckdb`,
+   check the changes, then **Deploy Schema Changes…**.
 
-   The file includes CloudKit's own `cloudkit.share` type (copied from a Development
-   export), since an import that leaves it out is refused as an attempt to delete it. If the
-   import ever fails, choose **Export Schema** in Development and compare.
+   **Never import `CloudKit/schema.ckdb` from this folder.** It lists only Caloma's types;
+   importing it would try to remove every other app's types from the container. It's kept as
+   the list of Caloma's part.
 
-   Adding a synced field or model means adding it to `CloudRecord.swift` *and* to
-   `schema.ckdb`, importing and deploying again before the TestFlight build goes out. If
-   iCloud refuses records, Family › Family Sharing says so, and the device sends everything
-   again on its next launch.
+   Adding a synced field or model means adding it to `CloudRecord.swift`, to `schema.ckdb`
+   here and to `hearthkit/CloudKit/hearth.ckdb`, then importing and deploying before the
+   TestFlight build goes out. If iCloud refuses records, Family › Sync Details (test builds)
+   shows the last upload error, and the device sends them again on its next sync.
 
    A second device on the same Apple Account (or a reinstall) finds the family on the welcome
    screen and asks "Who's using this iPad?" instead of setting up again.
