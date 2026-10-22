@@ -23,10 +23,10 @@ enum WatchPage: String, Hashable {
 }
 
 /// The pages, one above the other: turn the crown to move between them. Opens on Needs Your
-/// OK when something's waiting, otherwise on Coming Up.
+/// OK when something's waiting, otherwise on Coming Up (or on the page screenshot mode asks for).
 struct WatchRootView: View {
     @Environment(PhoneLink.self) private var link
-    @State private var page: WatchPage = PhoneLink.shared.snapshot.approvals.isEmpty ? .comingUp : .approvals
+    @State private var page: WatchPage = ScreenshotMode.page ?? (PhoneLink.shared.snapshot.approvals.isEmpty ? .comingUp : .approvals)
 
     var body: some View {
         NavigationStack {

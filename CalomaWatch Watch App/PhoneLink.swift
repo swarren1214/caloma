@@ -29,13 +29,16 @@ final class PhoneLink: NSObject {
     @ObservationIgnored private var recentChoreTicks: [UUID: (done: Bool, at: Date)] = [:]
 
     override init() {
-        let saved = WatchSnapshot.load()
+        // Screenshot mode shows the demo family instead, without reading what's saved.
+        let saved: WatchSnapshot? = ScreenshotMode.isOn ? ScreenshotMode.snapshot() : WatchSnapshot.load()
         snapshot = saved ?? WatchSnapshot()
         hasData = saved != nil
         super.init()
     }
 
     func start() {
+        // Screenshot mode leaves the phone and notifications alone.
+        guard !ScreenshotMode.isOn else { return }
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.setNotificationCategories(Self.approvalCategories)
@@ -75,6 +78,7 @@ final class PhoneLink: NSObject {
     }
 
     private func send(_ action: WatchAction) {
+        guard !ScreenshotMode.isOn else { return }
         let session = WCSession.default
         guard session.activationState == .activated else {
             unsent.append(action)
@@ -128,6 +132,8 @@ final class PhoneLink: NSObject {
     private func use(_ snapshot: WatchSnapshot) {
         self.snapshot = snapshot
         hasData = true
+        // Screenshot mode keeps the demo family in memory only.
+        guard !ScreenshotMode.isOn else { return }
         snapshot.save()
         WidgetCenter.shared.reloadAllTimelines()
     }

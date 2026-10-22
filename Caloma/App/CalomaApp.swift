@@ -313,6 +313,9 @@ struct AppRoot: View {
             sync.refreshLocation()
             CalomaHousehold.sync(in: context)
         }
+        // iCloud has answered: anyone the household links to Caloma who still has no member
+        // here gets one now (CalomaHousehold.sync), so Home always shows the kids.
+        .onChange(of: household.cloudLoaded) { _, _ in CalomaHousehold.sync(in: context) }
         .onChange(of: sharingKey) { _, _ in
             Task { await sync.updateSharing() }
         }

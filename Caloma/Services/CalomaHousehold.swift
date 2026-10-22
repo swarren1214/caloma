@@ -41,10 +41,19 @@ enum CalomaHousehold {
                 // Only someone who can edit everyone adds people, so two phones don't both make
                 // one, and only once this device has the family's own Caloma data.
                 guard !person.isArchived, store.canEditEveryone, CloudSync.shared.canAddPeople else { continue }
-                // Someone Caloma already has somewhere (their member just hasn't come down yet):
-                // never a second one.
-                guard person.appID(.caloma) == nil else { continue }
-                if let match = members.first(where: { !claimed.contains($0.id.uuidString) && !$0.isArchived && HearthNames.normalized($0.name) == HearthNames.normalized(person.name) }) {
+                if let linkedID = person.appID(.caloma) {
+                    // Linked to a Caloma member this device doesn't have. It may just not have
+                    // come down yet, so wait until iCloud has answered; after that it's missing
+                    // (never uploaded, or erased) and Home would show no kids. It's made again
+                    // under the same id, which is the same record everywhere, so the original
+                    // arriving later is one member, not two (and everything on it comes from
+                    // the household anyway). Chores and points keep pointing at it.
+                    guard store.cloudLoaded, let id = UUID(uuidString: linkedID), !ids.contains(linkedID) else { continue }
+                    target = Member(name: person.trimmedName, role: person.role == .kid ? .kid : .parent, color: kidColor(person.colorHex), sortOrder: person.sortOrder)
+                    target.id = id
+                    context.insert(target)
+                    changed = true
+                } else if let match = members.first(where: { !claimed.contains($0.id.uuidString) && !$0.isArchived && HearthNames.normalized($0.name) == HearthNames.normalized(person.name) }) {
                     target = match
                 } else {
                     target = Member(name: person.trimmedName, role: person.role == .kid ? .kid : .parent, color: kidColor(person.colorHex), sortOrder: person.sortOrder)
