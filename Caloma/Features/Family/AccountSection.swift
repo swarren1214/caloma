@@ -65,10 +65,11 @@ struct AccountSection: View {
         if let shared = HearthAccounts.appleID() {
             if shared.userID != appleUserID { appleUserID = shared.userID }
             UserDefaults.standard.set(true, forKey: sharedKey)
-        } else if !appleUserID.isEmpty {
+        } else if !appleUserID.isEmpty, HearthAccounts.appleIDIsGone {
+            // (Only when it's really gone: one the Keychain can't read just now isn't a sign-out.)
             if UserDefaults.standard.bool(forKey: sharedKey) {
                 // It was shared and now it's gone: signed out in another Hearth app.
-                if HearthAccounts.session() == nil {
+                if HearthAccounts.sessionIsGone {
                     appleUserID = ""
                     UserDefaults.standard.set(false, forKey: sharedKey)
                 }
