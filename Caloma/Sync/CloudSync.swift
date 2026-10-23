@@ -75,6 +75,8 @@ final class CloudSync: HearthZoneParticipant {
     @ObservationIgnored private var lastRestart: Date?
     /// Erase All Data is deleting everything locally: those deletes don't go anywhere.
     @ObservationIgnored private var isErasing = false
+    /// Why reading SwiftData's history last failed (Sync Details), or nil.
+    @ObservationIgnored private(set) var historyError: String?
     /// Joining a family's zone with this device's own data: nothing goes up until it's decided.
     @ObservationIgnored private var holdsUploads = false
     /// A context reused while the engine asks for a burst of records.
@@ -424,17 +426,21 @@ final class CloudSync: HearthZoneParticipant {
     /// came from iCloud). Waits until the household's engines exist.
     private func scanHistory() {
         guard started, !isErasing, household.cloudContainer != nil, let context = makeContext() else { return }
-        var descriptor = HistoryDescriptor<DefaultHistoryTransaction>()
-        if let token = state.historyToken {
-            descriptor.predicate = #Predicate { $0.token > token }
-        }
-        let transactions: [DefaultHistoryTransaction]
+        // All the history that's left: what's been handled is deleted after each scan (and
+        // skipped history is deleted by `skipHistory`), so what remains is what hasn't been
+        // sent. Never a fetch from the saved token: SwiftData can refuse a token whose history
+        // was deleted (expired), and a refused fetch every time meant nothing made on this
+        // device ever went up again. The token still guards against anything older.
+        let fetched: [DefaultHistoryTransaction]
         do {
-            transactions = try context.fetchHistory(descriptor)
+            fetched = try context.fetchHistory(HistoryDescriptor<DefaultHistoryTransaction>())
+            historyError = nil
         } catch {
+            historyError = error.localizedDescription
             log.error("Couldn't read history: \(error.localizedDescription, privacy: .public)")
             return
         }
+        let transactions = state.historyToken.map { token in fetched.filter { $0.token > token } } ?? fetched
         guard let last = transactions.last else { return }
 
         var changed = Set<PersistentIdentifier>()
@@ -486,9 +492,10 @@ final class CloudSync: HearthZoneParticipant {
         queue(pending)
         mapsChanged = true
         state.historyToken = last.token
-        // The history has been handled; keep it from growing forever.
+        // The history has been handled; keep it from growing forever. The last one stays, so the
+        // token keeps pointing at history SwiftData still has (as Suffice does).
         let handled = last.token
-        try? context.deleteHistory(HistoryDescriptor<DefaultHistoryTransaction>(predicate: #Predicate { $0.token <= handled }))
+        try? context.deleteHistory(HistoryDescriptor<DefaultHistoryTransaction>(predicate: #Predicate { $0.token < handled }))
         saveState()
     }
 
@@ -534,7 +541,7 @@ final class CloudSync: HearthZoneParticipant {
         queue(ids.map { .saveRecord($0) })
         mapsChanged = true
         // Everything is queued, so history up to now has been handled.
-        state.historyToken = latestHistoryToken(in: context)
+        skipHistory(in: context)
         state.didInitialUpload = true
         state.uploadGeneration = Self.uploadGeneration
         saveState()
@@ -803,7 +810,7 @@ final class CloudSync: HearthZoneParticipant {
         retries = [:]
         mapsChanged = true
         if let context = makeContext() {
-            state.historyToken = latestHistoryToken(in: context)
+            skipHistory(in: context)
         }
         state.didInitialUpload = true
         isErasing = false
@@ -822,7 +829,7 @@ final class CloudSync: HearthZoneParticipant {
         try? context.save()
         idsByModel = [:]
         // Those deletes were this device's own business, and nothing here is unsent any more.
-        state.historyToken = latestHistoryToken(in: context)
+        skipHistory(in: context)
         state.unsentSaves = []
         state.unsentDeletes = []
         state.needsResend = false
@@ -898,6 +905,15 @@ final class CloudSync: HearthZoneParticipant {
 
     private func allModels(of type: any CloudRecord.Type, in context: ModelContext) -> [any CloudRecord] {
         fetchModels(type, in: context)
+    }
+
+    /// Nothing in the history so far is to be sent (it was erased, replaced by a family's, or
+    /// is all queued): remember where it ends and delete it, so a scan never sees it.
+    private func skipHistory(in context: ModelContext) {
+        state.historyToken = latestHistoryToken(in: context)
+        if let token = state.historyToken {
+            try? context.deleteHistory(HistoryDescriptor<DefaultHistoryTransaction>(predicate: #Predicate { $0.token < token }))
+        }
     }
 
     private func latestHistoryToken(in context: ModelContext) -> DefaultHistoryToken? {
@@ -1204,6 +1220,7 @@ extension CloudSync {
             ("Resend needed", state.needsResend ? "Yes" : "No"),
             ("Last synced", dateText(lastSynced)),
             ("Last upload error", sendError ?? "None"),
+            ("Finding changes here", historyError.map { "Failing: \($0)" } ?? "OK"),
             ("Last error", errorMessage ?? "None"),
             ("Members here", count(Member.self)),
             ("Chores here", count(Chore.self)),
