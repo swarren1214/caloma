@@ -554,6 +554,11 @@ final class CloudSync: HearthZoneParticipant {
     }
 
     func zoneFetched(modifications: [CKRecord], deletions: [CKDatabase.RecordZoneChange.Deletion]) {
+        // An edit made here that hasn't gone up yet keeps this device's version: iCloud's copy
+        // is older (it arrives again once ours is sent, and is ours then).
+        let unsent = state.unsentSaves
+        let modifications = modifications.filter { !unsent.contains($0.recordID.recordName) }
+        let deletions = deletions.filter { !unsent.contains($0.recordID.recordName) }
         apply(modifications: modifications, deletions: deletions.map(\.recordID))
         if !(modifications.isEmpty && deletions.isEmpty) { markSynced() }
     }

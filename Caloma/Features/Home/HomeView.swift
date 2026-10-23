@@ -49,10 +49,11 @@ struct HomeView: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Group {
                     KidViewButton()
-                    // A glance board for standing the phone on the counter (iPhone Duo's Tent).
-                    // Compact width only: in regular width (iPad) the Kid View menu has the wall's
-                    // Family Board (Kiosk Mode) instead, and two "Family Boards" would confuse.
-                    if sizeClass == .compact {
+                    // A glance board for standing the phone on the counter: iPhone Duo's outer
+                    // display only (Tent). The Family Board is the iPad's (the Kid View menu has
+                    // it there); other iPhones don't offer one at all, so there's never a "Family
+                    // Board" on a phone that can't stand on its own.
+                    if sizeClass == .compact && pose == .outer {
                         HearthGlanceBoardButton(title: "Family Board", systemImage: "rectangle.inset.filled") {
                             showsFamilyBoard = true
                         }

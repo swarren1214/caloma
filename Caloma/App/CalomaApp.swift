@@ -110,9 +110,12 @@ final class AppRouter {
         }
     }
 
+    /// The Family Board (Kiosk Mode) is an iPad's: never on an iPhone.
+    static let boardAvailable = UIDevice.current.userInterfaceIdiom == .pad
+
     /// Kiosk Mode covers the whole app on a wall iPad. Remembered, so the iPad opens back into
     /// it after a restart.
-    var kioskOpen: Bool = ScreenshotMode.isOn ? false : UserDefaults.standard.bool(forKey: SettingsKey.kioskOpen) {
+    var kioskOpen: Bool = ScreenshotMode.isOn || !AppRouter.boardAvailable ? false : UserDefaults.standard.bool(forKey: SettingsKey.kioskOpen) {
         didSet {
             guard !ScreenshotMode.isOn else { return }
             UserDefaults.standard.set(kioskOpen, forKey: SettingsKey.kioskOpen)
@@ -121,6 +124,7 @@ final class AppRouter {
 
     /// Starts Kiosk Mode, closing Family settings first if they're open.
     func openKiosk() {
+        guard Self.boardAvailable else { return }
         kidViewOpen = false
         guard sheet != nil else {
             kioskOpen = true
@@ -352,7 +356,11 @@ struct AppRoot: View {
         // Above any open sheet (Profile included), not waiting behind it (HearthProfile.swift).
         .hearthNotice(sync.notice ?? "", isPresented: Binding(get: { sync.notice != nil }, set: { if !$0 { sync.notice = nil } }))
         // Notifications open caloma://homecare, caloma://chores, caloma://rewards.
-        .onOpenURL { url in router.open(url) }
+        // Household invitations (HearthInviteLink) open the join sheet.
+        .onOpenURL { url in
+            if HearthInviteLink.open(url) { return }
+            router.open(url)
+        }
     }
 }
 

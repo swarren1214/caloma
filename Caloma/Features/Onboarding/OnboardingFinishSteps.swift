@@ -48,16 +48,17 @@ struct HomeExtrasStep: View {
                     tag: homeTag,
                     tagColor: home.authorized == false ? Brand.waiting : Color(hex: 0x1E9E6A)
                 )
-                OnboardingSwitchCard(
-                    symbol: "ipad.landscape",
-                    color: Color(hex: 0x5E5CE6),
-                    title: "Family Board",
-                    detail: isPad
-                        ? "Hang this iPad on the wall: the week, faces, the doorbell."
-                        : "Hang an iPad on the wall: the week, faces, the doorbell. Set it up on the iPad.",
-                    isOn: Binding(get: { flow.extras.familyBoard }, set: { flow.extras.familyBoard = $0 }),
-                    tag: isPad ? "You can start it in a moment" : "On the iPad: Profile › Family Board"
-                )
+                // The Family Board is an iPad's: an iPhone doesn't offer it.
+                if isPad {
+                    OnboardingSwitchCard(
+                        symbol: "ipad.landscape",
+                        color: Color(hex: 0x5E5CE6),
+                        title: "Family Board",
+                        detail: "Hang this iPad on the wall: the week, faces, the doorbell.",
+                        isOn: Binding(get: { flow.extras.familyBoard }, set: { flow.extras.familyBoard = $0 }),
+                        tag: "You can start it in a moment"
+                    )
+                }
             }
         } controls: {
             OnboardingPrimaryButton(title: "Continue") {
@@ -398,8 +399,8 @@ struct AllSetStep: View {
         }
         if isPad && flow.extras.familyBoard {
             rows.append(NextUp(symbol: "ipad.landscape", color: Color(hex: 0x5E5CE6), title: "Start the Family Board", detail: "The button below turns this iPad into it."))
-        } else {
-            rows.append(NextUp(symbol: "ipad.landscape", color: Color(hex: 0x5E5CE6), title: "Set up the Family Board", detail: "On an iPad: Profile › Family Board."))
+        } else if isPad {
+            rows.append(NextUp(symbol: "ipad.landscape", color: Color(hex: 0x5E5CE6), title: "Set up the Family Board", detail: "Profile › Family Board turns this iPad into it."))
         }
         return rows
     }

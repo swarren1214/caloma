@@ -23,7 +23,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// is in the background.
     nonisolated func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
         guard await MainActor.run(body: { AppConfig.cloudSyncEnabled }) else { return .noData }
-        await CloudSync.shared.syncNow()
+        // What changed, not a full download (the household store catches up on what the engine
+        // didn't hear about).
+        await CloudSync.shared.syncNow(full: false)
         await ApprovalAlerts.finishPosting()
         return .newData
     }
