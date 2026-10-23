@@ -18,8 +18,8 @@ enum CalomaPlus {
     /// Hearth+: the other Hearth apps' data in Caloma.
     static var hasHearthPlus: Bool { HearthPurchases.shared.hasHearthPlus }
 
-    /// At launch, before anything reads a plan. Caloma has no Hearth API sign-in, so there's no
-    /// access token; HearthPurchases still follows the shared Hearth sign-in on its own.
+    /// At launch, before anything reads a plan. Caloma signs in to the shared Hearth account
+    /// (`CalomaHearthSignIn`) and borrows its token while it's good, for the household's plan.
     static func configure() {
         let purchases = HearthPurchases.shared
         // Marketing screenshots show everything.
@@ -32,7 +32,9 @@ enum CalomaPlus {
             // Caloma has no API client of its own: it uses the shared sign-in's token while it's
             // good (never refreshing it), for the household's plan.
             accessToken: { HearthAccounts.currentAccessToken() },
-            signInButton: nil
+            // The join sheet and the paywall offer it, so a household member can use the
+            // organizer's Hearth+.
+            signInButton: { AnyView(CalomaAppleSignInButton(onError: { _ in })) }
         )
     }
 

@@ -12,6 +12,10 @@ struct AccountSection: View {
     @AppStorage(SettingsKey.appleUserID) private var appleUserID = ""
     @State private var confirmsSignOut = false
     @State private var errorMessage: String?
+    /// Signed in to the Hearth account, not only with Apple on this device (Caloma's sign-in
+    /// before it had one). Without it, the button stays, so the household's Hearth+ can follow.
+    @State private var hasHearthAccount = HearthAccounts.session() != nil
+    @State private var signIn = CalomaHearthSignIn.shared
 
     /// The name and email Apple shared, kept for the Hearth apps (Apple only sends them once).
     private var identity: HearthSharedAppleID? {
@@ -23,8 +27,8 @@ struct AccountSection: View {
         Section {
             HearthAccountSection(
                 app: .caloma,
-                profile: appleUserID.isEmpty ? nil : HearthAccountProfile(name: identity?.fullName, email: identity?.email),
-                pitch: "Optional: your family syncs through iCloud either way. Signing in adds your name and lets your other Hearth apps recognize you."
+                profile: appleUserID.isEmpty || !hasHearthAccount ? nil : HearthAccountProfile(name: identity?.fullName, email: identity?.email),
+                pitch: "Your family syncs through iCloud either way. Signing in adds your name, lets your other Hearth apps recognize you, and gives you your household's Hearth+."
             ) {
                 CalomaAppleSignInButton { errorMessage = $0 }
             } onSignOut: {
@@ -55,12 +59,14 @@ struct AccountSection: View {
         .task(id: appleUserID) { await checkStillSignedIn() }
         .task { followSharedSignIn() }
         .onReceive(NotificationCenter.default.publisher(for: Hearth.didChange)) { _ in followSharedSignIn() }
+        .onChange(of: signIn.isSigningIn) { _, _ in hasHearthAccount = HearthAccounts.session() != nil }
     }
 
     /// The same person as the other Hearth apps: their Apple sign-in when there is one, and
     /// signed out when they signed out (everywhere) in another app.
     private func followSharedSignIn() {
         guard !ScreenshotMode.isOn else { return }
+        hasHearthAccount = HearthAccounts.session() != nil
         let sharedKey = "hearth.caloma.appleIDShared"
         if let shared = HearthAccounts.appleID() {
             if shared.userID != appleUserID { appleUserID = shared.userID }
@@ -92,9 +98,10 @@ struct AccountSection: View {
     }
 }
 
-/// Caloma's Sign in with Apple: no server account, so it only keeps the Apple ID on this device
-/// and shares the name with the other Hearth apps ("Continue as Steve"). Profile › Account and
-/// onboarding's Welcome both use it.
+/// Caloma's Sign in with Apple: keeps the Apple ID on this device, shares the name with the other
+/// Hearth apps ("Continue as Steve"), and signs in to the Hearth account every Hearth app shares
+/// (`CalomaHearthSignIn`), which is what brings the household organizer's Hearth+. Profile ›
+/// Account, onboarding's Welcome, the join sheet and the paywall all use it.
 struct CalomaAppleSignInButton: View {
     var onError: (String) -> Void
     @AppStorage(SettingsKey.appleUserID) private var appleUserID = ""
@@ -102,7 +109,7 @@ struct CalomaAppleSignInButton: View {
 
     var body: some View {
         SignInWithAppleButton(.signIn) { request in
-            request.requestedScopes = [.fullName, .email]
+            CalomaHearthSignIn.shared.prepare(request)
         } onCompletion: { result in
             switch result {
             case .success(let authorization):
@@ -112,6 +119,10 @@ struct CalomaAppleSignInButton: View {
                     .map { $0.formatted() }
                     .flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
                 HearthAccounts.saveAppleID(HearthSharedAppleID(userID: credential.user, fullName: fullName, email: credential.email, updatedBy: .caloma))
+                Task {
+                    await CalomaHearthSignIn.shared.connect(credential)
+                    if let message = CalomaHearthSignIn.shared.errorMessage { onError(message) }
+                }
             case .failure(let error as ASAuthorizationError) where error.code == .canceled:
                 break
             case .failure(let error):

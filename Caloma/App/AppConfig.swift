@@ -18,6 +18,11 @@ enum AppConfig {
     /// The Hearth API (hearth-api), for a household organizer's plan.
     nonisolated static let apiBaseURL = URL(string: "https://api.hearthapps.com")!
 
+    /// The Hearth project's Supabase, for signing in to a Hearth account with Apple
+    /// (`CalomaHearthSignIn`). The publishable key is public: every Hearth app ships it.
+    nonisolated static let supabaseURL = URL(string: "https://kvhvsztvfpydhfpzicyy.supabase.co")!
+    nonisolated static let supabasePublishableKey = "sb_publishable_j0eyoaQiN3fogFINKooaDA_V0yjXkgY"
+
     static var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1"
     }
