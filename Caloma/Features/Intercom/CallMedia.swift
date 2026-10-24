@@ -36,6 +36,18 @@ final class CallMedia {
     /// The connection to a device failed and didn't come back.
     @ObservationIgnored var onFailed: ((UUID) -> Void)?
     @ObservationIgnored var call: UUID?
+    /// CallKit owns the sound for a call it shows (one that woke a locked phone): it turns the
+    /// audio session on and off, and WebRTC waits for it (`IntercomCallKit`).
+    @ObservationIgnored var callKitAudio = false {
+        didSet {
+            guard callKitAudio != oldValue else { return }
+            #if canImport(WebRTC)
+            let session = RTCAudioSession.sharedInstance()
+            session.useManualAudio = callKitAudio
+            session.isAudioEnabled = !callKitAudio
+            #endif
+        }
+    }
 
     private let log = Logger(subsystem: "com.stephenwarren.caloma", category: "intercom")
     @ObservationIgnored private var started = false
@@ -97,10 +109,12 @@ final class CallMedia {
         early = [:]
         described = []
         remoteVideo = [:]
-        let session = RTCAudioSession.sharedInstance()
-        session.lockForConfiguration()
-        try? session.setActive(false)
-        session.unlockForConfiguration()
+        if !callKitAudio {
+            let session = RTCAudioSession.sharedInstance()
+            session.lockForConfiguration()
+            try? session.setActive(false)
+            session.unlockForConfiguration()
+        }
         #endif
         started = false
         cameraOn = false
@@ -114,6 +128,23 @@ final class CallMedia {
     }
 
     // MARK: Controls
+
+    /// CallKit turned the call's audio session on: sound can start.
+    func callKitActivated(_ audioSession: AVAudioSession) {
+        #if canImport(WebRTC)
+        let session = RTCAudioSession.sharedInstance()
+        session.audioSessionDidActivate(audioSession)
+        session.isAudioEnabled = true
+        #endif
+    }
+
+    func callKitDeactivated(_ audioSession: AVAudioSession) {
+        #if canImport(WebRTC)
+        let session = RTCAudioSession.sharedInstance()
+        session.audioSessionDidDeactivate(audioSession)
+        session.isAudioEnabled = false
+        #endif
+    }
 
     func setMuted(_ muted: Bool) {
         self.muted = muted
@@ -305,7 +336,8 @@ final class CallMedia {
         session.lockForConfiguration()
         do {
             try session.setCategory(.playAndRecord, mode: .videoChat, options: [.defaultToSpeaker, .allowBluetoothA2DP])
-            try session.setActive(true)
+            // With CallKit, the session goes on when CallKit says (`callKitActivated`).
+            if !callKitAudio { try session.setActive(true) }
         } catch {
             log.error("Couldn't set up call audio: \(error.localizedDescription, privacy: .public)")
         }

@@ -22,6 +22,9 @@ struct CalomaApp: App {
         // What's paid for (Caloma Plus or Hearth+). Screenshot mode shows everything unlocked.
         CalomaPlus.configure()
         guard !ScreenshotMode.isOn else { return }
+        // Intercom calls wake this device through PushKit; it has to be listening from launch,
+        // since a call can be what launched Caloma.
+        if UserDefaults.standard.bool(forKey: SettingsKey.onboarded) { IntercomPush.shared.start() }
         // Starter home care is added at the end of onboarding, so a device that picks up a
         // family already in iCloud doesn't add a second copy.
         if UserDefaults.standard.bool(forKey: SettingsKey.onboarded) {
@@ -345,7 +348,7 @@ struct AppRoot: View {
         .onChange(of: scenePhase) { _, phase in
             // In the background the intercom stops, unless a call is going (it keeps the app
             // running for its sound).
-            if phase == .background, !CallCenter.shared.state.isBusy { IntercomService.shared.stop() }
+            if phase == .background, !CallCenter.shared.state.isBusy, !CallCenter.shared.isWoken { IntercomService.shared.stop() }
             guard phase == .active else { return }
             startIntercom()
             Task {
@@ -379,6 +382,7 @@ extension AppRoot {
         guard onboarded, !ScreenshotMode.isOn else { return }
         CallCenter.shared.start(with: context.container)
         IntercomService.shared.start(with: context.container)
+        IntercomPush.shared.start()
     }
 }
 

@@ -29,6 +29,8 @@ final class IntercomService {
     @ObservationIgnored var onMessage: ((UUID, IntercomMessage) -> Void)?
     /// A connection to that device dropped.
     @ObservationIgnored var onLost: ((UUID) -> Void)?
+    /// Devices that just appeared on the network (a phone woken for a call). Set by `CallCenter`.
+    @ObservationIgnored var onOnline: ((Set<UUID>) -> Void)?
 
     private let log = Logger(subsystem: "com.stephenwarren.caloma", category: "intercom")
     @ObservationIgnored private var listener: NWListener?
@@ -60,6 +62,8 @@ final class IntercomService {
             log.info("Intercom waiting for the family's first sync")
             return
         }
+        // So calls can wake this device when Caloma isn't open.
+        IntercomPush.shared.register()
         let fingerprint = HouseholdKey.fingerprint(of: key)
         if isRunning, fingerprint == keyFingerprint { return }
         stop()
@@ -161,7 +165,9 @@ final class IntercomService {
             endpoints[id] = result.endpoint
         }
         self.endpoints = endpoints
+        let appeared = Set(endpoints.keys).subtracting(online)
         online = Set(endpoints.keys)
+        if !appeared.isEmpty { onOnline?(appeared) }
     }
 
     // MARK: Connections

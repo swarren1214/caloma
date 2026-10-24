@@ -215,31 +215,33 @@ private struct LiveCallView: View {
         .padding(.top, 12)
     }
 
+    /// Liquid Glass buttons, all one size, straight over the video (no bar behind them). End is
+    /// the red one; a toggle that's on (muted, camera off) turns white.
     private var controls: some View {
-        HStack(spacing: big ? 28 : 18) {
-            CallToggle(title: media.muted ? "Unmute" : "Mute", symbol: media.muted ? "mic.slash.fill" : "mic.fill", isOn: media.muted) {
-                center.toggleMute()
-            }
-            CallToggle(title: "Camera", symbol: media.cameraOn ? "video.fill" : "video.slash.fill", isOn: !media.cameraOn) {
-                Task { await center.toggleCamera() }
-            }
-            if isPhone {
-                CallToggle(title: "Flip", symbol: "arrow.triangle.2.circlepath.camera.fill", isOn: false) {
-                    center.flipCamera()
+        let size: CGFloat = big ? 64 : 56
+        return GlassEffectContainer(spacing: big ? 22 : 16) {
+            HStack(spacing: big ? 22 : 16) {
+                CallControl(title: media.muted ? "Unmute" : "Mute", symbol: media.muted ? "mic.slash.fill" : "mic.fill", isOn: media.muted, size: size) {
+                    center.toggleMute()
                 }
-                .disabled(!media.cameraOn)
-                CallToggle(title: "Speaker", symbol: media.speakerOn ? "speaker.wave.3.fill" : "speaker.fill", isOn: media.speakerOn) {
-                    center.toggleSpeaker()
+                CallControl(title: media.cameraOn ? "Turn Camera Off" : "Turn Camera On", symbol: media.cameraOn ? "video.fill" : "video.slash.fill", isOn: !media.cameraOn, size: size) {
+                    Task { await center.toggleCamera() }
                 }
-            }
-            CallButton(title: "End", symbol: "phone.down.fill", tint: .red, size: big ? 76 : 64) {
-                center.hangUp()
+                if isPhone {
+                    CallControl(title: "Flip Camera", symbol: "arrow.triangle.2.circlepath.camera.fill", size: size) {
+                        center.flipCamera()
+                    }
+                    .disabled(!media.cameraOn)
+                    CallControl(title: "Speaker", symbol: media.speakerOn ? "speaker.wave.3.fill" : "speaker.fill", isOn: media.speakerOn, size: size) {
+                        center.toggleSpeaker()
+                    }
+                }
+                CallControl(title: "End Call", symbol: "phone.down.fill", tint: .red, size: size) {
+                    center.hangUp()
+                }
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-        .background(.ultraThinMaterial, in: .capsule)
-        .padding(.bottom, 12)
+        .padding(.bottom, big ? 28 : 16)
     }
 }
 
@@ -379,23 +381,36 @@ private struct CallButton: View {
     }
 }
 
-/// Mute, Camera, Speaker: filled white when on.
-private struct CallToggle: View {
+/// A round Liquid Glass button for the call controls: clear glass, white glass when it's on
+/// (muted, camera off), or tinted glass (End, red). The name is for VoiceOver; nothing under it.
+private struct CallControl: View {
     let title: String
     let symbol: String
-    let isOn: Bool
+    var isOn = false
+    var tint: Color? = nil
+    let size: CGFloat
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 22, weight: .semibold))
-                .frame(width: 56, height: 56)
-                .foregroundStyle(isOn ? .black : .white)
-                .background(isOn ? Color.white : Color.white.opacity(0.18), in: .circle)
+        Group {
+            if isOn || tint != nil {
+                Button(action: action) { icon }
+                    .buttonStyle(.glassProminent)
+                    .tint(tint ?? .white)
+            } else {
+                Button(action: action) { icon }
+                    .buttonStyle(.glass)
+            }
         }
-        .buttonStyle(.plain)
+        .buttonBorderShape(.circle)
         .accessibilityLabel(title)
         .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+
+    private var icon: some View {
+        Image(systemName: symbol)
+            .font(.system(size: size * 0.36, weight: .semibold))
+            .frame(width: size, height: size)
+            .foregroundStyle(isOn ? .black : .white)
     }
 }

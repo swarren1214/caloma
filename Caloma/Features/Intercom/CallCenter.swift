@@ -33,6 +33,18 @@ final class CallCenter {
     @ObservationIgnored private var flashing: Task<Void, Never>?
     @ObservationIgnored private var tookKioskCamera = false
     @ObservationIgnored private var idleTimerWasDisabled: Bool?
+    /// Caller's side: devices rung by push (`IntercomPush`) that haven't come onto the network
+    /// yet. Not being reachable is expected for them while they wake up.
+    @ObservationIgnored private var waking: Set<UUID> = []
+    /// Caller's side: the ring for each device, sent again once a waking one shows up.
+    @ObservationIgnored private var rings: [UUID: IntercomMessage] = [:]
+    /// Answering side: the call that woke this device, before its ring comes over the network.
+    @ObservationIgnored private var woken: WokenRing?
+    /// Answered on the lock screen before that ring came.
+    @ObservationIgnored private var answerWhenRung = false
+    /// Answered in Caloma's own screen while the system shows the call too: the camera choice,
+    /// for when the system passes the answer back.
+    @ObservationIgnored private var answerVideo: Bool?
 
     private var service: IntercomService { IntercomService.shared }
 
@@ -42,7 +54,13 @@ final class CallCenter {
         guard self.container == nil else { return }
         self.container = container
         service.onMessage = { [weak self] peer, message in self?.received(message, from: peer) }
-        service.onLost = { [weak self] peer in self?.apply(.lost(peer)) }
+        service.onLost = { [weak self] peer in
+            guard let self else { return }
+            // Still waking up from a push: not there yet isn't gone.
+            if waking.contains(peer), state.ringingPeers.contains(peer) { return }
+            apply(.lost(peer))
+        }
+        service.onOnline = { [weak self] peers in self?.cameOnline(peers) }
         media.onSignal = { message, peer in IntercomService.shared.send(message, to: peer) }
         media.onFailed = { [weak self] peer in self?.apply(.mediaFailed(peer)) }
     }
@@ -57,7 +75,29 @@ final class CallCenter {
         guard let video = await permission(video: video) else { return }
         var names: [UUID: String] = [:]
         for device in targets { names[device.id] = device.displayName }
-        apply(.dial(call: UUID(), to: names, video: video, me: DeviceIdentity.id, myName: myName))
+        let call = UUID()
+        // Devices not on the network right now (locked, or Caloma closed) get woken by push.
+        let asleep = targets.map(\.id).filter { !service.isOnline($0) }
+        waking = Set(asleep)
+        let name = myName
+        apply(.dial(call: call, to: names, video: video, me: DeviceIdentity.id, myName: name))
+        guard !asleep.isEmpty else { return }
+        Task {
+            let reached = await IntercomPush.shared.ring(call: call, name: name, video: video, to: asleep)
+            // Ones the server couldn't wake won't answer: as if unreachable.
+            for peer in asleep where !reached.contains(peer) && !service.isOnline(peer) {
+                waking.remove(peer)
+                if state.call == call { apply(.lost(peer)) }
+            }
+        }
+    }
+
+    /// Devices that just showed up on the network: ring the ones being woken for this call.
+    private func cameOnline(_ peers: Set<UUID>) {
+        guard state.isCaller, state.phase == .calling || state.phase == .live else { return }
+        for peer in peers where waking.contains(peer) && state.ringingPeers.contains(peer) {
+            if let ring = rings[peer] { service.send(ring, to: peer) }
+        }
     }
 
     /// Calls back a missed call.
@@ -69,16 +109,68 @@ final class CallCenter {
 
     func answer(video: Bool) async {
         guard state.phase == .ringing else { return }
+        if let call = state.call, IntercomCallKit.showing == call {
+            // The system shows this call too: answer there, so its screen and sound follow.
+            answerVideo = video
+            IntercomCallKit.shared.requestAnswer(call)
+            return
+        }
+        await answerHere(video: video)
+    }
+
+    func decline() { apply(.decline) }
+
+    // MARK: Calls that woke this device (IntercomCallKit)
+
+    var isWoken: Bool { woken != nil }
+
+    /// A push woke this device for a call: get onto the network so the caller can ring.
+    func woke(for ring: WokenRing) {
+        woken = ring
+        answerWhenRung = false
+        answerVideo = nil
+        if let container = AppRouter.shared.container {
+            start(with: container)
+            IntercomService.shared.start(with: container)
+        }
+    }
+
+    /// Answered on the system's call screen (or passed back from Caloma's own).
+    func answerFromCallKit(_ call: UUID) {
+        if state.phase == .ringing, state.call == call {
+            let video = answerVideo ?? (state.offeredVideo && UIApplication.shared.applicationState == .active)
+            answerVideo = nil
+            Task { await answerHere(video: video) }
+        } else if woken?.call == call {
+            // The ring hasn't come over the network yet: answer as soon as it does.
+            answerWhenRung = true
+        }
+    }
+
+    /// Declined or hung up on the system's call screen.
+    func endFromCallKit(_ call: UUID) {
+        if state.call == call, state.isBusy {
+            apply(.hangUp)
+        } else if let woken, woken.call == call {
+            service.send(.decline(call: call, reason: .declined), to: woken.from)
+        }
+        if woken?.call == call {
+            woken = nil
+            answerWhenRung = false
+        }
+        answerVideo = nil
+    }
+
+    /// Answers the ringing call here: microphone (and camera) permission first.
+    private func answerHere(video: Bool) async {
+        guard state.phase == .ringing else { return }
         guard let video = await permission(video: video) else {
             apply(.decline)
             return
         }
-        // Still ringing after the permission prompt?
         guard state.phase == .ringing else { return }
         apply(.answer(video: video))
     }
-
-    func decline() { apply(.decline) }
     func hangUp() { apply(.hangUp) }
 
     func toggleMute() { media.setMuted(!media.muted) }
@@ -112,21 +204,37 @@ final class CallCenter {
             show(flash: name)
         case let .ring(call, _, _, _, _) where !takesCalls:
             service.send(.decline(call: call, reason: .off), to: peer)
+        case let .hangUp(call) where woken?.call == call && state.call != call:
+            // The caller gave up before their ring got here.
+            woken = nil
+            answerWhenRung = false
+            IntercomCallKit.shared.end(call, reason: .remoteEnded)
         default:
             apply(.received(message, from: peer))
+            if case let .ring(call, _, _, _, _) = message, woken?.call == call, answerWhenRung, state.phase == .ringing {
+                answerWhenRung = false
+                answerFromCallKit(call)
+            }
         }
     }
 
     private func apply(_ event: CallEvent) {
         let before = state.phase
+        let call = state.call
         let effects = state.apply(event)
         for effect in effects { run(effect) }
         if state.phase != before { phaseChanged(from: before) }
+        // A call the system is showing ended here: take its screen down too.
+        if let call, IntercomCallKit.showing == call, state.call != call || !state.isBusy {
+            if woken?.call == call { woken = nil }
+            IntercomCallKit.shared.end(call, reason: before == .ringing && event != .decline ? .unanswered : .remoteEnded)
+        }
     }
 
     private func run(_ effect: CallEffect) {
         switch effect {
         case let .send(message, peer):
+            if case .ring = message { rings[peer] = message }
             service.send(message, to: peer)
         case let .connect(peer, offer):
             media.connect(peer, offer: offer)
@@ -173,6 +281,8 @@ final class CallCenter {
             for task in timeouts.values { task.cancel() }
             timeouts = [:]
             ring(false)
+            waking = []
+            rings = [:]
         default:
             break
         }
@@ -216,6 +326,8 @@ final class CallCenter {
         ringing?.cancel()
         ringing = nil
         guard on else { return }
+        // The system's call screen rings for a call that woke this device.
+        if let call = state.call, IntercomCallKit.showing == call { return }
         // A ring wakes a dimmed board or its screensaver.
         KioskPresence.shared.touched()
         ringing = Task {

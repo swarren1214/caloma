@@ -1,8 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Who to call: the Family Boards (one, or all of them at once) and the family's phones that
-/// have Caloma open. From the Home tab on a phone, and the Intercom button on the board's rail.
+/// Who to call: the Family Boards (one, or all of them at once) and the family's phones and
+/// iPads (woken by push when Caloma isn't open on them). From the Home tab on a phone, and the Intercom button on the board's rail.
 struct IntercomSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accent) private var accent
@@ -44,7 +44,6 @@ struct IntercomSheet: View {
                                 Spacer()
                                 Button("Call Back") { start { await center.callBack(call) } }
                                     .buttonStyle(.bordered)
-                                    .disabled(!service.isOnline(call.from))
                             }
                             .swipeActions {
                                 Button("Clear", role: .destructive) { center.forget(call) }
@@ -90,7 +89,7 @@ struct IntercomSheet: View {
                     } header: {
                         Text("Phones and iPads")
                     } footer: {
-                        Text("For now a phone can take a call while Caloma is open on it, at home. Calls to a closed Caloma, and from away from home, come next.")
+                        Text("Phones and iPads ring even when they're locked, as long as they're at home on the same Wi-Fi. Calls from away from home come next.")
                     }
                 }
             }
@@ -122,7 +121,7 @@ struct IntercomSheet: View {
             Label {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(device.displayName)
-                    Text([room?.name, online ? "Available" : "Not reachable"].compactMap { $0 }.joined(separator: " · "))
+                    Text([room?.name, online ? "Available" : "Rings if it's home"].compactMap { $0 }.joined(separator: " · "))
                         .font(.caption)
                         .foregroundStyle(online ? Color.green : Color.secondary)
                 }
@@ -155,8 +154,6 @@ struct IntercomSheet: View {
             .tint(accent)
             .accessibilityLabel("Video call \(device.displayName)")
         }
-        .disabled(!online)
-        .opacity(online ? 1 : 0.55)
     }
 
     /// Starts the call (its screen opens over everything), then closes this sheet once it's ringing.
