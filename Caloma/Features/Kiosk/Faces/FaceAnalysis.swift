@@ -16,6 +16,11 @@ nonisolated struct FaceReading: @unchecked Sendable {
     var quality: Double = 0
     var embedding: [Float]?
     var at: Date = .now
+    /// The face's height in camera pixels; too few and there's not enough face to identify.
+    var pixelHeight: CGFloat = 0
+    /// Whether this is the face the wall is following (always true when it isn't following
+    /// anyone). False means the followed person wasn't in this frame.
+    var onTarget = true
 
     static let nobody = FaceReading(faceCount: 0)
     var hasFace: Bool { faceCount > 0 }
@@ -32,18 +37,33 @@ nonisolated enum FaceAnalyzer {
 
     /// Embeddings are only made from faces at least this clear.
     static let minimumQuality = 0.25
+    /// ...and at least this many camera pixels tall. The face model works on a 150-pixel chip;
+    /// much smaller than this and it's guessing.
+    static let minimumFacePixels: CGFloat = 64
 
     /// Small turns (radians) and resizes for face setup, so each saved look is an average of
     /// nearby views rather than one exact frame.
     private static let setupJitters: [(turn: CGFloat, size: CGFloat)] = [(0.05, 1), (-0.05, 1), (0, 1.05)]
 
-    static func read(_ buffer: CVPixelBuffer, embedder: any FaceEmbedding, forSetup: Bool = false) -> FaceReading {
+    /// `target` is where the person the wall is following was last seen: their face is read
+    /// even when someone else is bigger in the frame, so the wall doesn't jump between people.
+    static func read(_ buffer: CVPixelBuffer, embedder: any FaceEmbedding, forSetup: Bool = false, target: CGRect? = nil) -> FaceReading {
         let handler = VNImageRequestHandler(cvPixelBuffer: buffer, orientation: .up)
         let rectangles = VNDetectFaceRectanglesRequest()
         rectangles.revision = VNDetectFaceRectanglesRequestRevision3
         try? handler.perform([rectangles])
-        guard let faces = rectangles.results, !faces.isEmpty else { return .nobody }
-        let face = faces.max { $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height } ?? faces[0]
+        guard let faces = rectangles.results, !faces.isEmpty else { return FaceReading(faceCount: 0, onTarget: target == nil) }
+        let biggest = faces.max { $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height } ?? faces[0]
+        var face = biggest
+        var onTarget = true
+        if let target {
+            let followed = faces.map { ($0, overlap($0.boundingBox, target)) }.max { $0.1 < $1.1 }
+            if let followed, followed.1 >= 0.1 {
+                face = followed.0
+            } else {
+                onTarget = false
+            }
+        }
 
         let qualityRequest = VNDetectFaceCaptureQualityRequest()
         qualityRequest.inputFaceObservations = [face]
@@ -55,7 +75,9 @@ nonisolated enum FaceAnalyzer {
         reading.yaw = (face.yaw?.doubleValue ?? 0) * 180 / .pi
         reading.pitch = (face.pitch?.doubleValue ?? 0) * 180 / .pi
         reading.quality = quality
-        guard quality >= minimumQuality else { return reading }
+        reading.onTarget = onTarget
+        reading.pixelHeight = face.boundingBox.height * CGFloat(CVPixelBufferGetHeight(buffer))
+        guard quality >= minimumQuality, reading.pixelHeight >= minimumFacePixels else { return reading }
 
         let landmarks = VNDetectFaceLandmarksRequest()
         landmarks.inputFaceObservations = [face]
@@ -77,8 +99,24 @@ nonisolated enum FaceAnalyzer {
             if let seen = embedder.embed(chip) { embeddings.append(seen) }
             if let mirrored = mirror(chip), let flipped = embedder.embed(mirrored) { embeddings.append(flipped) }
         }
-        reading.embedding = FaceMath.centroid(embeddings)
+        guard let face = FaceMath.centroid(embeddings) else { return reading }
+        // The head print: Apple's on-device image feature print of the face with hair and a
+        // little room, lined up the same way. It sees what the face model ignores (hair,
+        // face shape, colouring), which is often what tells brothers and sisters apart.
+        var head: [Float]?
+        if embedder.addsHeadPrint, let headChip = chip(image, FaceAlignment.headView(base, chip: embedder.chipSize), size: HeadPrint.size) {
+            head = FaceMath.centroid([HeadPrint.embed(headChip), mirror(headChip).flatMap { HeadPrint.embed($0) }].compactMap { $0 })
+        }
+        reading.embedding = FaceFeatures.combine(face: face, head: head)
         return reading
+    }
+
+    /// Intersection over union of two boxes.
+    static func overlap(_ a: CGRect, _ b: CGRect) -> CGFloat {
+        let shared = a.intersection(b)
+        guard !shared.isNull else { return 0 }
+        let both = a.width * a.height + b.width * b.height - shared.width * shared.height
+        return both > 0 ? shared.width * shared.height / both : 0
     }
 
     /// The face cut out through `view` (chip coordinates to image pixels).
@@ -148,6 +186,18 @@ nonisolated enum FaceAlignment {
         return similarity(from: from, to: points)
     }
 
+    /// The head around the face chip: zoomed out to take in the hair, nudged up, and scaled to
+    /// HeadPrint's size, in the same turn as the face.
+    static func headView(_ view: CGAffineTransform, chip: CGFloat) -> CGAffineTransform {
+        let middle = chip / 2
+        let zoom = CGAffineTransform(translationX: -middle, y: -middle)
+            .concatenating(CGAffineTransform(scaleX: 1.9, y: 1.9))
+            .concatenating(CGAffineTransform(translationX: middle, y: middle + chip * 0.12))
+        return CGAffineTransform(scaleX: chip / HeadPrint.size, y: chip / HeadPrint.size)
+            .concatenating(zoom)
+            .concatenating(view)
+    }
+
     /// The same view, turned and resized a little around the chip's middle.
     static func jittered(_ view: CGAffineTransform, turn: CGFloat, size: CGFloat, chip: CGFloat) -> CGAffineTransform {
         let middle = chip / 2
@@ -200,7 +250,51 @@ nonisolated protocol FaceEmbedding: Sendable {
     /// The chip the model takes: its side in pixels, and the room around the face.
     var chipSize: CGFloat { get }
     var chipPadding: CGFloat { get }
+    /// How many numbers the face print has; any after it are the head print.
+    var faceLength: Int { get }
+    /// Whether looks also carry a head print (not for the feature-print fallback, which is
+    /// one already).
+    var addsHeadPrint: Bool { get }
     func embed(_ image: CGImage) -> [Float]?
+}
+
+/// A saved look is the face print followed by the head print, each normalized on its own.
+nonisolated enum FaceFeatures {
+    static func combine(face: [Float], head: [Float]?) -> [Float] {
+        guard let head, !head.isEmpty else { return face }
+        return face + FaceMath.normalized(head)
+    }
+
+    /// Just the face print, for face-to-face similarity.
+    static func face(_ look: [Float]) -> [Float] {
+        let length = FaceEmbedder.current.faceLength
+        guard look.count > length else { return look }
+        return FaceMath.normalized(Array(look.prefix(length)))
+    }
+
+    /// Both prints, each normalized, for the family classifier.
+    static func classifierInput(_ look: [Float]) -> [Float] {
+        let length = FaceEmbedder.current.faceLength
+        guard look.count > length else { return look }
+        return FaceMath.normalized(Array(look.prefix(length))) + FaceMath.normalized(Array(look.dropFirst(length)))
+    }
+}
+
+/// Apple's image feature print (Vision, on device), used for the head around the face.
+nonisolated enum HeadPrint {
+    static let size: CGFloat = 224
+
+    static func embed(_ image: CGImage) -> [Float]? {
+        let request = VNGenerateImageFeaturePrintRequest()
+        request.imageCropAndScaleOption = .scaleFill
+        try? VNImageRequestHandler(cgImage: image).perform([request])
+        guard let print = request.results?.first, print.elementType == .float else { return nil }
+        let count = print.elementCount
+        let values: [Float] = print.data.withUnsafeBytes { raw in
+            Array(raw.bindMemory(to: Float.self).prefix(count))
+        }
+        return FaceMath.normalized(values)
+    }
 }
 
 nonisolated enum FaceEmbedder {
@@ -217,6 +311,8 @@ nonisolated enum FaceEmbedder {
 /// Apple's on-device image feature print. Not made for faces; only a fallback.
 nonisolated struct FeaturePrintEmbedder: FaceEmbedding {
     let id = "vision.featureprint.aligned5"
+    let faceLength = Int.max
+    let addsHeadPrint = false
     let matchThreshold: Float = 0.80
     let aloneThreshold: Float = 0.88
     let guestFloor: Float = 0.70
@@ -251,6 +347,8 @@ nonisolated final class DlibFaceEmbedder: FaceEmbedding, @unchecked Sendable {
     let margin: Float = 0.02
     let chipSize: CGFloat = 150
     let chipPadding: CGFloat = 0.25
+    let faceLength = 128
+    let addsHeadPrint = true
     private let model: VNCoreMLModel
 
     init?() {
@@ -259,7 +357,8 @@ nonisolated final class DlibFaceEmbedder: FaceEmbedding, @unchecked Sendable {
               let vision = try? VNCoreMLModel(for: ml) else { return nil }
         model = vision
         let version = ml.modelDescription.metadata[.versionString] as? String ?? "1"
-        id = "coreml.\(version)"
+        // ".head": looks carry a head print too, so older faces need setting up again.
+        id = "coreml.\(version).head"
     }
 
     func embed(_ image: CGImage) -> [Float]? {

@@ -67,6 +67,17 @@ final class KioskSession {
     /// screen has walked away, and the next face can take over.
     static let handOffSeconds: TimeInterval = 3
 
+    /// The camera lost the person whose screen is open: they walked away. Back to the
+    /// calendar, unless the screen was touched a moment ago (someone's still using it). No
+    /// wait before their face can open it again: they may just have turned around.
+    func faceLeft(_ memberID: UUID) {
+        if lastSeen?.memberID == memberID { lastSeen = nil }
+        guard activeID == memberID, lockRequest == nil, !isComposing,
+              Date.now.timeIntervalSince(lastTouch) > Self.handOffSeconds else { return }
+        showCalendar()
+        faceCooldowns[memberID] = nil
+    }
+
     /// Whether this person has stepped away: not seen by the camera a moment ago, and the
     /// screen hasn't been touched for a few seconds.
     func isAway(_ memberID: UUID, now: Date = .now) -> Bool {

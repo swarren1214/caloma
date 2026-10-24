@@ -28,7 +28,11 @@ final class EnrollmentModel {
     private static let sectors = 12
 
     private var collected: [[Float]] = []
-    private var sectorBest: [Int: (quality: Double, embedding: [Float])] = [:]
+    /// The clearest few looks from each part of the circle: the family classifier learns
+    /// from all of them.
+    private var sectorBest: [Int: [(quality: Double, embedding: [Float])]] = [:]
+    private static let perSector = 2
+    private static let frontalKept = 6
     private var frontal: [(quality: Double, embedding: [Float])] = []
     private var heldSince: Date?
     private var passStarted = Date.now
@@ -130,7 +134,7 @@ final class EnrollmentModel {
         if magnitude < 7 {
             frontal.append((reading.quality, embedding))
             frontal.sort { $0.quality > $1.quality }
-            if frontal.count > 2 { frontal.removeLast(frontal.count - 2) }
+            if frontal.count > Self.frontalKept { frontal.removeLast(frontal.count - Self.frontalKept) }
         } else {
             // Clockwise from the top, like the ring.
             var degrees = atan2(x, y) * 180 / .pi
@@ -140,9 +144,11 @@ final class EnrollmentModel {
                 lit[(tick + offset + Self.tickCount) % Self.tickCount] = true
             }
             let sector = tick * Self.sectors / Self.tickCount
-            if reading.quality > sectorBest[sector]?.quality ?? -1 {
-                sectorBest[sector] = (reading.quality, embedding)
-            }
+            var kept = sectorBest[sector] ?? []
+            kept.append((reading.quality, embedding))
+            kept.sort { $0.quality > $1.quality }
+            if kept.count > Self.perSector { kept.removeLast(kept.count - Self.perSector) }
+            sectorBest[sector] = kept
         }
 
         let elapsed = Date.now.timeIntervalSince(passStarted)
@@ -153,7 +159,7 @@ final class EnrollmentModel {
         }
         guard enough, !sectorBest.isEmpty || !frontal.isEmpty else { return }
         lit = Array(repeating: true, count: Self.tickCount)
-        collected += sectorBest.values.map { $0.embedding } + frontal.map { $0.embedding }
+        collected += sectorBest.keys.sorted().flatMap { sectorBest[$0]!.map(\.embedding) } + frontal.map(\.embedding)
         if pass == 1 && !oneScan {
             step = .firstScanDone
         } else {

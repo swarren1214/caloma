@@ -68,7 +68,8 @@ nonisolated struct FamilyFaceModel: Sendable {
     }
 
     init(faces: [UUID: [[Float]]]) {
-        let present = faces.filter { !$0.value.isEmpty }
+        // Face prints only; the head print is the family classifier's.
+        let present = faces.filter { !$0.value.isEmpty }.mapValues { $0.map(FaceFeatures.face) }
         // What everyone shares: the average of each person's average, so a person with more
         // looks doesn't count for more.
         let centroids = present.values.compactMap { FaceMath.centroid($0) }
@@ -112,7 +113,8 @@ nonisolated struct FamilyFaceModel: Sendable {
     }
 
     /// Everyone's score for this embedding, best first.
-    func scores(_ embedding: [Float]) -> [Score] {
+    func scores(_ input: [Float]) -> [Score] {
+        let embedding = FaceFeatures.face(input)
         let look = Self.center(embedding, shared)
         let calibrated = isCalibrated
         return people.map { id, person in

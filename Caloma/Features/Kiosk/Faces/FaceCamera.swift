@@ -76,7 +76,12 @@ nonisolated final class FaceCamera: NSObject, AVCaptureVideoDataOutputSampleBuff
         AVCaptureDevice.isCenterStageEnabled = false
         session.beginConfiguration()
         defer { session.commitConfiguration() }
-        session.sessionPreset = .vga640x480
+        // Full HD: someone standing back from a wall iPad still has a face big enough to
+        // identify (at 640×480 a face across the room was a few dozen pixels).
+        for preset: AVCaptureSession.Preset in [.hd1920x1080, .hd1280x720, .vga640x480] where session.canSetSessionPreset(preset) {
+            session.sessionPreset = preset
+            break
+        }
         guard let device, let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) else { return }
         session.addInput(input)
         output.alwaysDiscardsLateVideoFrames = true

@@ -64,7 +64,9 @@ struct FaceModelTests {
         let buffer = try #require(pixelBuffer(photo))
         let embedder = try embedder()
         let reading = FaceAnalyzer.read(buffer, embedder: embedder)
-        let embedding = try #require(reading.embedding, "No clear face found (quality \(reading.quality))")
+        let look = try #require(reading.embedding, "No clear face found (quality \(reading.quality))")
+        #expect(look.count > 128, "No head print on the look")
+        let embedding = FaceFeatures.face(look)
         let best = try expected().photoFaces.map { FaceMath.similarity(embedding, FaceMath.normalized($0.descriptor)) }.max() ?? 0
         // The same person is about 0.91 or more on this model; unrelated people mostly under 0.89.
         #expect(best > 0.95, "Vision's landmarks line faces up differently from dlib's: \(best)")
@@ -137,5 +139,39 @@ struct FamilyFaceModelTests {
         let embedder = FeaturePrintEmbedder()
         let look = mix([(brother, 1), (random.vector(width), 0.1)])
         #expect(model.verdict(model.scores(look), embedder: embedder) == .nobody)
+    }
+}
+
+/// The family classifier on made-up looks: brothers and sisters close on the face print, with
+/// a head print that differs a little.
+struct FamilyClassifierTests {
+    @Test func learnsSiblingsAndReportsHonestly() throws {
+        var state: UInt64 = 99
+        func next() -> Float {
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return Float(Int64(bitPattern: state >> 11) % 2_000_001) / 1_000_000 - 1
+        }
+        func vector(_ count: Int) -> [Float] { FaceMath.normalized((0..<count).map { _ in next() }) }
+        func mix(_ a: [Float], _ wa: Float, _ b: [Float], _ wb: Float) -> [Float] { FaceMath.normalized(zip(a, b).map { $0 * wa + $1 * wb }) }
+        let familyFace = vector(128), familyHead = vector(768)
+        let kids = (0..<4).map { _ in (face: mix(familyFace, 0.95, vector(128), 0.3), head: mix(familyHead, 0.9, vector(768), 0.45)) }
+        func look(_ kid: (face: [Float], head: [Float])) -> [Float] {
+            FaceFeatures.combine(face: mix(kid.face, 1, vector(128), 0.25), head: mix(kid.head, 1, vector(768), 0.5))
+        }
+        let ids = kids.map { _ in UUID() }
+        var faces: [UUID: [[Float]]] = [:]
+        for (id, kid) in zip(ids, kids) { faces[id] = (0..<40).map { _ in look(kid) } }
+        let classifier = try #require(FamilyClassifier(faces: faces))
+        #expect(classifier.report.checked == 40)
+        #expect(classifier.report.accuracy > 0.9)
+        var right = 0
+        for (id, kid) in zip(ids, kids) {
+            for _ in 0..<10 where classifier.chances(look(kid)).first?.id == id { right += 1 }
+        }
+        #expect(right >= 36)
+    }
+
+    @Test func needsTwoPeople() {
+        #expect(FamilyClassifier(faces: [UUID(): Array(repeating: [Float](repeating: 0.1, count: 896), count: 10)]) == nil)
     }
 }

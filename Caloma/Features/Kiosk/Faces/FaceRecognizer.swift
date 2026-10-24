@@ -10,12 +10,20 @@ final class FaceStore {
     private(set) var faces: [UUID: [[Float]]] = [:]
     /// What the wall matches against: built from everyone's looks whenever they change.
     @ObservationIgnored private(set) var family = FamilyFaceModel.empty
+    /// The model trained on this family's looks (two or more people set up). Retrained in the
+    /// background whenever a face is saved, learned or erased.
+    @ObservationIgnored private(set) var classifier: FamilyClassifier?
+    /// How the classifier did on the looks it held back, for the Faces screen.
+    private(set) var report: FamilyClassifier.Report?
+    private(set) var isTraining = false
+    @ObservationIgnored private var generation = 0
 
     /// Faces were made by an older matcher and erased: everyone needs setting up again.
     private(set) var needsSetupAgain = false
 
-    /// Embeddings from face setup; picks on the wall add to these up to `maximum`.
-    static let maximum = 40
+    /// Looks per person: setup saves up to about 60; picks on the wall add to these up to
+    /// `maximum`.
+    static let maximum = 90
     @ObservationIgnored private var setupCounts: [UUID: Int] = [:]
 
     private struct File: Codable {
@@ -40,7 +48,7 @@ final class FaceStore {
         needsSetupAgain = false
         faces[id] = embeddings
         setupCounts[id] = embeddings.count
-        family = FamilyFaceModel(faces: faces)
+        rebuild()
         save()
     }
 
@@ -48,8 +56,7 @@ final class FaceStore {
     /// isn't clearly someone else's. `confirmed` is for a look backed by their passcode.
     func learn(_ embedding: [Float], for id: UUID, confirmed: Bool = false) {
         guard var stored = faces[id], !stored.isEmpty else { return }
-        let embedder = FaceEmbedder.current
-        guard confirmed || family.leans(embedding, toward: id, embedder: embedder) else { return }
+        guard confirmed || leans(embedding, toward: id) else { return }
         stored.append(embedding)
         let kept = setupCounts[id] ?? 0
         if stored.count > Self.maximum, stored.count > kept {
@@ -57,22 +64,82 @@ final class FaceStore {
             stored.remove(at: min(kept, stored.count - 1))
         }
         faces[id] = stored
-        family = FamilyFaceModel(faces: faces)
+        rebuild()
         save()
     }
 
     func erase(_ id: UUID) {
         faces[id] = nil
         setupCounts[id] = nil
-        family = FamilyFaceModel(faces: faces)
+        rebuild()
         save()
     }
 
     func eraseAll() {
         faces = [:]
         setupCounts = [:]
-        family = .empty
+        rebuild()
         try? FileManager.default.removeItem(at: url)
+    }
+
+    // MARK: Matching
+
+    /// Who this look is: the family classifier when two or more people are set up, the face
+    /// model alone before that. A guest or a friend over (not plausibly anyone set up, by the
+    /// face print) is nobody either way.
+    func judge(_ look: [Float]) -> (scores: [FamilyFaceModel.Score], chances: [FamilyClassifier.Chance], verdict: FamilyFaceModel.Verdict) {
+        let embedder = FaceEmbedder.current
+        let scores = family.scores(look)
+        guard let classifier else {
+            return (scores, [], family.verdict(scores, embedder: embedder))
+        }
+        let chances = classifier.chances(look).filter { faces[$0.id] != nil }
+        guard let top = chances.first,
+              let plain = scores.first(where: { $0.id == top.id })?.plain,
+              plain >= embedder.guestFloor else { return (scores, chances, .nobody) }
+        let second = chances.count > 1 ? chances[1] : nil
+        if top.probability >= Self.matchChance, top.probability - (second?.probability ?? 0) >= Self.matchLead {
+            return (scores, chances, .match(top.id))
+        }
+        if let second, second.probability >= Self.closeCallChance {
+            return (scores, chances, .closeCall(top.id, second.id))
+        }
+        return (scores, chances, .nobody)
+    }
+
+    /// A match needs at least this chance, this far ahead of the next person.
+    static let matchChance: Float = 0.85
+    static let matchLead: Float = 0.5
+    /// Two people each at least this likely, with neither a match: ask which.
+    static let closeCallChance: Float = 0.2
+
+    /// Whether a look is safe to keep as this person's: the wall was already leaning their
+    /// way, or it was a close call they were part of.
+    private func leans(_ look: [Float], toward id: UUID) -> Bool {
+        guard let classifier else { return family.leans(look, toward: id, embedder: FaceEmbedder.current) }
+        let chances = classifier.chances(look)
+        guard let top = chances.first, let theirs = chances.first(where: { $0.id == id }) else { return false }
+        if top.id == id { return theirs.probability >= 0.4 }
+        return theirs.probability >= Self.closeCallChance && top.probability < Self.matchChance
+    }
+
+    private func rebuild() {
+        family = FamilyFaceModel(faces: faces)
+        generation += 1
+        let generation = generation
+        let snapshot = faces
+        isTraining = true
+        Task.detached(priority: .utility) {
+            let trained = FamilyClassifier(faces: snapshot)
+            await MainActor.run { FaceStore.shared.adopt(trained, generation: generation) }
+        }
+    }
+
+    private func adopt(_ trained: FamilyClassifier?, generation: Int) {
+        guard generation == self.generation else { return }
+        classifier = trained
+        report = trained?.report
+        isTraining = false
     }
 
     private func load() {
@@ -89,12 +156,12 @@ final class FaceStore {
             if let id = UUID(uuidString: key) { loaded[id] = value }
         }
         faces = loaded
-        family = FamilyFaceModel(faces: loaded)
         var counts: [UUID: Int] = [:]
         for (key, value) in file.setupCounts ?? [:] {
             if let id = UUID(uuidString: key) { counts[id] = value }
         }
         setupCounts = counts
+        rebuild()
     }
 
     private func save() {
@@ -110,6 +177,18 @@ final class FaceStore {
         values.isExcludedFromBackup = true
         try? folder.setResourceValues(values)
         try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+}
+
+/// Where the person the wall is following was last seen, shared with the camera's queue so
+/// each frame reads their face first.
+nonisolated final class FaceTarget: @unchecked Sendable {
+    static let shared = FaceTarget()
+    private let lock = NSLock()
+    private var _box: CGRect?
+    var box: CGRect? {
+        get { lock.withLock { _box } }
+        set { lock.withLock { _box = newValue } }
     }
 }
 
@@ -132,6 +211,9 @@ final class FaceRecognizer {
     private(set) var latest: FaceReading = .nobody
     /// Everyone's score for the latest look, best first.
     private(set) var scores: [FamilyFaceModel.Score] = []
+    /// The family classifier's chance for each person, best first (empty before two people
+    /// are set up).
+    private(set) var chances: [FamilyClassifier.Chance] = []
     /// What the latest look was judged to be.
     private(set) var verdict: FamilyFaceModel.Verdict = .nobody
 
@@ -140,6 +222,13 @@ final class FaceRecognizer {
 
     /// Kiosk Mode: someone was recognized, and how long they've been the steady answer.
     @ObservationIgnored var onRecognized: ((UUID, TimeInterval) -> Void)?
+    /// Family Board: the person the wall was following has gone out of view.
+    @ObservationIgnored var onLeft: ((UUID) -> Void)?
+    /// Who the wall is following: once someone is recognized, it stays with their face until
+    /// it's been out of view for `leaveAfter`, whoever else steps in.
+    private(set) var following: UUID?
+    @ObservationIgnored private var lostSince: Date?
+    @ObservationIgnored private var slow = false
     /// Family Board: two people keep coming out about even (best first), with the look.
     @ObservationIgnored var onCloseCall: ((UUID, UUID, [Float]) -> Void)?
     /// Face setup: every look.
@@ -157,9 +246,16 @@ final class FaceRecognizer {
     static let trackLength = 5
     static let trackWindow: TimeInterval = 1.5
 
-    /// Faces must be at least this tall in the frame (the front camera is wide; check with
-    /// Test Recognition and adjust).
-    static let minimumFaceHeight = 0.12
+    /// How long the followed face can be out of view before they count as gone.
+    static let leaveAfter: TimeInterval = 1.5
+    /// Frames a second: brisk with a face in view, an easy watch for one otherwise, and a slow
+    /// one at night. Even the slow watch is quick enough that walking up feels immediate.
+    static let fastRate: Double = 10
+    static let watchRate: Double = 4
+    static let nightRate: Double = 3
+    /// A match needs this many of the last `voteWindow` looks.
+    static let voteWindow = 3
+    static let votesNeeded = 2
 
     func start(_ mode: Mode) async {
         guard mode != .off else { stop(); return }
@@ -173,7 +269,7 @@ final class FaceRecognizer {
         self.mode = mode
         reset()
         // Setup averages several views of each look, so it looks a little less often.
-        camera.framesPerSecond = mode == .enroll ? 8 : 6
+        camera.framesPerSecond = mode == .enroll ? 8 : Self.watchRate
         let forSetup = mode == .enroll
         camera.onFrame = { FaceRecognizer.process($0, forSetup: forSetup) }
         camera.start()
@@ -186,6 +282,7 @@ final class FaceRecognizer {
         reset()
         latest = .nobody
         scores = []
+        chances = []
         verdict = .nobody
     }
 
@@ -197,8 +294,9 @@ final class FaceRecognizer {
 
     /// Lower the frame rate at night or while a doorbell card is up.
     func setSlow(_ slow: Bool) {
+        self.slow = slow
         guard mode == .recognize else { return }
-        camera.framesPerSecond = slow ? 1 : 6
+        camera.framesPerSecond = slow ? Self.nightRate : Self.watchRate
     }
 
     /// The last clear look, if it was within the past couple of seconds. For Not-you picks.
@@ -221,11 +319,14 @@ final class FaceRecognizer {
         recent = nil
         askedPair = nil
         track = []
+        following = nil
+        lostSince = nil
+        FaceTarget.shared.box = nil
     }
 
     /// Runs on the camera's queue.
     nonisolated private static func process(_ buffer: CVPixelBuffer, forSetup: Bool) {
-        let reading = FaceAnalyzer.read(buffer, embedder: FaceEmbedder.current, forSetup: forSetup)
+        let reading = FaceAnalyzer.read(buffer, embedder: FaceEmbedder.current, forSetup: forSetup, target: forSetup ? nil : FaceTarget.shared.box)
         Task { @MainActor in
             FaceRecognizer.shared.handle(reading)
         }
@@ -249,7 +350,7 @@ final class FaceRecognizer {
             // Someone else stepped into the same spot: start over, so the last person's looks
             // don't blend into theirs and their old votes don't have to be outvoted.
             let pooled = FaceMath.weightedCentroid(track.map { ($0.embedding, Float(max($0.quality, 0.05))) })
-            let someoneElse = pooled.map { FaceMath.similarity($0, look) < FaceEmbedder.current.matchThreshold - 0.02 } ?? false
+            let someoneElse = pooled.map { FaceMath.similarity(FaceFeatures.face($0), FaceFeatures.face(look)) < FaceEmbedder.current.matchThreshold - 0.02 } ?? false
             if someoneElse {
                 votes = []
                 askedPair = nil
@@ -271,26 +372,55 @@ final class FaceRecognizer {
     }
 
     private func recognize(_ reading: FaceReading) {
+        // Look briskly while there's a face to read, easily otherwise.
+        let rate = slow && !reading.hasFace ? Self.nightRate : reading.hasFace ? Self.fastRate : Self.watchRate
+        if camera.framesPerSecond != rate { camera.framesPerSecond = rate }
+
+        // Stay with the person being followed: their face is read first, and anyone else is
+        // ignored until they've been out of view for a moment.
+        if let followed = following {
+            if reading.hasFace, reading.onTarget {
+                lostSince = nil
+                FaceTarget.shared.box = reading.box
+            } else {
+                let since = lostSince ?? reading.at
+                lostSince = since
+                guard reading.at.timeIntervalSince(since) >= Self.leaveAfter else {
+                    verdict = .nobody
+                    return
+                }
+                // Gone: let them go, and start fresh for whoever's next.
+                votes = []
+                track = []
+                steady = nil
+                askedPair = nil
+                following = nil
+                lostSince = nil
+                FaceTarget.shared.box = nil
+                onLeft?(followed)
+            }
+        }
+
         var vote = FamilyFaceModel.Verdict.nobody
-        if reading.hasFace, reading.box.height >= Self.minimumFaceHeight, let look = reading.embedding, !store.isEmpty {
+        if reading.hasFace, let look = reading.embedding, !store.isEmpty {
             // One frame is noisy; the same face over the last second and a bit is not. Pool the
             // last few looks, clearer ones counting for more, as long as it's still the same
             // face in about the same place.
             let embedding = pooled(look, reading)
             recent = (embedding, reading.at)
-            let family = store.family
-            let ranked = family.scores(embedding)
-            scores = ranked
-            let embedder = FaceEmbedder.current
-            vote = family.verdict(ranked, embedder: embedder)
+            let judged = store.judge(embedding)
+            scores = judged.scores
+            chances = judged.chances
+            vote = judged.verdict
         } else if !reading.hasFace {
             scores = []
+            chances = []
             askedPair = nil
             track = []
         }
         verdict = vote
         votes.append(vote)
-        if votes.count > 4 { votes.removeFirst(votes.count - 4) }
+        if votes.count > Self.voteWindow { votes.removeFirst(votes.count - Self.voteWindow) }
 
         var counts: [UUID: Int] = [:]
         var pairs: [Set<UUID>: (count: Int, order: (UUID, UUID))] = [:]
@@ -305,15 +435,22 @@ final class FaceRecognizer {
                 break
             }
         }
-        guard let winner = counts.first(where: { $0.value >= 3 })?.key else {
+        // While following someone, only a clear run of looks (every recent one) says it's
+        // actually someone else; one odd look never switches people.
+        let needed = following == nil ? Self.votesNeeded : Self.voteWindow
+        guard let candidate = counts.first(where: { $0.value >= needed })?.key ?? following else {
             if counts.isEmpty { steady = nil }
-            // The same two people, about even, 3 of the last 4 looks: ask once while they stay.
-            if let found = pairs.first(where: { $0.value.count >= 3 }), found.key != askedPair, let recent {
+            // The same two people, about even, in most recent looks: ask once while they stay.
+            if let found = pairs.first(where: { $0.value.count >= Self.votesNeeded }), found.key != askedPair, let recent {
                 askedPair = found.key
                 onCloseCall?(found.value.order.0, found.value.order.1, recent.embedding)
             }
             return
         }
+        let winner = candidate
+        following = winner
+        lostSince = nil
+        if reading.hasFace { FaceTarget.shared.box = reading.box }
         if winner != steady {
             steady = winner
             steadySince = .now

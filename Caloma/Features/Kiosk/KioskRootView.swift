@@ -199,6 +199,7 @@ struct KioskRootView: View {
             presence.stop()
             FaceRecognizer.shared.onRecognized = nil
             FaceRecognizer.shared.onCloseCall = nil
+            FaceRecognizer.shared.onLeft = nil
             FaceRecognizer.shared.stop()
         }
         .onChange(of: facesOn) { _, _ in startFaces() }
@@ -273,10 +274,12 @@ extension KioskRootView {
         guard facesOn, !FaceStore.shared.isEmpty else {
             recognizer.onRecognized = nil
             recognizer.onCloseCall = nil
+            recognizer.onLeft = nil
             recognizer.stop()
             return
         }
         recognizer.onRecognized = { id, held in recognized(id, held: held) }
+        recognizer.onLeft = { id in withAnimation(.smooth(duration: 0.45)) { session.faceLeft(id) } }
         recognizer.onCloseCall = { first, second, look in closeCalled(first, second, look: look) }
         Task { await recognizer.start(.recognize) }
     }
@@ -302,9 +305,10 @@ extension KioskRootView {
         if session.activeID == id { return }
         if session.activeID == nil {
             session.open(id, source: .face)
-        } else if let current = session.activeID, session.isAway(current), held >= 0.6 {
+        } else if let current = session.activeID, session.isAway(current) {
             // Whoever had the screen walked away: the next face takes over straight away, even
-            // from a tapped-open or PIN-unlocked screen (the unlock doesn't carry over).
+            // from a tapped-open or PIN-unlocked screen (the unlock doesn't carry over). The
+            // camera only reports someone new once the last person it followed has left.
             session.open(id, source: .face)
         } else if session.source == .face, !session.isUnlocked || session.unlockedByFace, held >= 1.5 {
             session.open(id, source: .face)

@@ -67,6 +67,30 @@ struct FacesSettingsView: View {
                     }
                 }
 
+                if store.isTraining || store.report != nil {
+                    Section {
+                        if let report = store.report, !store.isTraining {
+                            LabeledContent("Held-back looks matched", value: "\(report.correct) of \(report.checked)")
+                            ForEach(report.mixUps, id: \.self) { mixUp in
+                                let actual = people.first { $0.id == mixUp.actual }?.name ?? "Someone"
+                                let guessed = people.first { $0.id == mixUp.guessed }?.name ?? "someone"
+                                LabeledContent("\(actual) taken for \(guessed)", value: "\(mixUp.count)×")
+                                    .foregroundStyle(.orange)
+                            }
+                        } else {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                Text("Learning everyone's faces…")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } header: {
+                        Text("Telling Everyone Apart")
+                    } footer: {
+                        Text("Caloma trains a small model on just your family, on this iPad, and checks it on looks it kept aside. Anyone taken for someone else here will be mixed up at the wall too: set them up again in brighter, even light.")
+                    }
+                }
+
                 Section {
                     NavigationLink("Test Recognition") { FaceTestView() }
                 } footer: {
@@ -130,7 +154,32 @@ private struct FaceTestView: View {
             Section {
                 LabeledContent("Faces in view", value: recognizer.latest.faceCount.formatted())
                 LabeledContent("Clarity", value: recognizer.latest.quality.formatted(.percent.precision(.fractionLength(0))))
-                LabeledContent("Close enough", value: recognizer.latest.box.height >= FaceRecognizer.minimumFaceHeight ? "Yes" : "No")
+                LabeledContent("Close enough", value: recognizer.latest.pixelHeight >= FaceAnalyzer.minimumFacePixels ? "Yes (\(Int(recognizer.latest.pixelHeight)) px)" : "No (\(Int(recognizer.latest.pixelHeight)) px)")
+                LabeledContent("Following", value: recognizer.following.flatMap { id in members.first { $0.id == id }?.name } ?? "No one")
+            }
+            if !recognizer.chances.isEmpty {
+                Section {
+                    ForEach(recognizer.chances, id: \.id) { entry in
+                        let name = members.first { $0.id == entry.id }?.name ?? "Someone"
+                        let match = recognizer.verdict == .match(entry.id)
+                        let close: Bool = {
+                            if case .closeCall(let a, let b) = recognizer.verdict { return entry.id == a || entry.id == b }
+                            return false
+                        }()
+                        LabeledContent {
+                            Text(entry.probability.formatted(.percent.precision(.fractionLength(0))))
+                                .monospacedDigit()
+                                .fontWeight(.semibold)
+                                .foregroundStyle(match ? Color(hex: 0x1E9E6A) : close ? Color.orange : .secondary)
+                        } label: {
+                            Text(name + (close ? " · close call" : "")).fontWeight(match ? .semibold : .regular)
+                        }
+                    }
+                } header: {
+                    Text("Who It Is")
+                } footer: {
+                    Text("From the model trained on your family. A match needs \(FaceStore.matchChance.formatted(.percent)) or more, well ahead of the next person, in 3 of 4 looks; two people both over \(FaceStore.closeCallChance.formatted(.percent)) is a close call, and the wall asks which.")
+                }
             }
             Section {
                 if recognizer.scores.isEmpty {
@@ -160,7 +209,7 @@ private struct FaceTestView: View {
                     }
                 }
             } header: {
-                Text("Match Scores")
+                Text(recognizer.chances.isEmpty ? "Match Scores" : "Face Print Scores")
             } footer: {
                 if calibrated {
                     Text("The big number is how far each person stands out from how close the rest of the family usually comes to them. A match needs \(FamilyFaceModel.matchStandout.formatted())× or more, \(FamilyFaceModel.standoutMargin.formatted())× ahead of the next person, in 3 of 4 looks. Two people both over \(FamilyFaceModel.closeCallStandout.formatted())× is a close call, and the wall asks which.")
