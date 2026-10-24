@@ -48,6 +48,7 @@ struct HomeView: View {
             .sharedBackgroundVisibility(.hidden)
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Group {
+                    IntercomButton()
                     KidViewButton()
                     // A glance board for standing the phone on the counter: iPhone Duo's outer
                     // display only (Tent). The Family Board is the iPad's (the Kid View menu has

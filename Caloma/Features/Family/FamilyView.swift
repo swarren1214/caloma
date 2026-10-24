@@ -7,6 +7,7 @@ struct FamilyView: View {
     @Environment(\.accent) private var accent
     @Query(sort: \Member.sortOrder) private var allMembers: [Member]
     @Query(filter: #Predicate<Room> { !$0.isArchived }) private var rooms: [Room]
+    @Query private var devices: [HouseDevice]
 
     @AppStorage(SettingsKey.pointName) private var pointName = PointName.stars.rawValue
     @AppStorage(SettingsKey.customPointName) private var customPointName = ""
@@ -112,6 +113,16 @@ struct FamilyView: View {
 
         Section {
             NavigationLink {
+                DevicesView()
+            } label: {
+                LabeledContent {
+                    Text(devices.isEmpty ? "" : "\(devices.count)")
+                } label: {
+                    Label("Devices", systemImage: "ipad.and.iphone")
+                        .tint(.primary)
+                }
+            }
+            NavigationLink {
                 RoomsView()
             } label: {
                 LabeledContent {
@@ -124,7 +135,7 @@ struct FamilyView: View {
         } header: {
             Text("House")
         } footer: {
-            Text("Optional. Put chores in rooms so kids know where to go, and see the board one room at a time.")
+            Text("Name the family's devices and say where the Family Boards are, for the intercom. Put chores in rooms so kids know where to go.")
         }
 
         Section {

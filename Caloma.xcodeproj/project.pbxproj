@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		9B69FBC9007FE0E2F859C9B2 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 0811FE67CE46FA96B97E5E90 /* RevenueCat */; };
+		A1C0FFEE000000000000B001 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = A1C0FFEE000000000000B002 /* WebRTC */; };
 		D86EE127307FE4A300CD31B7 /* CalomaWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = D86EE11D307FE4A000CD31B7 /* CalomaWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D86EE133307FE52F00CD31B7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D86EE132307FE52F00CD31B7 /* WidgetKit.framework */; };
 		D86EE135307FE52F00CD31B7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D86EE134307FE52F00CD31B7 /* SwiftUI.framework */; };
@@ -136,6 +137,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9B69FBC9007FE0E2F859C9B2 /* RevenueCat in Frameworks */,
+				A1C0FFEE000000000000B001 /* WebRTC in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -224,6 +226,7 @@
 			name = Caloma;
 			packageProductDependencies = (
 				0811FE67CE46FA96B97E5E90 /* RevenueCat */,
+				A1C0FFEE000000000000B002 /* WebRTC */,
 			);
 			productName = Caloma;
 			productReference = 7C4A00000000000000000006 /* Caloma.app */;
@@ -334,6 +337,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				1FADF91409298B1CFC47ABE6 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
+				A1C0FFEE000000000000B003 /* XCRemoteSwiftPackageReference "WebRTC" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7C4A00000000000000000003 /* Products */;
@@ -504,7 +508,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "If you turn it on in Family, Caloma shows your other calendars beside the family's and can add family events to Apple Calendar.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done. In Kiosk Mode, the wall iPad can recognize your family; face data never leaves the iPad.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done, and the family can video call on the intercom. In Kiosk Mode, the wall iPad can recognize your family; face data never leaves the iPad.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Caloma uses Face ID so only a parent can leave Kid View or the Family Board, or open a locked profile.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick albums for the Family Board's screensaver. Photos stay on this iPad and are never uploaded.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -543,7 +547,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "If you turn it on in Family, Caloma shows your other calendars beside the family's and can add family events to Apple Calendar.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done. In Kiosk Mode, the wall iPad can recognize your family; face data never leaves the iPad.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kids can snap a photo to show a chore is done, and the family can video call on the intercom. In Kiosk Mode, the wall iPad can recognize your family; face data never leaves the iPad.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Caloma uses Face ID so only a parent can leave Kid View or the Family Board, or open a locked profile.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick albums for the Family Board's screensaver. Photos stay on this iPad and are never uploaded.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -925,6 +929,14 @@
 				minimumVersion = 5.0.0;
 			};
 		};
+		A1C0FFEE000000000000B003 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 155.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -932,6 +944,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 1FADF91409298B1CFC47ABE6 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
 			productName = RevenueCat;
+		};
+		A1C0FFEE000000000000B002 /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1C0FFEE000000000000B003 /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

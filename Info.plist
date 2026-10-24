@@ -18,7 +18,13 @@
 	<key>NSHomeKitUsageDescription</key>
 	<string>Caloma brings in your home's rooms for chores, controls your lights, locks and climate, and shows your doorbell camera on the Family Board.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>On the Family Board, Talk lets you speak to whoever is at the door through the doorbell.</string>
+	<string>Talk to the family on the intercom, and on the Family Board, speak to whoever is at the door through the doorbell.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Caloma finds the family's Family Boards and phones on your home Wi-Fi so you can call them on the intercom.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_caloma-icom._tcp</string>
+	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>LSApplicationQueriesSchemes</key>
@@ -31,6 +37,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>audio</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict>

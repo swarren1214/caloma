@@ -23,6 +23,10 @@ struct KioskRootView: View {
     @State private var drawingBack: DrawBackRequest?
     /// Two people the camera can't tell apart: ask which.
     @State private var closeCall: CloseCall?
+    /// The intercom, from the rail.
+    @State private var showsIntercom = false
+    /// The first time the board opens on this iPad: name it and say which room it's in.
+    @State private var naming: HouseDevice?
 
     private var people: [Member] { members.filter { !$0.isArchived } }
     private var active: Member? {
@@ -33,7 +37,7 @@ struct KioskRootView: View {
     var body: some View {
         HStack(spacing: 0) {
             if showsFamily {
-                KioskRail(people: people, onLeave: { leaving = true })
+                KioskRail(people: people, onIntercom: { showsIntercom = true }, onLeave: { leaving = true })
                 Divider().ignoresSafeArea()
             }
             ZStack {
@@ -104,17 +108,29 @@ struct KioskRootView: View {
         // With the family rail turned off there's still a way out.
         .overlay(alignment: .bottomLeading) {
             if !showsFamily {
-                Button {
-                    leaving = true
-                } label: {
-                    Image(systemName: "lock.fill")
-                        .font(.footnote)
-                        .foregroundStyle(Color.secondary)
-                        .frame(width: 44, height: 44)
+                HStack(spacing: 0) {
+                    Button {
+                        leaving = true
+                    } label: {
+                        Image(systemName: "lock.fill")
+                            .font(.footnote)
+                            .foregroundStyle(Color.secondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Leave the Family Board")
+                    Button {
+                        showsIntercom = true
+                    } label: {
+                        Image(systemName: "phone.bubble.fill")
+                            .font(.footnote)
+                            .foregroundStyle(Color.secondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Intercom")
                 }
-                .buttonStyle(.plain)
                 .padding(8)
-                .accessibilityLabel("Leave the Family Board")
             }
         }
         // No one around: the screensaver, over everything but the doorbell.
@@ -185,6 +201,9 @@ struct KioskRootView: View {
             }
             startFaces()
             WallNoteQueue.sweep(wallNotes, in: context)
+            // This iPad is a Family Board now: it shows under Family Boards for the intercom.
+            let board = DeviceRegistry.markBoard(in: context)
+            if !board.named { naming = board }
             // Waking to the calendar: decided right as the screensaver ends, so a face that
             // woke it waits a moment before opening anyone's screen.
             presence.onScreensaverEnd = {
@@ -241,6 +260,14 @@ struct KioskRootView: View {
             } else {
                 Color.clear.onAppear { session.cancelUnlock() }
             }
+        }
+        .sheet(isPresented: $showsIntercom) {
+            IntercomSheet()
+                .presentationDetents([.large])
+        }
+        .sheet(item: $naming) { device in
+            NameBoardSheet(device: device)
+                .presentationDetents([.large])
         }
         .sheet(isPresented: $leaving) {
             LeaveKioskSheet {
@@ -387,12 +414,14 @@ private struct RecentDoorbellPill: View {
 /// jobs are left), the countdown back to the calendar, and the lock to leave.
 struct KioskRail: View {
     var people: [Member]
+    var onIntercom: () -> Void = {}
     var onLeave: () -> Void
 
     @Environment(KioskSession.self) private var session
     @Environment(\.accent) private var accent
     @Query private var chores: [Chore]
     @Query private var completions: [ChoreCompletion]
+    @State private var calls = CallCenter.shared
 
     var body: some View {
         let family = FamilySnapshot(members: people, chores: chores, completions: completions, points: [])
@@ -434,6 +463,25 @@ struct KioskRail: View {
                 }
                 .transition(.opacity)
             }
+
+            // The intercom: call another board or a parent's phone. A red dot for missed calls.
+            Button(action: onIntercom) {
+                VStack(spacing: 3) {
+                    Image(systemName: "phone.bubble.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .overlay(alignment: .topTrailing) {
+                            if !calls.missed.isEmpty {
+                                Circle().fill(.red).frame(width: 10, height: 10).offset(x: 4, y: -3)
+                            }
+                        }
+                    Text("Intercom")
+                        .font(.caption2.weight(.bold))
+                }
+                .foregroundStyle(.primary)
+                .frame(width: 72, height: 56)
+            }
+            .buttonStyle(KidPressStyle())
+            .accessibilityLabel(calls.missed.isEmpty ? "Intercom" : "Intercom, \(calls.missed.count) missed")
 
             Button(action: onLeave) {
                 VStack(spacing: 3) {

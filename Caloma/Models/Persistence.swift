@@ -23,6 +23,7 @@ enum Persistence {
         FamilyList.self,
         FamilyListItem.self,
         FamilyListCheck.self,
+        HouseDevice.self,
     ])
 
     private static let log = Logger(subsystem: "com.stephenwarren.caloma", category: "persistence")

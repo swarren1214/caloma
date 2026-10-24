@@ -25,6 +25,7 @@ enum SyncSchema {
         Member.self, Room.self, ChoreGroup.self, Chore.self, ChoreCompletion.self, Reward.self, Redemption.self,
         PointEntry.self, HomeTask.self, HomeTaskLog.self, FamilyEvent.self, EventPacking.self,
         FamilySetting.self, Whiteboard.self, WallNote.self, DeviceStyle.self, FamilyList.self, FamilyListItem.self, FamilyListCheck.self,
+        HouseDevice.self,
     ]
 
     static func type(named name: String) -> (any CloudRecord.Type)? {
@@ -431,6 +432,9 @@ final class FamilySetting {
     var key: String = ""
     /// "b:1", "i:500", "s:stars".
     var value: String = ""
+    /// A secret only family devices may read (the intercom's household key). Sent to iCloud
+    /// encrypted end to end, never in `value`.
+    var secret: Data?
     var updatedAt: Date = Date.now
 
     init(key: String, value: String) {
@@ -454,12 +458,47 @@ extension FamilySetting: CloudRecord {
     func write(to record: CKRecord) {
         record["key"] = key
         record["value"] = value
+        record.encryptedValues["secret"] = secret.map { $0 as NSData }
         record["updatedAt"] = updatedAt
     }
 
     func read(from record: CKRecord) {
         key = record.string("key") ?? key
         value = record.string("value") ?? value
+        secret = record.encryptedValues["secret"] as? Data
+        updatedAt = record.date("updatedAt") ?? updatedAt
+    }
+}
+
+extension HouseDevice: CloudRecord {
+    static let recordType = "HouseDevice"
+    static func blank() -> HouseDevice { HouseDevice(id: UUID(), name: "", kind: .phone) }
+
+    func write(to record: CKRecord) {
+        record["name"] = name
+        record.setUUID(roomID, for: "roomID")
+        record["kindRaw"] = kindRaw
+        record["model"] = model
+        record.setUUID(ownerID, for: "ownerID")
+        record["isBoard"] = isBoard
+        record["takesCalls"] = takesCalls
+        record["named"] = named
+        record["lastSeen"] = lastSeen
+        record["createdAt"] = createdAt
+        record["updatedAt"] = updatedAt
+    }
+
+    func read(from record: CKRecord) {
+        name = record.string("name") ?? name
+        roomID = record.uuid("roomID")
+        kindRaw = record.string("kindRaw") ?? kindRaw
+        model = record.string("model") ?? model
+        ownerID = record.uuid("ownerID")
+        isBoard = record.bool("isBoard") ?? isBoard
+        takesCalls = record.bool("takesCalls") ?? takesCalls
+        named = record.bool("named") ?? named
+        lastSeen = record.date("lastSeen") ?? lastSeen
+        createdAt = record.date("createdAt") ?? createdAt
         updatedAt = record.date("updatedAt") ?? updatedAt
     }
 }

@@ -282,6 +282,7 @@ DEFINE SCHEMA
         "___recordID" REFERENCE QUERYABLE,
         "key" STRING,
         "value" STRING,
+        "secret" ENCRYPTED BYTES,
         "updatedAt" TIMESTAMP,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",
@@ -415,6 +416,29 @@ DEFINE SCHEMA
         "cloudkit.thumbnailImageData" BYTES,
         "cloudkit.title"              STRING,
         "cloudkit.type"               STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE HouseDevice (
+        "___createTime" TIMESTAMP,
+        "___createdBy" REFERENCE,
+        "___etag" STRING,
+        "___modTime" TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID" REFERENCE QUERYABLE,
+        "name" STRING,
+        "roomID" STRING,
+        "kindRaw" STRING,
+        "model" STRING,
+        "ownerID" STRING,
+        "isBoard" INT64,
+        "takesCalls" INT64,
+        "named" INT64,
+        "lastSeen" TIMESTAMP,
+        "createdAt" TIMESTAMP,
+        "updatedAt" TIMESTAMP,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",
         GRANT READ TO "_world"

@@ -1,0 +1,379 @@
+{
+  "accentHex" : "#D9577A",
+  "ascAppID" : "",
+  "ascAppName" : "",
+  "inkHex" : "#B23A5C",
+  "listings" : {
+
+  },
+  "live" : {
+
+  },
+  "locale" : "en-US",
+  "sets" : {
+    "duoOuter" : {
+      "captures" : [
+
+      ],
+      "devices" : [
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "0D9D87D5-2501-4B04-9AA3-CCFC59EBCB0E",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-13c1dea3",
+          "rotation" : 0,
+          "scale" : 1,
+          "shadow" : true,
+          "x" : 319,
+          "y" : 931.4962233920805
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "3794F2A1-8CA0-4E82-AEF6-21EF3A74691C",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "builtin-duoOuter",
+          "rotation" : 0,
+          "scale" : 1,
+          "shadow" : true,
+          "x" : 1717,
+          "y" : 600
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "2F38A2B9-74FF-4637-9E1E-88F376464C92",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "builtin-duoOuter",
+          "rotation" : 0,
+          "scale" : 1,
+          "shadow" : true,
+          "x" : 3115,
+          "y" : 600
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "D15978E0-E6D1-4BC3-BC66-F3FAC49597D4",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f7e3c805",
+          "rotation" : 0,
+          "scale" : 1,
+          "shadow" : true,
+          "x" : 319,
+          "y" : 600
+        }
+      ],
+      "frames" : [
+        {
+          "id" : "10D55177-C522-40F8-A141-8BEE694EC797",
+          "line1" : "A house that runs itself.",
+          "line2" : "Almost.",
+          "look" : "accent",
+          "showIcon" : true,
+          "subhead" : "Chores, rewards and the family calendar in one place."
+        },
+        {
+          "id" : "24BAE122-1F34-4831-B6B5-4897E4945EAF",
+          "line1" : "Chores kids",
+          "line2" : "actually finish.",
+          "look" : "tint",
+          "showIcon" : false,
+          "subhead" : "A ring for every kid, and a party when it closes."
+        },
+        {
+          "id" : "A791E0DD-56B8-4010-853B-D4EF60AD3F81",
+          "line1" : "Rewards",
+          "line2" : "your family designs.",
+          "look" : "accent",
+          "showIcon" : false,
+          "subhead" : "Privileges, outings, money or a goal for everyone."
+        }
+      ],
+      "layerGroups" : [
+
+      ],
+      "linked" : [
+        false,
+        false
+      ],
+      "publish" : false
+    },
+    "ipad" : {
+      "captures" : [
+
+      ],
+      "devices" : [
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPad-Air-13-inch-(M4)\/dark\/01-home.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "6E497250-D722-4C25-9C4C-B89663D9A917",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-d9393411",
+          "rotation" : 0,
+          "scale" : 1.329356931626691,
+          "shadow" : true,
+          "x" : 419,
+          "y" : 765
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPad-Air-13-inch-(M4)\/dark\/02-chores.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "A93A17C7-3021-4464-B851-09485C66032F",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-261559ba",
+          "rotation" : 0,
+          "scale" : 1.3029918214678682,
+          "shadow" : true,
+          "x" : 4209,
+          "y" : 610
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPad-Air-13-inch-(M4)\/dark\/03-approvals.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "D47FDE94-3523-4625-9AB1-908C9C3C13E4",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-d9393411",
+          "rotation" : 0,
+          "scale" : 1.4471402955943038,
+          "shadow" : true,
+          "x" : 1876,
+          "y" : 608
+        }
+      ],
+      "frames" : [
+        {
+          "id" : "2F99CF69-660A-4C54-A506-5878FE2291A8",
+          "line1" : "A house that runs itself.",
+          "line2" : "Almost.",
+          "look" : "accent",
+          "showIcon" : true,
+          "subhead" : "Chores, rewards and the family calendar in one place."
+        },
+        {
+          "id" : "927C3EA8-9795-4F8E-8111-49A34A7CB66E",
+          "line1" : "Chores kids",
+          "line2" : "actually finish.",
+          "look" : "tint",
+          "showIcon" : false,
+          "subhead" : "A ring for every kid, and a party when it closes."
+        },
+        {
+          "id" : "1ED58F67-9844-4B1E-A38F-68DEF05E9203",
+          "line1" : "Rewards",
+          "line2" : "your family designs.",
+          "look" : "tint",
+          "showIcon" : false,
+          "subhead" : "Privileges, outings, money or a goal for everyone."
+        }
+      ],
+      "layerGroups" : [
+
+      ],
+      "linked" : [
+        true,
+        false
+      ],
+      "publish" : true
+    },
+    "iphone" : {
+      "captures" : [
+
+      ],
+      "devices" : [
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/01-home.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "478E43AB-55DD-43F7-938A-0639BB9F1499",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f6bcd037",
+          "rotation" : 0,
+          "scale" : 1.85,
+          "shadow" : true,
+          "x" : 787,
+          "y" : 746
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/02-chores.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "2DBA5E04-F120-49F8-B6D9-446388942042",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f6bcd037",
+          "rotation" : 0,
+          "scale" : 1.85,
+          "shadow" : true,
+          "x" : -188,
+          "y" : 732
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/05-calendar.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "B6D3A146-8756-4840-9C2A-6B4EAAC1FF95",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-041fceb4",
+          "rotation" : 0,
+          "scale" : 1,
+          "shadow" : true,
+          "x" : 2778,
+          "y" : 617
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/dark\/01-home.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "CAABD90A-0D53-4116-9673-3FCCB2D3AF40",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-4d02fad1",
+          "rotation" : 0,
+          "scale" : 1,
+          "shadow" : true,
+          "x" : 4098,
+          "y" : 484
+        }
+      ],
+      "frames" : [
+        {
+          "id" : "0B7A0549-F53A-4C99-9F04-F72D4FD8ECC5",
+          "line1" : "A house that runs itself.",
+          "line2" : "Almost.",
+          "look" : "accent",
+          "showIcon" : true,
+          "subhead" : "Chores, rewards and the family calendar in one place."
+        },
+        {
+          "id" : "FA85F651-8689-40A5-A772-24F8B6D5A3E9",
+          "line1" : "Chores kids",
+          "line2" : "actually finish.",
+          "look" : "tint",
+          "showIcon" : false,
+          "subhead" : "A ring for every kid, and a party when it closes."
+        },
+        {
+          "id" : "BB0A9F1A-B842-497C-AF40-1F87B759DD3C",
+          "line1" : "Rewards",
+          "line2" : "your family designs.",
+          "look" : "tint",
+          "showIcon" : false,
+          "subhead" : "Privileges, outings, money or a goal for everyone."
+        },
+        {
+          "id" : "4D82C4C7-9B9E-4CC6-A85D-08355C6C1387",
+          "line1" : "Who’s driving?",
+          "line2" : "The calendar knows.",
+          "look" : "tint",
+          "showIcon" : false,
+          "subhead" : "Who’s going, who’s driving and what to pack."
+        }
+      ],
+      "layerGroups" : [
+
+      ],
+      "linked" : [
+        true,
+        false,
+        false
+      ],
+      "publish" : true
+    },
+    "watch" : {
+      "captures" : [
+        "screenshots\/Apple-Watch-Series-12-(46mm)\/dark\/01-approvals.png",
+        "screenshots\/Apple-Watch-Series-12-(46mm)\/dark\/02-comingup.png",
+        "screenshots\/Apple-Watch-Series-12-(46mm)\/dark\/03-kids.png",
+        "screenshots\/Apple-Watch-Series-12-(46mm)\/dark\/04-chores.png",
+        "screenshots\/Apple-Watch-Series-12-(46mm)\/dark\/05-homecare.png"
+      ],
+      "devices" : [
+
+      ],
+      "frames" : [
+
+      ],
+      "layerGroups" : [
+
+      ],
+      "linked" : [
+
+      ],
+      "publish" : true
+    }
+  },
+  "tintHex" : "#FCEDF1"
+}

@@ -316,8 +316,12 @@ struct AppRoot: View {
             household.start(app: .caloma)
             sync.householdStarted()
             CalomaHousehold.sync(in: context)
+            startIntercom()
             await sync.updateSharing()
         }
+        // The intercom needs the family's key, which arrives with the first sync.
+        .onChange(of: sync.lastSynced) { _, _ in startIntercom() }
+        .onChange(of: onboarded) { _, _ in startIntercom() }
         .onChange(of: household.snapshot) { _, _ in
             sync.refreshLocation()
             CalomaHousehold.sync(in: context)
@@ -339,7 +343,11 @@ struct AppRoot: View {
         .hearthHouseholdRequired(isActive: onboarded && !ScreenshotMode.isOn, accent: Brand.defaultAccent)
         .environment(\.hearthPersonExtras, personExtras)
         .onChange(of: scenePhase) { _, phase in
+            // In the background the intercom stops, unless a call is going (it keeps the app
+            // running for its sound).
+            if phase == .background, !CallCenter.shared.state.isBusy { IntercomService.shared.stop() }
             guard phase == .active else { return }
+            startIntercom()
             Task {
                 // Coming back to the app: what changed. (Sync Now and pull to refresh read
                 // everything.)
@@ -361,6 +369,16 @@ struct AppRoot: View {
             if HearthInviteLink.open(url) { return }
             router.open(url)
         }
+    }
+}
+
+extension AppRoot {
+    /// The intercom: this device in the family's device list, findable on the home network, and
+    /// ready to ring. Only once the family is set up here.
+    private func startIntercom() {
+        guard onboarded, !ScreenshotMode.isOn else { return }
+        CallCenter.shared.start(with: context.container)
+        IntercomService.shared.start(with: context.container)
     }
 }
 
