@@ -188,26 +188,91 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 143' TERM INT
 
-# Turns the Simulator window with this device (the one `open -a Simulator` just brought
+# Turns the Simulator window with this device (the one Device Hub or Simulator just brought
 # forward) to portrait or landscape, through the Simulator's Device menu. macOS asks once to
 # let Hearth Ship (or Terminal) control the computer for this: System Settings › Privacy &
 # Security › Accessibility.
+# The app that shows Simulator devices: Device Hub from Xcode 27, Simulator before it.
+SIM_APP_ID=""
+sim_app_id() {
+  if [[ -z "$SIM_APP_ID" ]]; then
+    if [[ -n "$(mdfind "kMDItemCFBundleIdentifier == 'com.apple.dt.Devices'" 2>/dev/null | head -1)" ]]; then
+      SIM_APP_ID="com.apple.dt.Devices"
+    else
+      SIM_APP_ID="com.apple.iphonesimulator"
+    fi
+  fi
+  echo "$SIM_APP_ID"
+}
+
 rotate() {
-  local item
+  local direction
   if [[ "$1" == landscape ]]; then
     [[ -z "$ROTATED" ]] || return 0
-    item="Rotate Left"
+    direction="Left"
   else
     [[ -n "$ROTATED" ]] || return 0
-    item="Rotate Right"
+    direction="Right"
   fi
-  open -a Simulator --args -CurrentDeviceUDID "$UDID" >/dev/null 2>&1 || true
+  local app; app="$(sim_app_id)"
+  open -b "$app" --args -CurrentDeviceUDID "$UDID" >/dev/null 2>&1 || true
   sleep 1
-  if ! osascript \
-      -e 'tell application "Simulator" to activate' \
-      -e "tell application \"System Events\" to tell process \"Simulator\" to click menu item \"$item\" of menu \"Device\" of menu bar 1" \
-      >/dev/null 2>&1; then
-    echo "Couldn't turn the Simulator ($item). Allow control in System Settings › Privacy & Security › Accessibility, then try again." >&2
+  # Finds "Rotate Left/Right" (or Landscape/Portrait) in the app's menus, one submenu deep;
+  # if there's no such item, presses its shortcut (⌘← or ⌘→).
+  local script="${TMPDIR:-/tmp}/hearth-rotate.applescript"
+  cat >"$script" <<'APPLESCRIPT'
+on run argv
+  set appID to item 1 of argv
+  set wanted to item 2 of argv
+  tell application id appID to activate
+  delay 0.6
+  tell application "System Events"
+    set p to first process whose bundle identifier is appID
+    tell p
+      set frontmost to true
+      repeat with barItem in menu bar items of menu bar 1
+        try
+          repeat with mi in menu items of menu 1 of barItem
+            set n to name of mi
+            if n is not missing value then
+              if n contains "Rotate" and n contains wanted then
+                click mi
+                return "menu: " & n
+              end if
+              try
+                repeat with si in menu items of menu 1 of mi
+                  set sn to name of si
+                  if sn is not missing value then
+                    if (sn contains "Rotate" and sn contains wanted) or (wanted is "Left" and sn is "Landscape Left") or (wanted is "Right" and sn is "Portrait") then
+                      click si
+                      return "menu: " & sn
+                    end if
+                  end if
+                end repeat
+              end try
+            end if
+          end repeat
+        end try
+      end repeat
+      if wanted is "Left" then
+        key code 123 using command down
+      else
+        key code 124 using command down
+      end if
+      return "shortcut"
+    end tell
+  end tell
+end run
+APPLESCRIPT
+  local why
+  if ! why="$(osascript "$script" "$app" "$direction" 2>&1 >/dev/null)"; then
+    if [[ "$why" == *"-1743"* || "$why" == *"Not authorized"* ]]; then
+      echo "Couldn't turn the Simulator (rotate $direction): Automation is off. Turn on System Events and Device Hub under System Settings › Privacy & Security › Automation › Hearth Ship (or Terminal)." >&2
+    elif [[ "$why" == *"assistive"* || "$why" == *"-25211"* || "$why" == *"-1719"* ]]; then
+      echo "Couldn't turn the Simulator (rotate $direction): Hearth Ship (or Terminal) needs System Settings › Privacy & Security › Device Control and Data Access (Accessibility before macOS 27)." >&2
+    else
+      echo "Couldn't turn the Simulator (rotate $direction): ${why:-no reason given}" >&2
+    fi
     return 1
   fi
   if [[ "$1" == landscape ]]; then ROTATED=1; else ROTATED=""; fi
@@ -411,7 +476,7 @@ log "Booting $SIM"
 event phase booting
 xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b >/dev/null
-open -a Simulator --args -CurrentDeviceUDID "$UDID" || true
+open -b "$(sim_app_id)" --args -CurrentDeviceUDID "$UDID" || true
 
 # MARK: Build and install
 

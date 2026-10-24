@@ -96,6 +96,9 @@ struct IntercomSheet: View {
             }
             .navigationTitle("Intercom")
             .navigationBarTitleDisplayMode(.inline)
+            // The text color for Done, Call Back and the rest, whatever tint the sheet was opened
+            // with (white over the app's color on Home). Only the video button is the app's color.
+            .tint(.primary)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -128,6 +131,8 @@ struct IntercomSheet: View {
             }
             .tint(.primary)
             Spacer()
+            // Colors set here, not inherited: the sheet opens from toolbars tinted white over the
+            // app's color, which made the filled video button a blank white circle.
             Button {
                 start { await center.call([device], video: false) }
             } label: {
@@ -136,15 +141,18 @@ struct IntercomSheet: View {
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.circle)
+            .tint(.primary)
             .accessibilityLabel("Audio call \(device.displayName)")
             Button {
                 start { await center.call([device], video: true) }
             } label: {
                 Image(systemName: "video.fill")
                     .frame(width: 22, height: 22)
+                    .foregroundStyle(.white)
             }
             .buttonStyle(.borderedProminent)
             .buttonBorderShape(.circle)
+            .tint(accent)
             .accessibilityLabel("Video call \(device.displayName)")
         }
         .disabled(!online)
