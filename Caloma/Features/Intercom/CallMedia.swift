@@ -482,10 +482,11 @@ struct CallVideoView: UIViewRepresentable {
 extension CallMedia {
     /// The video from a device in the call, or nothing if it hasn't arrived (or their camera's off).
     @ViewBuilder
-    func remoteView(for peer: UUID) -> some View {
+    /// Their video: filling the space (cropping the edges), or all of it, with bars if the shapes differ.
+    func remoteView(for peer: UUID, fills: Bool = true) -> some View {
         #if canImport(WebRTC)
         if remoteCamera[peer] == true, let track = remoteVideo[peer] {
-            CallVideoView(track: track).id(remoteVideoVersion)
+            CallVideoView(track: track, fills: fills).id(remoteVideoVersion)
         }
         #else
         EmptyView()

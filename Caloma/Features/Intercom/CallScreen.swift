@@ -132,6 +132,9 @@ private struct LiveCallView: View {
     private var peers: [UUID] { state.peers.sorted { state.name($0) < state.name($1) } }
     private var big: Bool { sizeClass == .regular }
     private var isPhone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
+    /// Their video fills the screen (edges cropped), or shows whole. Whole by default on iPad,
+    /// where a phone's portrait video would otherwise lose most of the picture.
+    @State private var fills = UIDevice.current.userInterfaceIdiom == .phone
 
     var body: some View {
         ZStack {
@@ -157,7 +160,9 @@ private struct LiveCallView: View {
                 header
             }
         }
-        .safeAreaInset(edge: .bottom) { controls }
+        .overlay(alignment: isPhone ? .bottomTrailing : .bottom) {
+            if isPhone { phoneControls } else { controls }
+        }
         .foregroundStyle(.white)
     }
 
@@ -186,7 +191,7 @@ private struct LiveCallView: View {
             let height = proxy.size.height / CGFloat(max(rows, 1))
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: columns), spacing: 4) {
                 ForEach(peers, id: \.self) { peer in
-                    PeerTile(center: center, peer: peer)
+                    PeerTile(center: center, peer: peer, fills: fills)
                         .frame(height: height - (rows > 1 ? 4 : 0))
                 }
             }
@@ -227,13 +232,9 @@ private struct LiveCallView: View {
                 CallControl(title: media.cameraOn ? "Turn Camera Off" : "Turn Camera On", symbol: media.cameraOn ? "video.fill" : "video.slash.fill", isOn: !media.cameraOn, size: size) {
                     Task { await center.toggleCamera() }
                 }
-                if isPhone {
-                    CallControl(title: "Flip Camera", symbol: "arrow.triangle.2.circlepath.camera.fill", size: size) {
-                        center.flipCamera()
-                    }
-                    .disabled(!media.cameraOn)
-                    CallControl(title: "Speaker", symbol: media.speakerOn ? "speaker.wave.3.fill" : "speaker.fill", isOn: media.speakerOn, size: size) {
-                        center.toggleSpeaker()
+                if !peers.isEmpty {
+                    CallControl(title: fills ? "Show Whole Video" : "Fill Screen", symbol: fillSymbol, size: size) {
+                        withAnimation(.smooth) { fills.toggle() }
                     }
                 }
                 CallControl(title: "End Call", symbol: "phone.down.fill", tint: .red, size: size) {
@@ -243,12 +244,64 @@ private struct LiveCallView: View {
         }
         .padding(.bottom, big ? 28 : 16)
     }
+
+    private var fillSymbol: String {
+        fills ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right"
+    }
+
+    /// On iPhone: a column down the right edge, out of the way of their face, with the less
+    /// used controls (flip camera, speaker, fill) in a More menu at the top.
+    private var phoneControls: some View {
+        let size: CGFloat = 56
+        return GlassEffectContainer(spacing: 14) {
+            VStack(spacing: 14) {
+                Menu {
+                    Button {
+                        center.flipCamera()
+                    } label: {
+                        Label("Flip Camera", systemImage: "arrow.triangle.2.circlepath.camera")
+                    }
+                    .disabled(!media.cameraOn)
+                    Toggle(isOn: Binding(get: { media.speakerOn }, set: { _ in center.toggleSpeaker() })) {
+                        Label("Speaker", systemImage: "speaker.wave.3")
+                    }
+                    if !peers.isEmpty {
+                        Button {
+                            withAnimation(.smooth) { fills.toggle() }
+                        } label: {
+                            Label(fills ? "Show Whole Video" : "Fill Screen", systemImage: fillSymbol)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: size * 0.36, weight: .semibold))
+                        .frame(width: size, height: size)
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .accessibilityLabel("More")
+                CallControl(title: media.cameraOn ? "Turn Camera Off" : "Turn Camera On", symbol: media.cameraOn ? "video.fill" : "video.slash.fill", isOn: !media.cameraOn, size: size) {
+                    Task { await center.toggleCamera() }
+                }
+                CallControl(title: media.muted ? "Unmute" : "Mute", symbol: media.muted ? "mic.slash.fill" : "mic.fill", isOn: media.muted, size: size) {
+                    center.toggleMute()
+                }
+                CallControl(title: "End Call", symbol: "phone.down.fill", tint: .red, size: size) {
+                    center.hangUp()
+                }
+            }
+        }
+        .padding(.trailing, 16)
+        .padding(.bottom, 8)
+    }
 }
 
 /// One device on the call: their video, or their name while the camera's off or connecting.
 private struct PeerTile: View {
     let center: CallCenter
     let peer: UUID
+    var fills = true
 
     var body: some View {
         let media = center.media
@@ -274,7 +327,7 @@ private struct PeerTile: View {
                     }
                 }
             }
-            media.remoteView(for: peer)
+            media.remoteView(for: peer, fills: fills)
         }
         .clipped()
         .accessibilityElement(children: .combine)
