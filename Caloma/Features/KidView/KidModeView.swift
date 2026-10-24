@@ -362,11 +362,14 @@ struct KidDayView: View {
     var body: some View {
         let family = family
         let items = family.items(for: kid)
-        let mine = items.filter { !$0.chore.upForGrabs || $0.memberID == kid.id }
+        // Their own jobs, and up-for-grabs ones on a Volunteer page of their own, so the two
+        // aren't confused. Volunteering is extra: it doesn't count toward "all done".
+        let mine = items.filter { !$0.chore.upForGrabs }
+        let volunteer = items.filter { $0.chore.upForGrabs }
         let done = mine.filter { $0.status.isDone }.count
         // Lists with something on this kid's plate get a tab of their own.
         let myLists = FamilyLists.lists(for: kid.id, lists: lists, items: listItems, checks: listChecks)
-        let showing = KidPage.showing(page, lists: myLists.map { $0.list.id })
+        let showing = KidPage.showing(page, lists: myLists.map { $0.list.id }, hasVolunteer: !volunteer.isEmpty)
         ScrollView {
             VStack(spacing: 18) {
                 if kiosk == nil {
@@ -377,6 +380,7 @@ struct KidDayView: View {
                     page: $page,
                     showing: showing,
                     color: color,
+                    volunteerLeft: volunteer.isEmpty ? nil : volunteer.filter { $0.status == .open }.count,
                     lists: myLists.map { KidListTab(id: $0.list.id, title: $0.list.title, symbol: $0.list.symbol, left: $0.left) }
                 )
                 if showing == .day {
@@ -386,6 +390,9 @@ struct KidDayView: View {
                     .transition(.opacity)
                 } else if case .list(let id) = showing, let list = myLists.first(where: { $0.list.id == id })?.list {
                     KidListPage(list: list, kid: kid, items: listItems)
+                        .transition(.opacity)
+                } else if showing == .volunteer {
+                    volunteerPage(volunteer, family: family)
                         .transition(.opacity)
                 } else {
                     if kiosk != nil {
@@ -399,19 +406,10 @@ struct KidDayView: View {
                         ProgressTrack(done: done, total: mine.count, kid: kid)
                     }
                     KidTurnBanner(kid: kid)
-                    if items.isEmpty {
-                        nothingToday
+                    if mine.isEmpty {
+                        nothingToday(volunteer: volunteer.contains { $0.status == .open })
                     } else {
-                        // Even columns while an iPhone Duo is partly folded (DuoGrid.swift).
-                        DuoAdaptiveGrid(minimum: 260, spacing: 14, single: sizeClass == .compact) {
-                            ForEach(items) { item in
-                                JobTile(item: item, kid: kid, isNext: item.id == items.first(where: { $0.status == .open })?.id, isCelebrating: celebrating == item.id, celebration: celebration, compact: sizeClass == .compact) {
-                                    tapped(item, family: family)
-                                }
-                                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("kid")) } action: { tileFrames[item.id] = $0 }
-                                .zIndex(celebrating == item.id ? 1 : 0)
-                            }
-                        }
+                        tiles(mine, family: family)
                     }
                     KidComingUp(kid: kid)
                 }
@@ -466,8 +464,43 @@ struct KidDayView: View {
         }
     }
 
+    /// The jobs as big tiles. Even columns while an iPhone Duo is partly folded (DuoGrid.swift).
+    private func tiles(_ jobs: [BoardItem], family: FamilySnapshot) -> some View {
+        DuoAdaptiveGrid(minimum: 260, spacing: 14, single: sizeClass == .compact) {
+            ForEach(jobs) { item in
+                JobTile(item: item, kid: kid, isNext: item.id == jobs.first(where: { $0.status == .open })?.id, isCelebrating: celebrating == item.id, celebration: celebration, compact: sizeClass == .compact) {
+                    tapped(item, family: family)
+                }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("kid")) } action: { tileFrames[item.id] = $0 }
+                .zIndex(celebrating == item.id ? 1 : 0)
+            }
+        }
+    }
+
+    /// Volunteer: up-for-grabs jobs anyone may take. The first to finish one gets its points.
+    private func volunteerPage(_ jobs: [BoardItem], family: FamilySnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Want extra \(words.plural)?")
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    Text("These are up for grabs. Whoever does one first gets the \(words.plural).")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } icon: {
+                Image(systemName: "hand.raised.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(color)
+            }
+            .padding(.horizontal, 4)
+            tiles(jobs, family: family)
+        }
+    }
+
     private func header(_ family: FamilySnapshot) -> some View {
-        let mine = family.items(for: kid).filter { !$0.chore.upForGrabs || $0.memberID == kid.id }
+        let mine = family.items(for: kid).filter { !$0.chore.upForGrabs }
         let done = mine.filter { $0.status.isDone }.count
         return HStack(spacing: 14) {
             MemberAvatar(kid, size: sizeClass == .compact ? 56 : 64)
@@ -555,7 +588,8 @@ struct KidDayView: View {
         .accessibilityLabel("\(words.count(family.balance(of: kid)))\(pending > 0 ? ", \(pending) on the way" : "")")
     }
 
-    private var nothingToday: some View {
+    /// `volunteer`: there's something up for grabs on the Volunteer page.
+    private func nothingToday(volunteer: Bool) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "sun.max.fill")
                 .font(.system(size: 64))
@@ -563,9 +597,10 @@ struct KidDayView: View {
                 .symbolEffect(.pulse, options: .repeat(.continuous))
             Text("No jobs today!")
                 .font(.system(size: 28, weight: .heavy, design: .rounded))
-            Text("Go play.")
+            Text(volunteer ? "Go play, or try Volunteer for extra \(words.plural)." : "Go play.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .padding(.vertical, 48)
         .frame(maxWidth: .infinity)
@@ -593,7 +628,7 @@ struct KidDayView: View {
     }
 
     private func finish(_ item: BoardItem, photo: Data?, family: FamilySnapshot) {
-        let mine = family.items(for: kid).filter { !$0.chore.upForGrabs || $0.memberID == kid.id }
+        let mine = family.items(for: kid).filter { !$0.chore.upForGrabs }
         let openBefore = mine.filter { $0.status == .open }.count
         let isMine = mine.contains(where: { $0.id == item.id })
         let finishesDay = isMine && openBefore == 1
@@ -625,15 +660,17 @@ struct KidDayView: View {
     }
 }
 
-/// Kid View's pages: My Jobs, My Day, and a tab for each list with something of theirs on it.
+/// Kid View's pages: My Jobs, My Day, Volunteer (up-for-grabs jobs, when there are any), and a tab
+/// for each list with something of theirs on it.
 enum KidPage: Hashable {
-    case jobs, day
+    case jobs, day, volunteer
     case list(UUID)
 
-    /// The page to show: a list that's gone (finished, or nothing of theirs left on it) falls
-    /// back to My Jobs.
-    static func showing(_ page: KidPage, lists: [UUID]) -> KidPage {
+    /// The page to show: a list that's gone (finished, or nothing of theirs left on it), or
+    /// Volunteer with nothing up for grabs, falls back to My Jobs.
+    static func showing(_ page: KidPage, lists: [UUID], hasVolunteer: Bool = false) -> KidPage {
         if case .list(let id) = page, !lists.contains(id) { return .jobs }
+        if page == .volunteer, !hasVolunteer { return .jobs }
         return page
     }
 }
@@ -644,6 +681,8 @@ struct KidPageSwitch: View {
     @Binding var page: KidPage
     var showing: KidPage
     var color: Color
+    /// Up-for-grabs jobs still open, or nil for no Volunteer tab.
+    var volunteerLeft: Int? = nil
     var lists: [KidListTab] = []
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -666,6 +705,9 @@ struct KidPageSwitch: View {
     private func buttons(stretch: Bool) -> some View {
         tab(.jobs, title: "My Jobs", symbol: "checklist", badge: nil, stretch: stretch)
         tab(.day, title: "My Day", symbol: "calendar", badge: nil, stretch: stretch)
+        if let volunteerLeft {
+            tab(.volunteer, title: "Volunteer", symbol: "hand.raised.fill", badge: volunteerLeft, stretch: stretch)
+        }
         ForEach(lists) { list in
             tab(.list(list.id), title: list.title, symbol: list.symbol, badge: list.left, stretch: stretch)
         }
