@@ -17,6 +17,10 @@ final class IntercomPush: NSObject {
     private let log = Logger(subsystem: "com.stephenwarren.caloma", category: "intercom")
     private var registry: PKPushRegistry?
     private var token: String?
+    /// The ordinary notification token (for broadcasts), from the app delegate.
+    var alertToken: String? {
+        didSet { if alertToken != oldValue { register() } }
+    }
     private static let registeredKey = "intercom.push.registered"
     private static let registeredAtKey = "intercom.push.registeredAt"
     /// Sent again now and then, so the server's copy doesn't go stale.
@@ -62,19 +66,20 @@ final class IntercomPush: NSObject {
     /// Called when the token arrives and each time the intercom starts.
     func register() {
         guard let token, let secret = householdSecret else { return }
-        let marker = "\(token).\(SHA256.hash(data: Data(secret.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined()).\(environment)"
+        let marker = "\(token).\(alertToken ?? "-").\(SHA256.hash(data: Data(secret.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined()).\(environment)"
         let defaults = UserDefaults.standard
         if defaults.string(forKey: Self.registeredKey) == marker,
            let at = defaults.object(forKey: Self.registeredAtKey) as? Date,
            Date.now.timeIntervalSince(at) < Self.refreshEvery {
             return
         }
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "secret": secret,
             "device": DeviceIdentity.id.uuidString.lowercased(),
             "token": token,
             "environment": environment,
         ]
+        if let alertToken { body["alertToken"] = alertToken }
         Task {
             guard await post("caloma/intercom/devices", body) != nil else { return }
             defaults.set(marker, forKey: Self.registeredKey)
@@ -100,6 +105,33 @@ final class IntercomPush: NSObject {
     }
 
     private struct RingReply: Decodable { let woken: [String] }
+
+    private struct IceReply: Decodable { let iceServers: [CallIceServer]; let ttl: Double }
+    private var ice: (servers: [CallIceServer], until: Date)?
+
+    /// STUN and TURN for calls away from home, kept until they're half way to expiring.
+    func iceServers() async -> [CallIceServer] {
+        if let ice, ice.until > .now { return ice.servers }
+        guard let secret = householdSecret,
+              let data = await post("caloma/intercom/ice", ["secret": secret]),
+              let reply = try? JSONDecoder().decode(IceReply.self, from: data),
+              !reply.iceServers.isEmpty else { return ice?.servers ?? CallIceServer.stunOnly }
+        ice = (reply.iceServers, Date.now.addingTimeInterval(reply.ttl / 2))
+        return reply.iceServers
+    }
+
+    /// Tells these devices (off the network) that someone's broadcasting.
+    func broadcast(call: UUID, name: String, to devices: [UUID]) async {
+        guard !devices.isEmpty, let secret = householdSecret else { return }
+        let body: [String: Any] = [
+            "secret": secret,
+            "call": call.uuidString.lowercased(),
+            "from": DeviceIdentity.id.uuidString.lowercased(),
+            "name": String(name.prefix(60)),
+            "to": devices.prefix(16).map { $0.uuidString.lowercased() },
+        ]
+        _ = await post("caloma/intercom/broadcast", body)
+    }
 
     private func post(_ path: String, _ body: [String: Any]) async -> Data? {
         var request = URLRequest(url: AppConfig.apiBaseURL.appending(path: path))

@@ -62,8 +62,13 @@ struct CallScreen: View {
                 IncomingCallView(center: center)
                     .transition(.opacity)
             case .calling, .live:
-                LiveCallView(center: center)
-                    .transition(.opacity)
+                if center.state.isBroadcast {
+                    BroadcastView(center: center)
+                        .transition(.opacity)
+                } else {
+                    LiveCallView(center: center)
+                        .transition(.opacity)
+                }
             case let .ended(reason):
                 CallEndedView(names: center.state.names.values.sorted(), reason: reason)
                     .transition(.opacity)
@@ -332,6 +337,125 @@ private struct PeerTile: View {
         .clipped()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(name)
+    }
+}
+
+// MARK: - Broadcasting
+
+/// A broadcast: on the device talking, a big hold-to-talk button; everywhere else, who's talking.
+private struct BroadcastView: View {
+    let center: CallCenter
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accent) private var accent
+    @State private var holding = false
+
+    private var state: CallState { center.state }
+    private var big: Bool { sizeClass == .regular }
+    private var listening: Int { state.peers.count }
+
+    var body: some View {
+        VStack(spacing: big ? 28 : 20) {
+            Spacer()
+            if state.isCaller { talker } else { listener }
+            Spacer()
+            GlassEffectContainer {
+                if state.isCaller {
+                    Button {
+                        center.hangUp()
+                    } label: {
+                        Text("End Broadcast")
+                            .font(.headline)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .tint(.red)
+                } else {
+                    Button {
+                        center.hangUp()
+                    } label: {
+                        Text("Stop Listening")
+                            .font(.headline)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.glass)
+                }
+            }
+            .padding(.bottom, big ? 56 : 32)
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.92).ignoresSafeArea())
+    }
+
+    private var talker: some View {
+        VStack(spacing: big ? 28 : 20) {
+            VStack(spacing: 8) {
+                Text("Broadcast")
+                    .font(big ? .system(size: 44, weight: .bold) : .largeTitle.bold())
+                Text(status)
+                    .font(big ? .title3 : .headline)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .contentTransition(.numericText())
+            }
+            let size: CGFloat = big ? 240 : 180
+            Circle()
+                .fill(holding ? AnyShapeStyle(accent.gradient) : AnyShapeStyle(Color.clear))
+                .frame(width: size, height: size)
+                .overlay {
+                    VStack(spacing: 10) {
+                        Image(systemName: holding ? "waveform" : "mic.fill")
+                            .font(.system(size: size * 0.26, weight: .semibold))
+                            .symbolEffect(.variableColor.iterative, isActive: holding)
+                        Text(holding ? "Talking" : "Hold to Talk")
+                            .font(.headline)
+                    }
+                }
+                .glassEffect(.regular.interactive(), in: .circle)
+                .scaleEffect(holding ? 1.06 : 1)
+                .animation(.smooth(duration: 0.2), value: holding)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in
+                            guard !holding else { return }
+                            holding = true
+                            center.talk(true)
+                        }
+                        .onEnded { _ in
+                            holding = false
+                            center.talk(false)
+                        }
+                )
+                .sensoryFeedback(.impact, trigger: holding)
+                .accessibilityElement()
+                .accessibilityLabel(holding ? "Talking" : "Talk")
+                .accessibilityHint("Turns your microphone on for everyone. Activate again to stop.")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction {
+                    holding.toggle()
+                    center.talk(holding)
+                }
+        }
+    }
+
+    private var status: String {
+        if listening == 0 { return "Reaching everyone…" }
+        return listening == 1 ? "1 device listening" : "\(listening) devices listening"
+    }
+
+    private var listener: some View {
+        let name = state.caller.map { state.name($0) } ?? "Someone"
+        return VStack(spacing: 16) {
+            CallAvatar(name: name, size: big ? 180 : 120, symbol: "megaphone.fill")
+            Text(name)
+                .font(big ? .system(size: 48, weight: .bold) : .largeTitle.bold())
+            Label("Broadcasting", systemImage: "waveform")
+                .font(big ? .title2 : .headline)
+                .foregroundStyle(.white.opacity(0.7))
+                .tint(.white.opacity(0.7))
+                .symbolEffect(.variableColor.iterative)
+        }
     }
 }
 

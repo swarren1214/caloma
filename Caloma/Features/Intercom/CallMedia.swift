@@ -36,6 +36,14 @@ final class CallMedia {
     /// The connection to a device failed and didn't come back.
     @ObservationIgnored var onFailed: ((UUID) -> Void)?
     @ObservationIgnored var call: UUID?
+    /// Listening to a broadcast: no microphone or camera here at all, only their sound.
+    @ObservationIgnored var listenOnly = false
+    /// STUN and TURN, for calls away from home (from the Hearth API; `IntercomPush.iceServers`).
+    /// On the home network the devices' own addresses win anyway.
+    @ObservationIgnored var iceServers: [CallIceServer] = CallIceServer.stunOnly
+    /// Devices we made the offer to: if the network changes, we offer again (an ICE restart).
+    @ObservationIgnored private var offered: Set<UUID> = []
+    @ObservationIgnored private var restarts: [UUID: Task<Void, Never>] = [:]
     /// CallKit owns the sound for a call it shows (one that woke a locked phone): it turns the
     /// audio session on and off, and WebRTC waits for it (`IntercomCallKit`).
     @ObservationIgnored var callKitAudio = false {
@@ -82,7 +90,10 @@ final class CallMedia {
     /// Microphone on (and the camera, for video). Safe to call again.
     func start(video: Bool) {
         #if canImport(WebRTC)
-        if !started {
+        if !started, listenOnly {
+            started = true
+            configureAudio()
+        } else if !started {
             started = true
             configureAudio()
             let factory = Self.factory
@@ -117,6 +128,7 @@ final class CallMedia {
         }
         #endif
         started = false
+        listenOnly = false
         cameraOn = false
         muted = false
         speakerOn = true
@@ -189,9 +201,9 @@ final class CallMedia {
         #if canImport(WebRTC)
         guard peers[peer] == nil else { return }
         let configuration = RTCConfiguration()
-        // The home network: the devices' own addresses are enough. Calls over the internet add
-        // STUN and TURN servers here (see the intercom doc, Phase 4).
-        configuration.iceServers = []
+        // At home the devices' own addresses connect; away, STUN finds each one's public
+        // address, and TURN relays when a network (cellular, a strict router) won't allow that.
+        configuration.iceServers = iceServers.map { RTCIceServer(urlStrings: $0.urls, username: $0.username, credential: $0.credential) }
         configuration.sdpSemantics = .unifiedPlan
         configuration.continualGatheringPolicy = .gatherContinually
         configuration.bundlePolicy = .maxBundle
@@ -208,6 +220,7 @@ final class CallMedia {
         if let audioTrack { connection.add(audioTrack, streamIds: ["caloma"]) }
         if let localVideo { connection.add(localVideo, streamIds: ["caloma"]) }
         if offer {
+            offered.insert(peer)
             link.makeOffer { [weak self] sdp in
                 guard let self, let sdp, let call = self.call else { return }
                 self.onSignal?(.offer(call: call, sdp: sdp), peer)
@@ -226,6 +239,9 @@ final class CallMedia {
         peers[peer] = nil
         early[peer] = nil
         described.remove(peer)
+        offered.remove(peer)
+        restarts[peer]?.cancel()
+        restarts[peer] = nil
         if remoteVideo.removeValue(forKey: peer) != nil { remoteVideoVersion += 1 }
         #endif
     }
@@ -292,16 +308,28 @@ final class CallMedia {
         case .connected, .completed:
             dropTimers[peer]?.cancel()
             dropTimers[peer] = nil
+            restarts[peer]?.cancel()
+            restarts[peer] = nil
             if links[peer] != .connected {
                 links[peer] = .connected
                 // Tell them whether to show our video or our name.
                 if let call { onSignal?(.camera(call: call, on: cameraOn), peer) }
             }
         case .disconnected:
-            // Wi-Fi blips: give it a few seconds to come back before calling it lost.
+            // Wi-Fi blips, or walking out of the house onto cellular: the side that offered
+            // starts over on whatever network there is now, and it gets a while to come back
+            // before it's lost.
             dropTimers[peer]?.cancel()
+            if offered.contains(peer) {
+                restarts[peer]?.cancel()
+                restarts[peer] = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(1.5))
+                    guard !Task.isCancelled else { return }
+                    self?.restartIce(with: peer)
+                }
+            }
             dropTimers[peer] = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(6))
+                try? await Task.sleep(for: .seconds(15))
                 guard !Task.isCancelled, let self, self.links[peer] != nil else { return }
                 self.links[peer] = .failed
                 self.onFailed?(peer)
@@ -311,6 +339,16 @@ final class CallMedia {
             onFailed?(peer)
         default:
             break
+        }
+    }
+
+    private func restartIce(with peer: UUID) {
+        restarts[peer] = nil
+        guard let link = peers[peer], let call else { return }
+        log.info("Restarting the call's network path")
+        link.makeOffer(restart: true) { [weak self] sdp in
+            guard let self, let sdp else { return }
+            self.onSignal?(.offer(call: call, sdp: sdp), peer)
         }
     }
 
@@ -373,9 +411,15 @@ private nonisolated final class PeerLink: NSObject, RTCPeerConnectionDelegate, @
         self.owner = owner
     }
 
-    func makeOffer(_ done: @escaping @MainActor @Sendable (String?) -> Void) {
+    func makeOffer(restart: Bool = false, _ done: @escaping @MainActor @Sendable (String?) -> Void) {
         guard let connection else { return }
-        connection.offer(for: Self.constraints) { description, _ in
+        let constraints = restart
+            ? RTCMediaConstraints(mandatoryConstraints: [kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueTrue,
+                                                         kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueTrue,
+                                                         kRTCMediaConstraintsIceRestart: kRTCMediaConstraintsValueTrue],
+                                  optionalConstraints: nil)
+            : Self.constraints
+        connection.offer(for: constraints) { description, _ in
             guard let description else { Task { @MainActor in done(nil) }; return }
             connection.setLocalDescription(description) { error in
                 let sdp = error == nil ? description.sdp : nil
@@ -504,4 +548,14 @@ extension CallMedia {
         EmptyView()
         #endif
     }
+}
+
+/// A STUN or TURN server for WebRTC.
+nonisolated struct CallIceServer: Codable, Equatable, Sendable {
+    var urls: [String]
+    var username: String?
+    var credential: String?
+
+    /// Before the Hearth API has said: Cloudflare's free STUN.
+    static let stunOnly = [CallIceServer(urls: ["stun:stun.cloudflare.com:3478"])]
 }

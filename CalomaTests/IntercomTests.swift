@@ -10,6 +10,7 @@ struct IntercomFrameTests {
         let messages: [IntercomMessage] = [
             .hello(device: UUID(), name: "Kitchen Board"),
             .ring(call: call, from: UUID(), name: "Dad", video: true, group: [UUID(), UUID()]),
+            .announce(call: call, from: UUID(), name: "Dad"),
             .accept(call: call, video: false),
             .decline(call: call, reason: .busy),
             .hangUp(call: call),
@@ -89,6 +90,30 @@ struct CallStateTests {
         let offer = IntercomMessage.offer(call: call, sdp: "v=0")
         #expect(board.apply(.received(offer, from: me)) == [.media(offer, from: me)])
         #expect(board.apply(.received(offer, from: playroom)).isEmpty)
+    }
+
+    @Test func aBroadcastJoinsEveryoneListeningWithNoAnswer() {
+        var caller = CallState()
+        let effects = caller.apply(.dial(call: call, to: [kitchen: "Kitchen Board", playroom: "Playroom"], video: true, me: me, myName: "Dad", broadcast: true))
+        #expect(caller.isBroadcast)
+        #expect(!caller.video)
+        #expect(effects.contains(.send(.announce(call: call, from: me, name: "Dad"), to: kitchen)))
+        #expect(effects.contains(.send(.announce(call: call, from: me, name: "Dad"), to: playroom)))
+        #expect(!effects.contains { if case .send(.ring, _) = $0 { true } else { false } })
+
+        var board = CallState()
+        let joined = board.apply(.received(.announce(call: call, from: me, name: "Dad"), from: me))
+        #expect(board.phase == .live)
+        #expect(board.isBroadcast)
+        #expect(!board.isCaller)
+        #expect(joined == [.startMedia(video: false), .send(.accept(call: call, video: false), to: me), .connect(me, offer: false)])
+
+        _ = caller.apply(.received(.accept(call: call, video: false), from: kitchen))
+        #expect(caller.phase == .live)
+
+        // The broadcaster stops: it's over for the listeners.
+        _ = board.apply(.received(.hangUp(call: call), from: me))
+        #expect(board.phase == .ended("Broadcast ended"))
     }
 
     @Test func aBusyBoardSaysSo() {
@@ -177,5 +202,25 @@ struct CallStateTests {
         _ = caller.apply(.timedOut(call: call))
         let effects = caller.apply(.received(.accept(call: call, video: true), from: kitchen))
         #expect(effects == [.send(.hangUp(call: call), to: kitchen)])
+    }
+}
+
+/// The relay away from home: only the family can read a message, and only its addressee.
+struct IntercomRelayTests {
+    @Test func sealedMessagesOpenOnlyWithTheFamilysKey() throws {
+        let family = SymmetricKey(size: .bits256)
+        let key = IntercomRelay.sealingKey(for: family)
+        let envelope = IntercomRelay.Envelope(from: UUID(), to: UUID(), id: "1", at: Date(timeIntervalSince1970: 1_800_000_000), message: .hangUp(call: UUID()))
+        let box = try IntercomRelay.seal(envelope, with: key)
+        #expect(try IntercomRelay.open(box, with: key) == envelope)
+        #expect(throws: (any Error).self) { try IntercomRelay.open(box, with: IntercomRelay.sealingKey(for: SymmetricKey(size: .bits256))) }
+    }
+
+    @Test func everyDeviceInTheFamilyPicksTheSameChannel() {
+        let family = SymmetricKey(size: .bits256)
+        let copy = SymmetricKey(data: family.withUnsafeBytes { Data($0) })
+        #expect(IntercomRelay.topic(for: family) == IntercomRelay.topic(for: copy))
+        #expect(IntercomRelay.topic(for: family) != IntercomRelay.topic(for: SymmetricKey(size: .bits256)))
+        #expect(IntercomRelay.topic(for: family).hasPrefix("caloma-icom-"))
     }
 }

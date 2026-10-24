@@ -23,6 +23,8 @@ nonisolated struct CallState: Equatable, Sendable {
     var phase: Phase = .idle
     var call: UUID?
     var isCaller = false
+    /// A broadcast: the caller talks, everyone else only listens, and nobody answers.
+    var isBroadcast = false
     /// The caller asked for video (shown on the ringing screen).
     var offeredVideo = false
     /// Our camera is on.
@@ -51,8 +53,8 @@ nonisolated struct CallState: Equatable, Sendable {
 
     mutating func apply(_ event: CallEvent) -> [CallEffect] {
         switch event {
-        case let .dial(call, targets, video, me, myName):
-            return dial(call: call, targets: targets, video: video, me: me, myName: myName)
+        case let .dial(call, targets, video, me, myName, broadcast):
+            return dial(call: call, targets: targets, video: video, me: me, myName: myName, broadcast: broadcast)
         case let .received(message, peer):
             return received(message, from: peer)
         case let .answer(video):
@@ -77,12 +79,14 @@ nonisolated struct CallState: Equatable, Sendable {
 
     // MARK: Calling out
 
-    private mutating func dial(call: UUID, targets: [UUID: String], video: Bool, me: UUID, myName: String) -> [CallEffect] {
+    private mutating func dial(call: UUID, targets: [UUID: String], video: Bool, me: UUID, myName: String, broadcast: Bool) -> [CallEffect] {
         guard !isBusy, !targets.isEmpty else { return [] }
         self = CallState()
         phase = .calling
         self.call = call
         isCaller = true
+        isBroadcast = broadcast
+        let video = video && !broadcast
         self.video = video
         offeredVideo = video
         names = targets
@@ -91,7 +95,10 @@ nonisolated struct CallState: Equatable, Sendable {
         let everyone = targets.keys.sorted { $0.uuidString < $1.uuidString }
         for peer in everyone {
             let others = everyone.filter { $0 != peer }
-            effects.append(.send(.ring(call: call, from: me, name: myName, video: video, group: others), to: peer))
+            let message: IntercomMessage = broadcast
+                ? .announce(call: call, from: me, name: myName)
+                : .ring(call: call, from: me, name: myName, video: video, group: others)
+            effects.append(.send(message, to: peer))
         }
         effects.append(.scheduleTimeout(call: call))
         return effects
@@ -112,6 +119,20 @@ nonisolated struct CallState: Equatable, Sendable {
             offeredVideo = video
             names[peer] = name
             return [.ring(true), .scheduleTimeout(call: call)]
+
+        case let .announce(call, _, name):
+            if isBusy {
+                return self.call == call ? [] : [.send(.decline(call: call, reason: .busy), to: peer)]
+            }
+            // Straight in, listening: nobody answers a broadcast.
+            self = CallState()
+            phase = .live
+            isBroadcast = true
+            self.call = call
+            caller = peer
+            names[peer] = name
+            peers = [peer]
+            return [.startMedia(video: false), .send(.accept(call: call, video: false), to: peer), .connect(peer, offer: false)]
 
         case let .accept(call, _):
             if call == self.call, peers.contains(peer) { return [] }
@@ -158,7 +179,7 @@ nonisolated struct CallState: Equatable, Sendable {
             var effects: [CallEffect] = [.disconnect(peer)]
             if !isCaller {
                 // The caller left: that's the call.
-                effects += end(reason: "Call ended")
+                effects += end(reason: isBroadcast ? "Broadcast ended" : "Call ended")
             } else {
                 effects += endIfEmpty(reason: "Call ended")
             }
@@ -238,7 +259,7 @@ nonisolated struct CallState: Equatable, Sendable {
             guard !ringingPeers.isEmpty else { return [] }
             let effects = ringingPeers.sorted(by: { $0.uuidString < $1.uuidString }).map { CallEffect.send(.hangUp(call: call), to: $0) }
             ringingPeers = []
-            return effects + endIfEmpty(reason: "No answer")
+            return effects + endIfEmpty(reason: isBroadcast ? "No one could hear it" : "No answer")
         default:
             return []
         }
@@ -247,7 +268,7 @@ nonisolated struct CallState: Equatable, Sendable {
 
 nonisolated enum CallEvent: Equatable, Sendable {
     /// Ring these devices (ID → name to show).
-    case dial(call: UUID, to: [UUID: String], video: Bool, me: UUID, myName: String)
+    case dial(call: UUID, to: [UUID: String], video: Bool, me: UUID, myName: String, broadcast: Bool = false)
     case received(IntercomMessage, from: UUID)
     /// Picked up here.
     case answer(video: Bool)

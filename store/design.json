@@ -11,6 +11,174 @@
   },
   "locale" : "en-US",
   "sets" : {
+    "artHeader" : {
+      "captures" : [
+
+      ],
+      "devices" : [
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/01-home.png",
+          "flipped" : false,
+          "groupID" : "1DE9E274-E796-4318-9B42-FFBE14BAE983",
+          "hidden" : false,
+          "id" : "C8C2CBF9-50D5-445D-9B5F-D72EFE46A1A3",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f6bcd037",
+          "rotation" : 0,
+          "scale" : 1.5868051020127742,
+          "shadow" : true,
+          "x" : 1606,
+          "y" : 341
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/02-chores.png",
+          "flipped" : false,
+          "groupID" : "1DE9E274-E796-4318-9B42-FFBE14BAE983",
+          "hidden" : false,
+          "id" : "9C4238EB-BDD1-4F92-828E-94209C0BFFAF",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f6bcd037",
+          "rotation" : 0,
+          "scale" : 1.8014096265771122,
+          "shadow" : true,
+          "x" : 2517,
+          "y" : 462
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/05-calendar.png",
+          "flipped" : false,
+          "groupID" : "1DE9E274-E796-4318-9B42-FFBE14BAE983",
+          "hidden" : false,
+          "id" : "EA265C80-B20E-4EF9-B071-E29F370BCA9B",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f6bcd037",
+          "rotation" : 0,
+          "scale" : 1.8901497118467723,
+          "shadow" : true,
+          "x" : 2067,
+          "y" : 25
+        }
+      ],
+      "frames" : [
+        {
+          "id" : "57D2FCAC-2624-4F83-9588-85D4F63292DB",
+          "line1" : "A house that runs itself.",
+          "line2" : "Almost.",
+          "look" : "accent",
+          "showIcon" : false,
+          "subhead" : ""
+        }
+      ],
+      "layerGroups" : [
+        {
+          "id" : "1DE9E274-E796-4318-9B42-FFBE14BAE983",
+          "name" : "Group 1"
+        }
+      ],
+      "linked" : [
+
+      ],
+      "publish" : true
+    },
+    "artSearch" : {
+      "captures" : [
+
+      ],
+      "devices" : [
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/01-home.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "E58379D4-0CFB-4399-AD06-AEA7FFAAB7D0",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f6bcd037",
+          "rotation" : 0,
+          "scale" : 1.9270638416783026,
+          "shadow" : true,
+          "x" : 1596.4314803244897,
+          "y" : 581.9999999999999
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/02-chores.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "5A358304-895E-4203-92E4-98CD9B070E5B",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f6bcd037",
+          "rotation" : 0,
+          "scale" : 1.9855162474480224,
+          "shadow" : true,
+          "x" : 2790,
+          "y" : 829
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/05-calendar.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "96258213-C58E-4AC8-8AE6-E692E40D037D",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f6bcd037",
+          "rotation" : 0,
+          "scale" : 2.15,
+          "shadow" : true,
+          "x" : 2240,
+          "y" : 170
+        }
+      ],
+      "frames" : [
+        {
+          "id" : "556E87AA-BB9D-449D-A4CB-54E5AA8F5B36",
+          "line1" : "A house that runs itself.",
+          "line2" : "Almost.",
+          "look" : "tint",
+          "showIcon" : true,
+          "subhead" : "Chores, rewards and the family calendar in one place."
+        }
+      ],
+      "layerGroups" : [
+
+      ],
+      "linked" : [
+
+      ],
+      "publish" : true
+    },
     "duoOuter" : {
       "captures" : [
 
@@ -19,10 +187,10 @@
         {
           "aspect" : 1,
           "baseWidth" : 0,
-          "capture" : "",
+          "capture" : "screenshots\/iPhone-Duo-Inner\/dark\/01-home.png",
           "flipped" : false,
           "hidden" : false,
-          "id" : "0D9D87D5-2501-4B04-9AA3-CCFC59EBCB0E",
+          "id" : "098F7CE2-CB7B-4986-B985-80B7644EC8D0",
           "imagePath" : "",
           "kind" : "device",
           "locked" : false,
@@ -30,56 +198,18 @@
           "opacity" : 1,
           "renderID" : "render-13c1dea3",
           "rotation" : 0,
-          "scale" : 1,
+          "scale" : 1.977205539639103,
           "shadow" : true,
-          "x" : 319,
-          "y" : 931.4962233920805
+          "x" : 140,
+          "y" : 639
         },
         {
           "aspect" : 1,
           "baseWidth" : 0,
-          "capture" : "",
+          "capture" : "screenshots\/iPhone-Duo-Outer\/dark\/02-chores.png",
           "flipped" : false,
           "hidden" : false,
-          "id" : "3794F2A1-8CA0-4E82-AEF6-21EF3A74691C",
-          "imagePath" : "",
-          "kind" : "device",
-          "locked" : false,
-          "name" : "",
-          "opacity" : 1,
-          "renderID" : "builtin-duoOuter",
-          "rotation" : 0,
-          "scale" : 1,
-          "shadow" : true,
-          "x" : 1717,
-          "y" : 600
-        },
-        {
-          "aspect" : 1,
-          "baseWidth" : 0,
-          "capture" : "",
-          "flipped" : false,
-          "hidden" : false,
-          "id" : "2F38A2B9-74FF-4637-9E1E-88F376464C92",
-          "imagePath" : "",
-          "kind" : "device",
-          "locked" : false,
-          "name" : "",
-          "opacity" : 1,
-          "renderID" : "builtin-duoOuter",
-          "rotation" : 0,
-          "scale" : 1,
-          "shadow" : true,
-          "x" : 3115,
-          "y" : 600
-        },
-        {
-          "aspect" : 1,
-          "baseWidth" : 0,
-          "capture" : "",
-          "flipped" : false,
-          "hidden" : false,
-          "id" : "D15978E0-E6D1-4BC3-BC66-F3FAC49597D4",
+          "id" : "30935E04-6B55-4A62-A8AE-F1B02C051F55",
           "imagePath" : "",
           "kind" : "device",
           "locked" : false,
@@ -89,13 +219,32 @@
           "rotation" : 0,
           "scale" : 1,
           "shadow" : true,
-          "x" : 319,
-          "y" : 600
+          "x" : 1857,
+          "y" : 544
+        },
+        {
+          "aspect" : 1,
+          "baseWidth" : 0,
+          "capture" : "screenshots\/iPhone-Duo-Outer\/dark\/05-calendar.png",
+          "flipped" : false,
+          "hidden" : false,
+          "id" : "F30AB9B9-5BC1-4B27-A53F-8A22C93F9BD8",
+          "imagePath" : "",
+          "kind" : "device",
+          "locked" : false,
+          "name" : "",
+          "opacity" : 1,
+          "renderID" : "render-f7e3c805",
+          "rotation" : 0,
+          "scale" : 1.2512193589706353,
+          "shadow" : true,
+          "x" : 3020,
+          "y" : 520
         }
       ],
       "frames" : [
         {
-          "id" : "10D55177-C522-40F8-A141-8BEE694EC797",
+          "id" : "98244C13-1020-4278-85C9-129320A1F5F3",
           "line1" : "A house that runs itself.",
           "line2" : "Almost.",
           "look" : "accent",
@@ -103,7 +252,7 @@
           "subhead" : "Chores, rewards and the family calendar in one place."
         },
         {
-          "id" : "24BAE122-1F34-4831-B6B5-4897E4945EAF",
+          "id" : "F0148AC2-41CA-4A4D-9E1D-7FB164B32CA4",
           "line1" : "Chores kids",
           "line2" : "actually finish.",
           "look" : "tint",
@@ -111,10 +260,10 @@
           "subhead" : "A ring for every kid, and a party when it closes."
         },
         {
-          "id" : "A791E0DD-56B8-4010-853B-D4EF60AD3F81",
+          "id" : "0377A662-7F4A-4A80-B0F6-BAAC5461D6E6",
           "line1" : "Rewards",
           "line2" : "your family designs.",
-          "look" : "accent",
+          "look" : "tint",
           "showIcon" : false,
           "subhead" : "Privileges, outings, money or a goal for everyone."
         }
@@ -123,7 +272,7 @@
 
       ],
       "linked" : [
-        false,
+        true,
         false
       ],
       "publish" : false
@@ -139,7 +288,7 @@
           "capture" : "screenshots\/iPad-Air-13-inch-(M4)\/dark\/01-home.png",
           "flipped" : false,
           "hidden" : false,
-          "id" : "6E497250-D722-4C25-9C4C-B89663D9A917",
+          "id" : "7359C2DA-7BA5-4587-A1E6-8ACC24824C84",
           "imagePath" : "",
           "kind" : "device",
           "locked" : false,
@@ -158,7 +307,7 @@
           "capture" : "screenshots\/iPad-Air-13-inch-(M4)\/dark\/02-chores.png",
           "flipped" : false,
           "hidden" : false,
-          "id" : "A93A17C7-3021-4464-B851-09485C66032F",
+          "id" : "89461D65-567E-4283-A26B-9D26246AA4B0",
           "imagePath" : "",
           "kind" : "device",
           "locked" : false,
@@ -177,7 +326,7 @@
           "capture" : "screenshots\/iPad-Air-13-inch-(M4)\/dark\/03-approvals.png",
           "flipped" : false,
           "hidden" : false,
-          "id" : "D47FDE94-3523-4625-9AB1-908C9C3C13E4",
+          "id" : "FA9CF923-CD4E-4915-A0E0-A32C1C87D580",
           "imagePath" : "",
           "kind" : "device",
           "locked" : false,
@@ -193,7 +342,7 @@
       ],
       "frames" : [
         {
-          "id" : "2F99CF69-660A-4C54-A506-5878FE2291A8",
+          "id" : "2F8B12C5-ED96-497B-AF79-10574A3A883F",
           "line1" : "A house that runs itself.",
           "line2" : "Almost.",
           "look" : "accent",
@@ -201,7 +350,7 @@
           "subhead" : "Chores, rewards and the family calendar in one place."
         },
         {
-          "id" : "927C3EA8-9795-4F8E-8111-49A34A7CB66E",
+          "id" : "53439A9F-E664-47D6-9D90-D30A03AD76C3",
           "line1" : "Chores kids",
           "line2" : "actually finish.",
           "look" : "tint",
@@ -209,7 +358,7 @@
           "subhead" : "A ring for every kid, and a party when it closes."
         },
         {
-          "id" : "1ED58F67-9844-4B1E-A38F-68DEF05E9203",
+          "id" : "B734EFC5-CF4E-45EB-8BCA-2E9DD01D49FF",
           "line1" : "Rewards",
           "line2" : "your family designs.",
           "look" : "tint",
@@ -237,7 +386,7 @@
           "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/01-home.png",
           "flipped" : false,
           "hidden" : false,
-          "id" : "478E43AB-55DD-43F7-938A-0639BB9F1499",
+          "id" : "40BE0D8B-81D9-417F-9DB3-BC1BC41A93A2",
           "imagePath" : "",
           "kind" : "device",
           "locked" : false,
@@ -256,7 +405,7 @@
           "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/02-chores.png",
           "flipped" : false,
           "hidden" : false,
-          "id" : "2DBA5E04-F120-49F8-B6D9-446388942042",
+          "id" : "0E9DC78A-D4D3-4F41-84A3-8214A0E3D1F1",
           "imagePath" : "",
           "kind" : "device",
           "locked" : false,
@@ -275,7 +424,7 @@
           "capture" : "screenshots\/iPhone-18-Pro-Max\/light\/05-calendar.png",
           "flipped" : false,
           "hidden" : false,
-          "id" : "B6D3A146-8756-4840-9C2A-6B4EAAC1FF95",
+          "id" : "57BCCE8E-2223-4D06-91DE-B7EDC76DAF1F",
           "imagePath" : "",
           "kind" : "device",
           "locked" : false,
@@ -294,7 +443,7 @@
           "capture" : "screenshots\/iPhone-18-Pro-Max\/dark\/01-home.png",
           "flipped" : false,
           "hidden" : false,
-          "id" : "CAABD90A-0D53-4116-9673-3FCCB2D3AF40",
+          "id" : "6E936489-979E-440E-838D-97241D91AB9A",
           "imagePath" : "",
           "kind" : "device",
           "locked" : false,
@@ -310,7 +459,7 @@
       ],
       "frames" : [
         {
-          "id" : "0B7A0549-F53A-4C99-9F04-F72D4FD8ECC5",
+          "id" : "A4785F7F-813E-4329-8E87-22A66F97F1F2",
           "line1" : "A house that runs itself.",
           "line2" : "Almost.",
           "look" : "accent",
@@ -318,7 +467,7 @@
           "subhead" : "Chores, rewards and the family calendar in one place."
         },
         {
-          "id" : "FA85F651-8689-40A5-A772-24F8B6D5A3E9",
+          "id" : "EE186F1B-0EA8-4738-9639-A57FD6AC6BE8",
           "line1" : "Chores kids",
           "line2" : "actually finish.",
           "look" : "tint",
@@ -326,7 +475,7 @@
           "subhead" : "A ring for every kid, and a party when it closes."
         },
         {
-          "id" : "BB0A9F1A-B842-497C-AF40-1F87B759DD3C",
+          "id" : "F5BBCB2D-B933-4239-87D2-E9B283BFF720",
           "line1" : "Rewards",
           "line2" : "your family designs.",
           "look" : "tint",
@@ -334,7 +483,7 @@
           "subhead" : "Privileges, outings, money or a goal for everyone."
         },
         {
-          "id" : "4D82C4C7-9B9E-4CC6-A85D-08355C6C1387",
+          "id" : "B1EC79C4-B9E8-433C-8504-1E1614828A61",
           "line1" : "Who’s driving?",
           "line2" : "The calendar knows.",
           "look" : "tint",

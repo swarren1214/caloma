@@ -61,6 +61,7 @@ final class CallCenter {
             apply(.lost(peer))
         }
         service.onOnline = { [weak self] peers in self?.cameOnline(peers) }
+        refreshIceServers()
         media.onSignal = { message, peer in IntercomService.shared.send(message, to: peer) }
         media.onFailed = { [weak self] peer in self?.apply(.mediaFailed(peer)) }
     }
@@ -76,7 +77,8 @@ final class CallCenter {
         var names: [UUID: String] = [:]
         for device in targets { names[device.id] = device.displayName }
         let call = UUID()
-        // Devices not on the network right now (locked, or Caloma closed) get woken by push.
+        refreshIceServers()
+        // Devices not reachable right now (locked, or Caloma closed) get woken by push.
         let asleep = targets.map(\.id).filter { !service.isOnline($0) }
         waking = Set(asleep)
         let name = myName
@@ -90,6 +92,40 @@ final class CallCenter {
                 if state.call == call { apply(.lost(peer)) }
             }
         }
+    }
+
+    /// Talks to every other device in the family at once: they all join and listen, nobody
+    /// answers. Devices off the network (locked phones) get a notification instead, and join if
+    /// they open Caloma while it's still going.
+    func broadcast() async {
+        guard !state.isBusy, let context else { return }
+        let me = DeviceIdentity.id
+        let targets = ((try? context.fetch(FetchDescriptor<HouseDevice>())) ?? []).filter { $0.id != me && $0.takesCalls }
+        guard !targets.isEmpty else {
+            problem = "There's no one to broadcast to yet. Caloma's other devices show up here once they've opened Caloma."
+            return
+        }
+        guard await permission(video: false) != nil else { return }
+        var names: [UUID: String] = [:]
+        for device in targets { names[device.id] = device.displayName }
+        let call = UUID()
+        let asleep = targets.map(\.id).filter { !service.isOnline($0) }
+        waking = Set(asleep)
+        let name = myName
+        apply(.dial(call: call, to: names, video: false, me: me, myName: name, broadcast: true))
+        guard !asleep.isEmpty else { return }
+        Task { await IntercomPush.shared.broadcast(call: call, name: name, to: asleep) }
+    }
+
+    /// Hold to talk, while broadcasting.
+    func talk(_ on: Bool) {
+        guard state.isBroadcast, state.isCaller else { return }
+        media.setMuted(!on)
+    }
+
+    /// STUN and TURN for calls away from home, ready before the next call connects.
+    func refreshIceServers() {
+        Task { media.iceServers = await IntercomPush.shared.iceServers() }
     }
 
     /// Devices that just showed up on the network: ring the ones being woken for this call.
@@ -129,6 +165,7 @@ final class CallCenter {
         woken = ring
         answerWhenRung = false
         answerVideo = nil
+        refreshIceServers()
         if let container = AppRouter.shared.container {
             start(with: container)
             IntercomService.shared.start(with: container)
@@ -202,7 +239,7 @@ final class CallCenter {
         switch message {
         case let .find(name):
             show(flash: name)
-        case let .ring(call, _, _, _, _) where !takesCalls:
+        case let .ring(call, _, _, _, _) where !takesCalls, let .announce(call, _, _) where !takesCalls:
             service.send(.decline(call: call, reason: .off), to: peer)
         case let .hangUp(call) where woken?.call == call && state.call != call:
             // The caller gave up before their ring got here.
@@ -234,16 +271,23 @@ final class CallCenter {
     private func run(_ effect: CallEffect) {
         switch effect {
         case let .send(message, peer):
-            if case .ring = message { rings[peer] = message }
+            switch message {
+            case .ring, .announce: rings[peer] = message
+            default: break
+            }
             service.send(message, to: peer)
         case let .connect(peer, offer):
             media.connect(peer, offer: offer)
         case let .disconnect(peer):
             media.disconnect(peer)
         case let .startMedia(video):
-            takeKioskCamera()
+            let listening = state.isBroadcast && !state.isCaller
+            if !listening { takeKioskCamera() }
             media.call = state.call
+            media.listenOnly = listening
             media.start(video: video)
+            // Broadcasting: the microphone is on only while the button is held.
+            if state.isBroadcast, state.isCaller { media.setMuted(true) }
         case .stopMedia:
             media.stop()
             giveBackKioskCamera()

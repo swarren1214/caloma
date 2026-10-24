@@ -8,6 +8,8 @@ nonisolated enum IntercomMessage: Codable, Equatable, Sendable {
     case hello(device: UUID, name: String)
     /// Calling: ring this device. `group` lists everyone else being rung for the same call.
     case ring(call: UUID, from: UUID, name: String, video: Bool, group: [UUID])
+    /// Broadcasting: join and listen, no answering (one way; nothing goes back but setup).
+    case announce(call: UUID, from: UUID, name: String)
     /// Picked up.
     case accept(call: UUID, video: Bool)
     case decline(call: UUID, reason: DeclineReason)
@@ -25,7 +27,7 @@ nonisolated enum IntercomMessage: Codable, Equatable, Sendable {
     /// The call it belongs to, if any.
     var call: UUID? {
         switch self {
-        case let .ring(call, _, _, _, _), let .accept(call, _), let .decline(call, _), let .hangUp(call),
+        case let .ring(call, _, _, _, _), let .announce(call, _, _), let .accept(call, _), let .decline(call, _), let .hangUp(call),
              let .offer(call, _), let .answer(call, _), let .candidate(call, _, _, _), let .camera(call, _):
             call
         case .hello, .find:

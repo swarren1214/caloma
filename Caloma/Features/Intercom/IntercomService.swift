@@ -19,8 +19,13 @@ final class IntercomService {
     static let shared = IntercomService()
     nonisolated static let serviceType = "_caloma-icom._tcp"
 
-    /// Family devices seen on this network right now, by device ID.
+    /// Family devices that can be called right now, by device ID: on this network, or away
+    /// from home through the relay.
     private(set) var online: Set<UUID> = []
+    /// The ones on this network (the rest of `online` are away).
+    private(set) var home: Set<UUID> = []
+    /// Away from home: the family's Realtime channel.
+    let relay = IntercomRelay()
     private(set) var isRunning = false
     /// Local Network access was turned off for Caloma in Settings.
     private(set) var networkDenied = false
@@ -46,7 +51,10 @@ final class IntercomService {
     @ObservationIgnored private var keyFingerprint = ""
     @ObservationIgnored private var container: ModelContainer?
 
-    private init() {}
+    private init() {
+        relay.onMessage = { [weak self] peer, message in self?.onMessage?(peer, message) }
+        relay.onPresence = { [weak self] in self?.refreshOnline() }
+    }
 
     var me: UUID { DeviceIdentity.id }
 
@@ -72,12 +80,14 @@ final class IntercomService {
         self.parameters = parameters
         startListener(parameters)
         startBrowser()
+        relay.start(with: key)
         isRunning = true
         log.info("Intercom started (key \(fingerprint, privacy: .public))")
     }
 
     /// Stops everything (Caloma went to the background with no call going).
     func stop() {
+        relay.stop()
         listener?.cancel()
         listener = nil
         browser?.cancel()
@@ -89,6 +99,7 @@ final class IntercomService {
         strangers = [:]
         retired = [:]
         endpoints = [:]
+        home = []
         online = []
         isRunning = false
     }
@@ -165,8 +176,14 @@ final class IntercomService {
             endpoints[id] = result.endpoint
         }
         self.endpoints = endpoints
-        let appeared = Set(endpoints.keys).subtracting(online)
-        online = Set(endpoints.keys)
+        home = Set(endpoints.keys)
+        refreshOnline()
+    }
+
+    private func refreshOnline() {
+        let now = home.union(relay.present)
+        let appeared = now.subtracting(online)
+        if now != online { online = now }
         if !appeared.isEmpty { onOnline?(appeared) }
     }
 
@@ -179,7 +196,9 @@ final class IntercomService {
             return
         }
         guard let endpoint = endpoints[peer], let parameters else {
-            log.notice("Can't reach \(peer.uuidString, privacy: .public) on this network")
+            // Away from home: through the family's channel.
+            if relay.present.contains(peer), relay.send(message, to: peer) { return }
+            log.notice("Can't reach \(peer.uuidString, privacy: .public)")
             // Later, not in the middle of whatever is sending (a call still dialing).
             Task { self.onLost?(peer) }
             return
@@ -192,8 +211,10 @@ final class IntercomService {
         link.send(message)
     }
 
-    /// Whether a device can be reached right now.
+    /// Whether a device can be reached right now (at home or away).
     func isOnline(_ id: UUID) -> Bool { online.contains(id) }
+    /// Reachable, but not on this network.
+    func isAway(_ id: UUID) -> Bool { online.contains(id) && !home.contains(id) }
 
     private func accept(_ connection: NWConnection) {
         let link = IntercomLink(connection: connection, outgoing: false)

@@ -30,6 +30,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         return .newData
     }
 
+    /// The device's notification token: CloudKit uses it on its own; the intercom gives it to
+    /// the Hearth API so broadcasts can reach this device when it's off the network.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        IntercomPush.shared.alertToken = deviceToken.map { String(format: "%02x", $0) }.joined()
+    }
+
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
         configuration.delegateClass = SceneDelegate.self

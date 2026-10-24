@@ -383,6 +383,7 @@ extension AppRoot {
         CallCenter.shared.start(with: context.container)
         IntercomService.shared.start(with: context.container)
         IntercomPush.shared.start()
+        CallCenter.shared.refreshIceServers()
     }
 }
 

@@ -54,6 +54,20 @@ struct IntercomSheet: View {
                     }
                 }
 
+                if !others.isEmpty {
+                    Section {
+                        Button {
+                            start { await center.broadcast() }
+                        } label: {
+                            Label("Broadcast to Everyone", systemImage: "megaphone.fill")
+                                .font(.headline)
+                                .tint(.primary)
+                        }
+                    } footer: {
+                        Text("Talk to every device at once. Boards and open Caloma play it right away; locked phones get a notification and can open Caloma to listen.")
+                    }
+                }
+
                 if boards.count > 1 {
                     Section {
                         Button {
@@ -65,7 +79,7 @@ struct IntercomSheet: View {
                         }
                         .disabled(boardsHome.isEmpty)
                     } footer: {
-                        Text("Every Family Board at home rings. Whoever picks up joins the call.")
+                        Text("Every Family Board rings. Whoever picks up joins the call.")
                     }
                 }
 
@@ -89,7 +103,7 @@ struct IntercomSheet: View {
                     } header: {
                         Text("Phones and iPads")
                     } footer: {
-                        Text("Phones and iPads ring even when they're locked, as long as they're at home on the same Wi-Fi. Calls from away from home come next.")
+                        Text("Phones and iPads ring even when they're locked, at home or away.")
                     }
                 }
             }
@@ -121,7 +135,7 @@ struct IntercomSheet: View {
             Label {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(device.displayName)
-                    Text([room?.name, online ? "Available" : "Rings if it's home"].compactMap { $0 }.joined(separator: " · "))
+                    Text([room?.name, online ? (service.isAway(device.id) ? "Away" : "Available") : "Will ring"].compactMap { $0 }.joined(separator: " · "))
                         .font(.caption)
                         .foregroundStyle(online ? Color.green : Color.secondary)
                 }
